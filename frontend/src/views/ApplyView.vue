@@ -1,8 +1,24 @@
 <script setup lang="ts">
-import TheWelcome from '@/components/TheWelcome.vue'
 import { ref, computed, inject } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
+import { RouterLink, useRoute } from 'vue-router';
 import type { TimecardSession } from '../timecard-session-interface';
+
+const route = useRoute();
+console.log(route.params.type);
+
+const applyTypeNames: { [key: string]: string } = {
+  'record': '打刻',
+  'leave': '休暇',
+  'overtime': '早出/残業',
+  'lateness': '遅刻',
+  'earliness': '早退',
+  'withdrawal': '外出',
+  'holidaywork': '休日出勤',
+  'leaveproxy': '代休',
+  'other': 'その他'
+};
+
+const applyTypeName = applyTypeNames[route.params.type as string];
 
 const session = inject<TimecardSession>('session');
 
@@ -29,7 +45,7 @@ const session = inject<TimecardSession>('session');
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row justify-content-center">
           <div class="col-12 text-center">
-            <h5>打刻申請書</h5>
+            <h5>{{ applyTypeName }}申請書</h5>
           </div>
         </div>
         <div class="row">
@@ -144,10 +160,10 @@ const session = inject<TimecardSession>('session');
                     class="form-check-input"
                     type="radio"
                     name="apply-type"
-                    id="apply-type-outofoffice"
-                    value="outofoffice"
+                    id="apply-type-withdrawal"
+                    value="withdrawal"
                   />
-                  <label class="form-check-label" for="apply-type-outofoffice">外出</label>
+                  <label class="form-check-label" for="apply-type-withdrawal">外出</label>
                 </div>
               </div>
             </div>

@@ -24,7 +24,7 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue')
     },
     {
-      path: '/record',
+      path: '/record/:method',
       name: 'record',
       component: () => import('../views/RecordView.vue'),
       meta: {
@@ -52,9 +52,9 @@ const router = createRouter({
       component: () => import('../views/Logout.vue')
     },
     {
-      path: '/user/record',
-      name: 'user-record',
-      component: () => import('../views/UserRecordView.vue')
+      path: '/apply/:type',
+      name: 'apply',
+      component: () => import('../views/ApplyView.vue')
     }
   ]
 });

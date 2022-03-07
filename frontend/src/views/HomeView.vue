@@ -93,7 +93,7 @@ function handleRecord(event: Event): void {
       <div class="row mb-3 justify-content-center">
         <div class="col-4">
           <!-- <button type="button" class="btn btn-primary btn-lg" @click="handleRecord">打刻画面</button> -->
-          <RouterLink to="/record" class="btn btn-warning btn-lg" role="button">打刻画面</RouterLink>
+          <RouterLink to="/record/byqrcode" class="btn btn-warning btn-lg" role="button">打刻画面</RouterLink>
         </div>
         <div class="col-4">
           <button v-bind:disabled="!formFilled" type="submit" class="btn btn-warning btn-lg">管理画面</button>

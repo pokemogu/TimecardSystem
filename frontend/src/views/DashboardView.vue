@@ -34,98 +34,94 @@ const session = inject<TimecardSession>('session');
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/record" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
+        <RouterLink to="/record/bylogin" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/record" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
+        <RouterLink to="/apply/record" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/withdrawal" class="btn btn-warning btn-sm" role="button">外出申請</RouterLink>
+        <RouterLink to="/apply/withdrawal" class="btn btn-warning btn-sm" role="button">外出申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          to="/user/approval/unapproved"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >未承認一覧</RouterLink>
+        <RouterLink to="/approval/unapproved" class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/unrecorded" class="btn btn-warning btn-sm" role="button">未打刻一覧</RouterLink>
+        <RouterLink to="/admin/unrecorded" class="btn btn-warning btn-sm" role="button">未打刻一覧</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/privilege" class="btn btn-warning btn-sm" role="button">権限設定</RouterLink>
+        <RouterLink to="/admin/privilege" class="btn btn-warning btn-sm" role="button">権限設定</RouterLink>
       </div>
     </div>
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/leave" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
+        <RouterLink to="/apply/leave" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/holidaywork" class="btn btn-warning btn-sm" role="button">休日出勤申請</RouterLink>
+        <RouterLink to="/apply/holidaywork" class="btn btn-warning btn-sm" role="button">休日出勤申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/approval/all" class="btn btn-warning btn-sm" role="button">全ての申請</RouterLink>
+        <RouterLink to="/approve/all" class="btn btn-warning btn-sm" role="button">全ての申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/vacation" class="btn btn-warning btn-sm" role="button">有給取得状況</RouterLink>
+        <RouterLink to="/admin/vacation" class="btn btn-warning btn-sm" role="button">有給取得状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/duty" class="btn btn-warning btn-sm" role="button">勤務体系設定</RouterLink>
-      </div>
-    </div>
-
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/overtime" class="btn btn-warning btn-sm" role="button">早出/残業申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/leave" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/approval/route" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/issueqr" class="btn btn-warning btn-sm" role="button">QRコード発行</RouterLink>
+        <RouterLink to="/admin/duty" class="btn btn-warning btn-sm" role="button">勤務体系設定</RouterLink>
       </div>
     </div>
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/lateness" class="btn btn-warning btn-sm" role="button">遅刻申請</RouterLink>
+        <RouterLink to="/apply/overtime" class="btn btn-warning btn-sm" role="button">早出/残業申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/other" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
+        <RouterLink to="/apply/leaveproxy" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/approval/config" class="btn btn-warning btn-sm" role="button">申請種類設定</RouterLink>
+        <RouterLink to="/approve/route" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程登録</RouterLink>
+        <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/reguser" class="btn btn-warning btn-sm" role="button">従業員登録</RouterLink>
+        <RouterLink to="/admin/issueqr" class="btn btn-warning btn-sm" role="button">QRコード発行</RouterLink>
+      </div>
+    </div>
+
+    <div class="row g-2 mt-2">
+      <div class="d-grid col-2 gap-2"></div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/apply/lateness" class="btn btn-warning btn-sm" role="button">遅刻申請</RouterLink>
+      </div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/apply/other" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
+      </div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/approve/config" class="btn btn-warning btn-sm" role="button">申請種類設定</RouterLink>
+      </div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程登録</RouterLink>
+      </div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/admin/reguser" class="btn btn-warning btn-sm" role="button">従業員登録</RouterLink>
       </div>
     </div>
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/apply/earliness" class="btn btn-warning btn-sm" role="button">早退申請</RouterLink>
+        <RouterLink to="/apply/earliness" class="btn btn-warning btn-sm" role="button">早退申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/regclient" class="btn btn-warning btn-sm" role="button">端末名設定</RouterLink>
+        <RouterLink to="/admin/regclient" class="btn btn-warning btn-sm" role="button">端末名設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>
+        <RouterLink to="/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>
       </div>
     </div>
 
@@ -135,7 +131,7 @@ const session = inject<TimecardSession>('session');
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/user/admin/bulkapply" class="btn btn-warning btn-sm" role="button">一括申請機能</RouterLink>
+        <RouterLink to="/admin/bulkapply" class="btn btn-warning btn-sm" role="button">一括申請機能</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2"></div>
     </div>
