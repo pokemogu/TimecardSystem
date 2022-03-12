@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { provide, inject } from 'vue';
-import type { TimecardSession } from '../timecard-session-interface';
+import { useSessionStore } from '../stores/session';
 
 const router = useRouter();
+const store = useSessionStore();
 
-const session = inject<TimecardSession>('session');
-if (session) {
-  session.refreshToken = null;
-  session.userId = null;
-  session.userName = null;
-}
-
-router.push('/');
+store.logout()
+  .then(() => {
+    router.push('/');
+  });
 
 </script>
 

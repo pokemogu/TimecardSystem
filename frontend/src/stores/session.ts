@@ -1,69 +1,52 @@
-import { defineStore } from 'pinia'
+import { defineStore } from 'pinia';
 import axios from 'axios';
+import * as backendAccess from '@/BackendAccess';
 
 export const useSessionStore = defineStore({
   id: 'session',
   state: () => ({
-    accessTokenData: '',
-    refreshTokenData: '',
+    //accessTokenData: '',
+    refreshToken: '',
     userId: '',
     userName: ''
   }),
   getters: {
-    token: (state) => state.accessTokenData
+    token: (state) => state.refreshToken
   },
   actions: {
-    async initTokens(userId: string, userPassword: string) {
+    async login(userId: string, userPassword: string) {
       try {
-        const responseIssue = await axios.post<{ accessToken?: string, refreshToken?: string, message: string }>('/api/token/issue', {
-          userId: userId,
-          userPassword: userPassword
-        });
-
-        if (responseIssue.status !== 200) {
-          return responseIssue.status;
+        const result = await backendAccess.login(userId, userPassword);
+        if (result.refreshToken && result.userName) {
+          this.refreshToken = result.refreshToken;
+          this.userId = userId;
+          this.userName = result.userName;
+          return true;
         }
-
-        if (responseIssue.data.accessToken) {
-          this.accessTokenData = responseIssue.data.accessToken;
+        else {
+          return false;
         }
-        if (responseIssue.data.refreshToken) {
-          this.refreshTokenData = responseIssue.data.refreshToken;
-        }
-        this.userId = userId;
-
-        return responseIssue.status;
       } catch (error) {
-        return 500;
+        console.log(error);
+        return false;
       }
     },
-    async refreshToken() {
+    async getToken() {
       try {
-        const response = await axios.post<{ accessToken?: string, message: string }>('/api/token/refresh', {
-          refreshToken: this.refreshTokenData
-        });
-
-        return response.status;
+        return await backendAccess.getToken(this.refreshToken);
       } catch (error) {
+        console.log(error);
       }
-      return 500;
     },
-    async revokeToken() {
+    async logout() {
       try {
-        const response = await axios.post<{ message: string }>('/api/token/revoke', {
-          refreshToken: this.refreshTokenData
-        });
-
-        switch (response.status) {
-          case 200:
-            this.accessTokenData = '';
-            this.refreshTokenData = '';
-          default:
-            return response.status;
-        }
+        await backendAccess.logout(this.userId, this.refreshToken);
       } catch (error) {
+        console.log(error);
       }
-      return 500;
+    },
+    isLoggedIn() {
+      return (this.refreshToken !== '');
     }
   }
-})
+});

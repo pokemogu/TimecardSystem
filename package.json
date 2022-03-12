@@ -1,0 +1,12 @@
+{
+  "name": "timecard-system",
+  "version": "v0.1.1",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {},
+  "private": true,
+  "msw": {
+    "workerDirectory": "frontend/public"
+  }
+}

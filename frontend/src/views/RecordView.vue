@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import TheWelcome from '@/components/TheWelcome.vue'
-import { ref, defineComponent, inject } from 'vue';
+import { ref, inject } from 'vue';
 import type { TimecardSession } from '../timecard-session-interface';
-import { RouterLink } from 'vue-router';
+import { useRouter } from 'vue-router';
+import Cookies from 'js-cookie';
+import * as backendAccess from '@/BackendAccess';
 
-let decodedQrString = ref('');
-let timeStr = ref('');
-let message = ref('QRコードをカメラにかざしてスキャンしてください');
-let alertClass = ref('alert-light');
-let modeStr = ref('出勤');
+import Header from '@/components/Header.vue';
 
-let errorQrSetup = '';
+const decodedQrString = ref('');
+const timeStr = ref('');
+const modeStr = ref('出勤');
+const openDeviceModal = ref(false);
+const deviceNameList = ref<string[]>([]);
+const thisDeviceName = ref(Cookies.get('deviceName') ?? '');
+const selectedDeviceName = ref(thisDeviceName.value);
+const errorName = ref('');
 
+const router = useRouter();
 const session = inject<TimecardSession>('session');
 
 function handleLogin(event: Event) {
-  alertClass.value = 'alert-primary';
   if (session) {
     console.log(session.refreshToken);
     session.refreshToken = "HUGASHUGAHUGA";
@@ -23,37 +27,19 @@ function handleLogin(event: Event) {
 }
 
 function onDecode(result: string) {
-  console.log(result);
   decodedQrString.value = result;
 }
 
 async function onInit(promise: Promise<any>) {
-  console.log("onInit1");
   try {
     await promise;
+    errorName.value = '';
   } catch (error: any) {
-    if (error.name === 'NotAllowedError') {
-      message.value = 'カメラへのアクセスが許可されていません';
-    } else if (error.name === 'NotFoundError') {
-      message.value = "この機器にはカメラがありません"
-    } else if (error.name === 'NotSupportedError') {
-      message.value = "ERROR: secure context required (HTTPS, localhost)"
-    } else if (error.name === 'NotReadableError') {
-      message.value = "カメラの読み込みができません"
-    } else if (error.name === 'OverconstrainedError') {
-      message.value = "ERROR: installed cameras are not suitable"
-    } else if (error.name === 'StreamApiNotSupportedError') {
-      message.value = "このブラウザではカメラストリーミングがサポートされていません"
-    } else if (error.name === 'InsecureContextError') {
-      message.value = 'ERROR: Camera access is only permitted in secure context. Use HTTPS or localhost rather than HTTP.';
-    } else {
-      message.value = `ERROR: Camera error(${error.name})`;
-    }
+    errorName.value = error.name;
   }
-  console.log("onInit2");
 }
 
-const interval = setInterval(() => {
+setInterval(() => {
   const now = new Date();
   const hourStr = now.getHours().toString().padStart(2, '0');
   const minStr = now.getMinutes().toString().padStart(2, '0');
@@ -61,23 +47,77 @@ const interval = setInterval(() => {
   timeStr.value = `${hourStr}:${minStr}:${secStr}`;
 }, 1000);
 
+function onSetDeviceNameButton() {
+  backendAccess.getDevices().then((devices) => {
+    if (devices) {
+      deviceNameList.value = devices.map(device => device.name);
+      selectedDeviceName.value = thisDeviceName.value;
+      openDeviceModal.value = true;
+    }
+  });
+}
+
+function onSaveDeviceNameButton() {
+  if (selectedDeviceName.value) {
+    thisDeviceName.value = selectedDeviceName.value;
+    Cookies.set('deviceName', selectedDeviceName.value);
+  }
+  openDeviceModal.value = false;
+}
+
 </script>
 
 <template>
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-          <div class="container-fluid">
-            <span class="navbar-text">打刻端末モード</span>
-            <div class="collapse navbar-collapse justify-content-end">
-              <span class="navbar-text">管理者PC</span>
-            </div>
-            <RouterLink to="/" class="ms-2 btn btn-warning btn-sm" role="button">管理画面</RouterLink>
-          </div>
-        </nav>
+        <Header
+          v-bind:isAuthorized="false"
+          titleName="打刻画面"
+          customButton1="端末名設定"
+          v-on:customButton1="onSetDeviceNameButton"
+          customButton2="ログイン画面"
+          v-on:customButton2="router.push('/')"
+          :deviceName="thisDeviceName"
+        ></Header>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div v-show="openDeviceModal" class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">端末名設定</h5>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Close"
+              v-on:click="openDeviceModal = false"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <p>この端末で使用する端末名を選択してください</p>
+            <select
+              v-model="selectedDeviceName"
+              class="form-select"
+              aria-label="Default select example"
+            >
+              <option value>端末名を選択してください</option>
+              <option v-for="deviceName in deviceNameList" :value="deviceName">{{ deviceName }}</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" v-on:click="openDeviceModal = false">取消</button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              v-bind:disabled="selectedDeviceName === ''"
+              v-on:click="onSaveDeviceNameButton"
+            >保存</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <div class="row justify-content-center gy-5">
       <div class="col-4">
@@ -86,13 +126,63 @@ const interval = setInterval(() => {
       <div class="col-6">
         <span class="display-6">現在時刻&nbsp;</span>
         <span class="display-1">{{ timeStr }}</span>
-        <div class="alert h5" v-bind:class="alertClass" role="alert">{{ message }}</div>
+        <div
+          v-if="thisDeviceName === ''"
+          class="alert h5 alert-warning"
+          role="alert"
+        >端末名を右上メニューボタンから設定してください。</div>
+        <div
+          v-else-if="decodedQrString !== ''"
+          class="alert h5 alert-primary"
+          role="alert"
+        >QRコードが確認できました。打刻してください。</div>
+        <div
+          v-else-if="errorName === ''"
+          class="alert h5 alert-light"
+          role="alert"
+        >QRコードをカメラにかざしてスキャンしてください。</div>
+        <div
+          v-else-if="errorName === 'NotAllowedError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: カメラへのアクセスが許可されていません。</div>
+        <div
+          v-else-if="errorName === 'NotFoundError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: この機器にはカメラがありません。</div>
+        <div
+          v-else-if="errorName === 'NotSupportedError' || errorName === 'InsecureContextError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: リモートHTTPS通信で無い為、カメラへのアクセスができません。</div>
+        <div
+          v-else-if="errorName === 'NotReadableError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: カメラからの読み込みができません。</div>
+        <div
+          v-else-if="errorName === 'OverconstrainedError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: カメラのスペックが本用途に適しておらず使用できません。</div>
+        <div
+          v-else-if="errorName === 'StreamApiNotSupportedError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >エラー: このブラウザではカメラストリーミングがサポートされていません。</div>
+        <div v-else class="alert h5 alert-danger" role="alert">不明なエラーが発生しました: {{ errorName }}</div>
+
+        <!--<span v-if="thisDeviceName === ''">端末名を設定してください。</span>
+          <span v-else-if="decodedQrString !== ''">QRコードが確認できました。打刻してください。</span>
+          <span v-else-if="errorName === ''">QRコードをカメラにかざしてスキャンしてください。</span>
+        <span v-else>{{ errorName }}</span>-->
         <div class="d-grid gap-2">
           <button
             type="button"
             class="btn btn-warning btn-lg"
             @click="handleLogin"
-            v-bind:disabled="decodedQrString === ''"
+            v-bind:disabled="decodedQrString === '' || thisDeviceName === ''"
           >{{ modeStr }}打刻</button>
         </div>
       </div>

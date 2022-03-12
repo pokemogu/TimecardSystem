@@ -4,6 +4,9 @@ import TheWelcome from '@/components/TheWelcome.vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { ref, computed, inject } from 'vue';
 import type { TimecardSession } from '../timecard-session-interface';
+import { useSessionStore } from '../stores/session';
+
+import Header from '@/components/Header.vue';
 
 let alertMessage = ref<string | null>(null);
 let userId = ref('');
@@ -12,28 +15,26 @@ const formFilled = computed(() => (userId.value !== '' && userPassword.value !==
 
 const session = inject<TimecardSession>('session');
 const router = useRouter();
+const store = useSessionStore();
 
 function onLogin(event: Event): void {
-  console.log(`${userId.value} ${userPassword.value}`);
-  if (userId.value === 'testuser' && userPassword.value === 'P@ssw0rd') {
-    if (session) {
-      session.refreshToken = 'DUMMY_TOKEN';
-      session.userId = userId.value;
-      session.userName = 'テストユーザー';
-      console.log('USER LOGIN ACCEPTED');
-      router.push({
-        path: '/dashboard'
-      });
-    }
-  }
-  else {
-    alertMessage.value = 'IDかPASSが間違っています';
-    userPassword.value = '';
-  }
-}
 
-function handleRecord(event: Event): void {
-  console.log('login!!!!');
+  store.login(userId.value, userPassword.value)
+    .then((success) => {
+      if (success) {
+        router.push({
+          path: '/dashboard'
+        });
+      }
+      else {
+        alertMessage.value = 'IDかPASSが間違っています';
+        userPassword.value = '';
+      }
+    })
+    .catch(() => {
+      alertMessage.value = 'システムエラーが発生しました';
+      userPassword.value = '';
+    });
 }
 
 </script>
@@ -42,14 +43,12 @@ function handleRecord(event: Event): void {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-          <div class="container-fluid">
-            <span class="navbar-text">認証</span>
-            <div class="collapse navbar-collapse justify-content-end">
-              <span class="navbar-text">管理者PC</span>
-            </div>
-          </div>
-        </nav>
+        <Header
+          v-bind:isAuthorized="false"
+          titleName="ログイン画面"
+          customButton1="QR打刻画面"
+          v-on:customButton1="router.push('/record/byqrcode')"
+        ></Header>
       </div>
     </div>
     <div class="row justify-content-center">
@@ -93,10 +92,10 @@ function handleRecord(event: Event): void {
       <div class="row mb-3 justify-content-center">
         <div class="col-4">
           <!-- <button type="button" class="btn btn-primary btn-lg" @click="handleRecord">打刻画面</button> -->
-          <RouterLink to="/record/byqrcode" class="btn btn-warning btn-lg" role="button">打刻画面</RouterLink>
+          <!-- <RouterLink to="/record/byqrcode" class="btn btn-warning btn-lg" role="button">打刻画面</RouterLink> -->
         </div>
         <div class="col-4">
-          <button v-bind:disabled="!formFilled" type="submit" class="btn btn-warning btn-lg">管理画面</button>
+          <button v-bind:disabled="!formFilled" type="submit" class="btn btn-warning btn-lg">ログイン</button>
         </div>
       </div>
     </form>

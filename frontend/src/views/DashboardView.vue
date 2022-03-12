@@ -3,8 +3,12 @@ import TheWelcome from '@/components/TheWelcome.vue'
 import { ref, computed, inject } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import type { TimecardSession } from '../timecard-session-interface';
+import { useSessionStore } from '@/stores/session';
 
-const session = inject<TimecardSession>('session');
+import Header from '@/components/Header.vue';
+
+const router = useRouter();
+const store = useSessionStore();
 
 </script>
 
@@ -12,16 +16,11 @@ const session = inject<TimecardSession>('session');
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-          <div class="container-fluid">
-            <span class="navbar-text">管理画面</span>
-            <div class="collapse navbar-collapse justify-content-end">
-              <!-- <span class="navbar-text">管理者PC</span> -->
-              <span class="navbar-text">{{ session?.userName }}</span>
-            </div>
-            <RouterLink to="/logout" class="ms-2 btn btn-warning btn-sm" role="button">ログアウト</RouterLink>
-          </div>
-        </nav>
+        <Header
+          v-bind:isAuthorized="store.isLoggedIn()"
+          titleName="管理画面"
+          v-bind:userName="store.userName"
+        ></Header>
       </div>
     </div>
 

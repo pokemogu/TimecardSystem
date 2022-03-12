@@ -14,25 +14,16 @@ import VueQrcodeReader from 'qrcode-reader-vue3';
 
 const app = createApp(App);
 
-/*
-app.component('logout', {
-  setup: function () {
-    const session = inject<TimecardSession>('session');
-    if (session) {
-      session.refreshToken = null;
-      session.userId = null;
-      session.userName = null;
-    
-      provide('session', null);
-    }
-    
-    const router = useRouter();
-  }
-});
-*/
-
 app.use(createPinia());
 app.use(router);
 app.use(VueQrcodeReader);
+
+if (import.meta.env.DEV && !import.meta.env.VITE_DUMMP_API) {
+  import('./mocks/browser').then((msw) => {
+    msw.worker.start({
+      onUnhandledRequest: 'bypass'
+    });
+  });
+}
 
 app.mount('#app');
