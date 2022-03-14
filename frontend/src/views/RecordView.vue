@@ -1,33 +1,132 @@
 <script setup lang="ts">
-import { ref, inject } from 'vue';
-import type { TimecardSession } from '../timecard-session-interface';
+import { nextTick, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Cookies from 'js-cookie';
+
+import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
 
 import Header from '@/components/Header.vue';
+import { BeepSound } from '@/BeepSound';
+
+const router = useRouter();
+const store = useSessionStore();
 
 const decodedQrString = ref('');
+const refreshToken = ref('');
 const timeStr = ref('');
 const modeStr = ref('出勤');
+const recordType = ref('clockin');
 const openDeviceModal = ref(false);
 const deviceNameList = ref<string[]>([]);
 const thisDeviceName = ref(Cookies.get('deviceName') ?? '');
 const selectedDeviceName = ref(thisDeviceName.value);
 const errorName = ref('');
+const recordCompleted = ref(false);
+const cameraMode = ref('auto');
 
-const router = useRouter();
-const session = inject<TimecardSession>('session');
+let timeout = setTimeout(() => { }, 0);
 
-function handleLogin(event: Event) {
-  if (session) {
-    console.log(session.refreshToken);
-    session.refreshToken = "HUGASHUGAHUGA";
-  }
+function onRecord(event: Event) {
+  backendAccess.getToken(refreshToken.value).then((token) => {
+    if (token) {
+      const access = new backendAccess.TokenAccess(token.accessToken);
+      access.record(recordType.value, new Date())
+        .then(() => {
+          recordCompleted.value = true;
+          refreshToken.value = '';
+          decodedQrString.value = '';
+
+          // カメラをリセットする
+          cameraMode.value = 'off';
+          nextTick(() => { cameraMode.value = 'auto'; });
+
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            userId.value = '';
+            userName.value = '';
+            recordCompleted.value = false;
+          }, 3000)
+        })
+        .catch((error) => {
+          // カメラをリセットする
+          cameraMode.value = 'off';
+          nextTick(() => { cameraMode.value = 'auto'; });
+
+          decodedQrString.value = '';
+          refreshToken.value = '';
+          userId.value = '';
+          userName.value = '';
+          recordCompleted.value = false;
+
+          errorName.value = error.toString();
+
+          clearTimeout(timeout);
+          timeout = setTimeout(() => { // 5秒後にエラー表示はクリアする
+            errorName.value = '';
+          }, 5000);
+        });
+    }
+  });
 }
 
+const userId = ref('');
+const userName = ref('');
+
 function onDecode(result: string) {
+  //refreshToken.value = result;
+  BeepSound.play();
+  console.log(`QR code: ${result}`);
   decodedQrString.value = result;
+  backendAccess.getToken(decodedQrString.value)
+    .then((token) => {
+      if (token) {
+        refreshToken.value = result;
+        const access = new backendAccess.TokenAccess(token.accessToken);
+        access.getUserInfo(token.userId).then((userInfo) => {
+          if (userInfo) {
+            userId.value = token.userId;
+            userName.value = userInfo.name;
+          }
+        });
+
+        clearTimeout(timeout);
+        timeout = setTimeout(() => { // 認証してから1分経過しても打刻していない場合は認証をクリアする
+          // カメラをリセットする
+          cameraMode.value = 'off';
+          nextTick(() => { cameraMode.value = 'auto'; });
+
+          decodedQrString.value = '';
+          refreshToken.value = '';
+          userId.value = '';
+          userName.value = '';
+        }, 60000);
+      }
+    })
+    .catch((error) => {
+      decodedQrString.value = '';
+      refreshToken.value = '';
+      userId.value = '';
+      userName.value = '';
+
+      if (error.name === '401') {
+        console.log(error);
+        errorName.value = 'TokenAuthFailedError';
+      }
+      else {
+        errorName.value = error.toString();
+      }
+
+      clearTimeout(timeout);
+      timeout = setTimeout(() => { // 5秒後にエラー表示はクリアする
+
+        // カメラをリセットする
+        cameraMode.value = 'off';
+        nextTick(() => { cameraMode.value = 'auto'; });
+
+        errorName.value = '';
+      }, 5000);
+    });
 }
 
 async function onInit(promise: Promise<any>) {
@@ -72,7 +171,7 @@ function onSaveDeviceNameButton() {
     <div class="row justify-content-center">
       <div class="col-12 p-0">
         <Header
-          v-bind:isAuthorized="false"
+          v-bind:isAuthorized="store.isLoggedIn()"
           titleName="打刻画面"
           customButton1="端末名設定"
           v-on:customButton1="onSetDeviceNameButton"
@@ -120,8 +219,8 @@ function onSaveDeviceNameButton() {
     </Teleport>
 
     <div class="row justify-content-center gy-5">
-      <div class="col-4">
-        <qrcode-stream @decode="onDecode" @init="onInit" />
+      <div v-if="store.isLoggedIn()" class="col-4 h-100">
+        <qrcode-stream v-bind:camera="cameraMode" @decode="onDecode" @init="onInit" />
       </div>
       <div class="col-6">
         <span class="display-6">現在時刻&nbsp;</span>
@@ -132,15 +231,26 @@ function onSaveDeviceNameButton() {
           role="alert"
         >端末名を右上メニューボタンから設定してください。</div>
         <div
-          v-else-if="decodedQrString !== ''"
+          v-else-if="decodedQrString !== '' && refreshToken === ''"
           class="alert h5 alert-primary"
           role="alert"
-        >QRコードが確認できました。打刻してください。</div>
+        >QRコードが確認できました。ユーザー情報確認中です。</div>
+        <div
+          v-else-if="refreshToken !== '' && recordCompleted === false"
+          class="alert h5 alert-primary"
+          role="alert"
+        >ユーザー情報が確認できました。打刻してください。</div>
+        <div v-else-if="recordCompleted" class="alert h5 alert-success" role="alert">打刻が完了しました。</div>
         <div
           v-else-if="errorName === ''"
           class="alert h5 alert-light"
           role="alert"
         >QRコードをカメラにかざしてスキャンしてください。</div>
+        <div
+          v-else-if="errorName === 'TokenAuthFailedError'"
+          class="alert h5 alert-danger"
+          role="alert"
+        >ユーザー認証に失敗しました。管理者にお問い合わせください。</div>
         <div
           v-else-if="errorName === 'NotAllowedError'"
           class="alert h5 alert-danger"
@@ -181,15 +291,28 @@ function onSaveDeviceNameButton() {
           <button
             type="button"
             class="btn btn-warning btn-lg"
-            @click="handleLogin"
-            v-bind:disabled="decodedQrString === '' || thisDeviceName === ''"
-          >{{ modeStr }}打刻</button>
+            @click="onRecord"
+            v-bind:disabled="refreshToken === '' || thisDeviceName === ''"
+          >
+            <span v-if="recordType === 'clockin'">出勤</span>
+            <span v-else-if="recordType === 'clockout'">退出</span>
+            <span v-else-if="recordType === 'break'">外出</span>
+            <span v-else-if="recordType === 'reenter'">再入</span>
+            打刻
+          </button>
         </div>
       </div>
     </div>
 
     <div class="row justify-content-center gy-5">
-      <div class="col-4">QRコード: {{ decodedQrString }}</div>
+      <div class="col-2">
+        ID:
+        <span v-if="userId">{{ userId }}</span>
+      </div>
+      <div class="col-2">
+        氏名:
+        <span v-if="userName">{{ userName }}</span>
+      </div>
       <div class="col-6"></div>
     </div>
 
@@ -200,9 +323,9 @@ function onSaveDeviceNameButton() {
           class="btn-check"
           name="record-type"
           id="clockin"
-          @click="modeStr = '出勤'"
+          @click="recordType = 'clockin'"
           autocomplete="off"
-          checked
+          v-bind:checked="recordType === 'clockin'"
         />
         <label class="btn btn-outline-warning btn-lg" for="clockin">出勤</label>
       </div>
@@ -212,8 +335,9 @@ function onSaveDeviceNameButton() {
           class="btn-check"
           name="record-type"
           id="clockout"
-          @click="modeStr = '退出'"
+          @click="recordType = 'clockout'"
           autocomplete="off"
+          v-bind:checked="recordType === 'clockout'"
         />
         <label class="btn btn-outline-warning btn-lg" for="clockout">退出</label>
       </div>
@@ -222,33 +346,24 @@ function onSaveDeviceNameButton() {
           type="radio"
           class="btn-check"
           name="record-type"
-          id="goout"
-          @click="modeStr = '外出'"
+          id="break"
+          @click="recordType = 'break'"
           autocomplete="off"
+          v-bind:checked="recordType === 'break'"
         />
-        <label class="btn btn-outline-warning btn-lg" for="goout">外出</label>
+        <label class="btn btn-outline-warning btn-lg" for="break">外出</label>
       </div>
       <div class="d-grid gap-2 col-2">
         <input
           type="radio"
           class="btn-check"
           name="record-type"
-          id="goin"
-          @click="modeStr = '再入'"
+          id="reenter"
+          @click="recordType = 'reenter'"
           autocomplete="off"
+          v-bind:checked="recordType === 'reenter'"
         />
-        <label class="btn btn-outline-warning btn-lg" for="goin">再入</label>
-      </div>
-      <div class="d-grid gap-2 col-2">
-        <input
-          type="radio"
-          class="btn-check"
-          name="record-type"
-          id="nobreak"
-          @click="modeStr = '休憩なし'"
-          autocomplete="off"
-        />
-        <label class="btn btn-outline-warning btn-lg" for="nobreak">休憩なし</label>
+        <label class="btn btn-outline-warning btn-lg" for="reenter">再入</label>
       </div>
     </div>
 
@@ -329,5 +444,9 @@ body {
 
 .btn-outline-warning {
   color: black !important;
+}
+
+.placeholder.video::after {
+  content: "\f16a";
 }
 </style>

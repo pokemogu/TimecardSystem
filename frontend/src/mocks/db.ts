@@ -211,28 +211,38 @@ export const applyTypes: ddl.ApplyType[] = [
   },
   {
     id: 1,
-    name: 'clockin',
+    name: 'leave',
     description: '休暇'
   },
   {
     id: 2,
-    name: 'clockin',
+    name: 'overtime',
     description: '早出・残業'
   },
   {
     id: 3,
-    name: 'late',
+    name: 'lateness',
     description: '遅刻'
   },
   {
     id: 4,
-    name: 'clockin',
+    name: 'leave-early',
     description: '早退'
   },
   {
     id: 5,
-    name: 'clockin',
-    description: '打刻'
+    name: 'break',
+    description: '外出'
+  },
+  {
+    id: 6,
+    name: 'holiday-work',
+    description: '休日出勤'
+  },
+  {
+    id: 7,
+    name: 'makeup-leave',
+    description: '代休'
   },
 ];
 
@@ -249,6 +259,12 @@ export const applyOptionTypes: ddl.ApplyOptionType[] = [
     type: 0,
     name: 'recordType',
     description: '時刻'
+  },
+  {
+    id: 2,
+    type: 1,
+    name: 'leaveType',
+    description: '種類'
   },
 ];
 
@@ -300,6 +316,36 @@ export const applyOptionTypeValues: ddl.ApplyOptionTypeValue[] = [
     optionType: 1,
     name: 'reenter',
     description: '再入'
+  },
+  {
+    id: 8,
+    optionType: 2,
+    name: 'paid',
+    description: '有給'
+  },
+  {
+    id: 9,
+    optionType: 2,
+    name: 'half',
+    description: '半休'
+  },
+  {
+    id: 10,
+    optionType: 2,
+    name: 'compensation',
+    description: '代休'
+  },
+  {
+    id: 11,
+    optionType: 2,
+    name: 'mourning',
+    description: '慶弔休'
+  },
+  {
+    id: 12,
+    optionType: 2,
+    name: 'measure',
+    description: '措置休暇'
   },
 ]
 

@@ -1,16 +1,32 @@
 <script setup lang="ts">
+import { time } from 'console';
 import { ref, computed, inject } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 
+const timeStrToMinutes = function (time: string) {
+  const elems = time.split(':', 2);
+  if (elems.length === 2) {
+    return (parseInt(elems[0]) * 60 + parseInt(elems[1]));
+  }
+  else {
+    return 0;
+  }
+}
+
 const route = useRoute();
+
+const dateType = ref('apply-date-spot');
 
 interface ApplyFormProps {
   applyName: string,
+  applyType: string,
   userName: string,
   userDepartment?: string,
   userSection?: string,
-  applyTypeValue?: string,
-  applyTypeOptions?: { value: string, name: string }[],
+  applyTypeValue1?: string,
+  applyTypeOptions1?: { name: string, description: string }[],
+  applyTypeValue2?: string,
+  applyTypeOptions2?: { name: string, description: string }[],
   isApplyTypeOptionsDropdown?: boolean,
   dateFrom: string,
   dateTo?: string,
@@ -22,8 +38,10 @@ interface ApplyFormProps {
 }
 
 const props = defineProps<ApplyFormProps>();
+console.log('timeFrom: ' + props.timeFrom);
 const emits = defineEmits<{
-  (event: 'update:applyTypeValue', value: string): void,
+  (event: 'update:applyTypeValue1', value: string): void,
+  (event: 'update:applyTypeValue2', value: string): void,
   (event: 'update:dateFrom', value: string): void,
   (event: 'update:dateTo', value: string): void,
   (event: 'update:timeFrom', value: string): void,
@@ -33,9 +51,14 @@ const emits = defineEmits<{
   (event: 'submit'): void
 }>();
 
-function onChangeApplyType(event: Event) {
+function onChangeApplyType1(event: Event) {
   const value = (<HTMLInputElement>event.target).value;
-  emits('update:applyTypeValue', value);
+  emits('update:applyTypeValue1', value);
+}
+
+function onChangeApplyType2(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:applyTypeValue2', value);
 }
 
 function onChangeDateFrom(event: Event) {
@@ -43,7 +66,38 @@ function onChangeDateFrom(event: Event) {
   emits('update:dateFrom', value);
 }
 
+function onChangeDateTo(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:dateTo', value);
+}
+
+function onChangeTimeFrom(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:timeFrom', value);
+}
+
+function onChangeTimeTo(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:timeTo', value);
+}
+
+function onChangeReason(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:reason', value);
+}
+
+function onChangeContact(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:contact', value);
+}
+
 function onSubmit() {
+  if (props.timeFrom && props.timeTo) {
+    if (timeStrToMinutes(props.timeTo) <= timeStrToMinutes(props.timeFrom)) {
+      alert('時刻の期間が正しくありません。');
+      return;
+    }
+  }
   emits('submit');
 }
 
@@ -130,97 +184,123 @@ function onSubmit() {
           </div>
         </div>
       </div>
-      <div v-if="props.applyTypeOptions" class="row">
-        <div class="col-2 bg-dark text-white border border-dark">種類</div>
-        <div class="col-9 bg-white text-black border border-dark">
-          <div
-            v-for="(option, index) in props.applyTypeOptions"
-            class="form-check form-check-inline"
-          >
-            <input
-              class="form-check-input"
-              type="radio"
-              name="apply-type"
-              v-bind:id="'apply-type-' + option.value"
-              v-bind:value="option.value"
-              v-bind:checked="index === 0"
-              v-on:change="onChangeApplyType"
-            />
-            <label
-              class="form-check-label"
-              v-bind:for="'apply-type-' + option.value"
-            >{{ option.name }}</label>
+      <form v-on:submit="onSubmit" v-on:submit.prevent>
+        <div v-if="props.applyTypeOptions1" class="row">
+          <div class="col-2 bg-dark text-white border border-dark">種類</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <div
+              v-for="(option, index) in props.applyTypeOptions1"
+              class="form-check form-check-inline"
+            >
+              <input
+                class="form-check-input"
+                type="radio"
+                name="apply-type-option1"
+                v-bind:id="'apply-type-option1-' + option.name"
+                v-bind:value="option.name"
+                v-bind:checked="index === 0"
+                v-on:change="onChangeApplyType1"
+              />
+              <label
+                class="form-check-label"
+                v-bind:for="'apply-type-option1-' + option.name"
+              >{{ option.description }}</label>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-2 bg-dark text-white border border-dark">日付</div>
-        <div class="col-9 bg-white text-black border border-dark">
-          <input
-            type="date"
-            v-bind:value="new Date().toISOString().slice(0, 10)"
-            v-on:change="onChangeDateFrom"
-          />
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-2 bg-dark text-white border border-dark">時刻</div>
-        <div class="col-9 bg-white text-black border border-dark">
-          <div class="form-check form-check-inline">
+        <div class="row">
+          <div class="col-2 bg-dark text-white border border-dark">日付</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="radio"
+                v-model="dateType"
+                id="apply-date-spot"
+                value="apply-date-spot"
+              />
+              <label class="form-check-label" for="apply-date-spot">日付</label>
+            </div>
+            <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+              <input
+                class="form-check-input"
+                type="radio"
+                v-model="dateType"
+                name="apply-date-type"
+                id="apply-date-period"
+                value="apply-date-period"
+              />
+              <label class="form-check-label" for="apply-date-period">期間</label>
+            </div>
             <input
-              class="form-check-input"
-              type="radio"
-              name="apply-actual"
-              id="apply-actual-attend"
-              value="attend"
-              checked
+              type="date"
+              v-bind:value="props.dateFrom"
+              v-on:change="onChangeDateFrom"
+              required
             />
-            <label class="form-check-label" for="apply-actual-attend">出勤</label>
+            <span v-if="props.dateTo !== undefined && dateType === 'apply-date-period'">
+              〜
+              <input type="date" v-bind:value="props.dateTo" v-on:change="onChangeDateTo" required />
+            </span>
           </div>
-          <div class="form-check form-check-inline">
-            <input
-              class="form-check-input"
-              type="radio"
-              name="apply-actual"
-              id="apply-actual-leave"
-              value="leave"
-            />
-            <label class="form-check-label" for="apply-actual-leave">退勤</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input
-              class="form-check-input"
-              type="radio"
-              name="apply-actual"
-              id="apply-actual-outofoffice"
-              value="outofoffice"
-            />
-            <label class="form-check-label" for="apply-actual-outofoffice">外出</label>
-          </div>
-          <div class="form-check form-check-inline">
-            <input
-              class="form-check-input"
-              type="radio"
-              name="apply-actual"
-              id="apply-actual-reentry"
-              value="reentry"
-            />
-            <label class="form-check-label" for="apply-actual-reentry">再入</label>
-          </div>
-          <input type="time" />
         </div>
-      </div>
-      <div class="row">
-        <div class="col-2 bg-dark text-white border border-dark">理由</div>
-        <div class="col-9 bg-white text-black border border-dark">
-          <textarea rows="3" cols="32"></textarea>
+        <div class="row" v-if="props.timeFrom !== undefined">
+          <div class="col-2 bg-dark text-white border border-dark">時刻</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <div
+              v-for="(option, index) in props.applyTypeOptions2"
+              class="form-check form-check-inline"
+            >
+              <input
+                class="form-check-input"
+                type="radio"
+                name="apply-type-option2"
+                v-bind:id="'apply-type-option2-' + option.name"
+                v-bind:value="option.name"
+                v-bind:checked="index === 0"
+                v-on:change="onChangeApplyType2"
+              />
+              <label
+                class="form-check-label"
+                v-bind:for="'apply-type-option2-' + option.name"
+              >{{ option.description }}</label>
+            </div>
+            <input
+              v-if="props.timeFrom !== undefined"
+              v-bind:value="props.timeFrom"
+              v-on:change="onChangeTimeFrom"
+              type="time"
+              required
+            />
+            <span v-if="props.timeTo !== undefined">
+              〜
+              <input type="time" v-bind:value="props.timeTo" v-on:change="onChangeTimeTo" required />
+            </span>
+          </div>
         </div>
-      </div>
-      <div class="row g-2 mt-2">
-        <div class="d-grid col gap-2">
-          <button type="button" class="btn btn-warning btn-lg" v-on:click="onSubmit">申請</button>
+        <div class="row" v-if="props.reason !== undefined">
+          <div class="col-2 bg-dark text-white border border-dark">理由</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <textarea
+              rows="3"
+              cols="32"
+              v-on:change="onChangeReason"
+              v-bind:required="props.applyType !== 'leave' || props.applyTypeValue1 !== 'paid'"
+            ></textarea>
+          </div>
         </div>
-      </div>
+        <div class="row" v-if="props.contact !== undefined">
+          <div class="col-2 bg-dark text-white border border-dark">連絡先</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <textarea rows="3" cols="32" v-on:change="onChangeContact"></textarea>
+          </div>
+        </div>
+        <div class="row g-2 mt-2">
+          <div class="d-grid col gap-2">
+            <input type="submit" class="btn btn-warning btn-lg" value="申請" />
+          </div>
+        </div>
+      </form>
     </div>
   </div>
   <!--

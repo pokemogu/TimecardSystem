@@ -62,7 +62,26 @@ export class TokenAccess {
         email: string,
         section?: string,
         department?: string
-      }>(`/api/user/${userId}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+      }>(`${urlPrefix}/api/user/${userId}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+    } catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+    }
+  }
+  public async record(recordType: string, timestamp: Date) {
+    try {
+      return (await axios.post<{
+        message: string,
+      }>(`${urlPrefix}/api/record/${recordType}`,
+        { timestamp: timestamp.toISOString() },
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+      )).data;
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
         const error = new Error();
@@ -77,18 +96,24 @@ export class TokenAccess {
 }
 
 export async function getToken(refreshToken: string) {
-  const response = await axios.post<{
-    message: string,
-    accessToken: string
-  }>(`${urlPrefix}/api/token/refresh`, {
-    refreshToken: refreshToken
-  });
-
-  if (response.status === 200 && response.data?.accessToken) {
-    return response.data.accessToken;
+  try {
+    return (await axios.post<{
+      message: string,
+      userId: string,
+      accessToken: string
+    }>(`${urlPrefix}/api/token/refresh`, {
+      refreshToken: refreshToken
+    })).data;
   }
-  else {
-    return undefined;
+  catch (axiosError) {
+    if (axios.isAxiosError(axiosError)) {
+      const error = new Error();
+      if (axiosError.response) {
+        error.name = axiosError.response.status.toString();
+        error.message = (axiosError.response?.data as { message: string }).message;
+      }
+      throw error;
+    }
   }
 }
 
@@ -103,5 +128,31 @@ export async function getDevices() {
   }
   else {
     return undefined;
+  }
+}
+
+export async function getApplyTypeOptions(applyType: string) {
+  try {
+    return (await axios.get<{
+      message: string,
+      type?: string,
+      optionTypes?: {
+        name: string,
+        description: string,
+        options: {
+          name: string,
+          description: string
+        }[]
+      }[]
+    }>(`${urlPrefix}/api/options/apply/${applyType}`)).data;
+  } catch (axiosError) {
+    if (axios.isAxiosError(axiosError)) {
+      const error = new Error();
+      if (axiosError.response) {
+        error.name = axiosError.response.status.toString();
+        error.message = (axiosError.response?.data as { message: string }).message;
+      }
+      throw error;
+    }
   }
 }

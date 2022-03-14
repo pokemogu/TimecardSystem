@@ -18,6 +18,9 @@
     },
     "lib": [
       "es2017"
+    ],
+    "types": [
+      "pinia-plugin-persist"
     ]
   }
 }

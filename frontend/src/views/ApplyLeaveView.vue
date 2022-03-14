@@ -18,20 +18,17 @@ const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
 const applyTypeValue1 = ref('');
 const applyTypeOptions2 = ref<{ name: string, description: string }[]>([]);
 const applyTypeValue2 = ref('');
-const dateFrom = ref(new Date().toISOString().slice(0, 10));
-const timeFrom = ref('');
+const dateFrom = ref('');
+const dateTo = ref('');
 const reason = ref('');
+const contact = ref('');
 
-backendAccess.getApplyTypeOptions('record')
+backendAccess.getApplyTypeOptions('leave')
   .then((applyTypeOptions) => {
     if (applyTypeOptions?.optionTypes) {
       applyTypeOptions1.value = applyTypeOptions?.optionTypes
-        .find(optionType => optionType.name === 'situation')?.options || [];
+        .find(optionType => optionType.name === 'leaveType')?.options || [];
       applyTypeValue1.value = applyTypeOptions1.value.length > 0 ? applyTypeOptions1.value[0].name : '';
-
-      applyTypeOptions2.value = applyTypeOptions?.optionTypes
-        .find(optionType => optionType.name === 'recordType')?.options || [];
-      applyTypeValue2.value = applyTypeOptions2.value.length > 0 ? applyTypeOptions2.value[0].name : '';
     }
     console.log(applyTypeOptions)
   })
@@ -97,18 +94,18 @@ function onSubmit() {
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <ApplyForm
-          applyName="打刻"
-          applyType="record"
+          applyName="休暇"
+          applyType="leave"
           v-bind:userName="store.userName"
           v-bind:userDepartment="userDepartment"
           v-bind:userSection="userSection"
           v-model:applyTypeValue1="applyTypeValue1"
           v-bind:applyTypeOptions1="applyTypeOptions1"
-          v-model:applyTypeValue2="applyTypeValue2"
-          v-bind:applyTypeOptions2="applyTypeOptions2"
           v-model:dateFrom="dateFrom"
-          v-model:timeFrom="timeFrom"
+          v-model:dateTo="dateTo"
+          v-bind:isDateToOptional="true"
           v-model:reason="reason"
+          v-model:contact="contact"
           v-on:submit="onSubmit"
         ></ApplyForm>
       </div>

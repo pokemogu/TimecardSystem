@@ -41,9 +41,45 @@ const router = createRouter({
     },
     {
       path: '/apply/record',
-      name: 'apply',
+      name: 'apply-record',
       component: () => import('@/views/ApplyRecordView.vue'),
       meta: { title: `${appName} - 打刻申請` }
+    },
+    {
+      path: '/apply/leave',
+      name: 'apply-leave',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` }
+    },
+    {
+      path: '/apply/generic-time-period/:type',
+      name: 'apply-generic-time-period',
+      component: () => import('@/views/ApplyGenericTimePeriodView.vue'),
+      meta: { title: `${appName} - 申請` }
+    },
+    {
+      path: '/apply/lateness',
+      name: 'apply-lateness',
+      component: () => import('@/views/ApplyLatenessView.vue'),
+      meta: { title: `${appName} - 遅刻申請` }
+    },
+    {
+      path: '/apply/leave-early',
+      name: 'apply-leave-early',
+      component: () => import('@/views/ApplyLeaveEarlyView.vue'),
+      meta: { title: `${appName} - 早退申請` }
+    },
+    {
+      path: '/approval/pending',
+      name: 'approval-pending',
+      component: () => import('@/views/ApproveView.vue'),
+      meta: { title: `${appName} - 承認一覧画面` }
+    },
+    {
+      path: '/admin/reguser',
+      name: 'reguser',
+      component: () => import('@/views/RegisterUserView.vue'),
+      meta: { title: `${appName} - 従業員登録` }
     }
   ]
 });

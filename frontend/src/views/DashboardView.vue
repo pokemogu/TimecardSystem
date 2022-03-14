@@ -39,10 +39,14 @@ const store = useSessionStore();
         <RouterLink to="/apply/record" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/withdrawal" class="btn btn-warning btn-sm" role="button">外出申請</RouterLink>
+        <RouterLink
+          to="/apply/generic-time-period/break"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >外出申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/approval/unapproved" class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
+        <RouterLink to="/approval/pending" class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/unrecorded" class="btn btn-warning btn-sm" role="button">未打刻一覧</RouterLink>
@@ -58,7 +62,11 @@ const store = useSessionStore();
         <RouterLink to="/apply/leave" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/holidaywork" class="btn btn-warning btn-sm" role="button">休日出勤申請</RouterLink>
+        <RouterLink
+          to="/apply/generic-time-period/holiday-work"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >休日出勤申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/approve/all" class="btn btn-warning btn-sm" role="button">全ての申請</RouterLink>
@@ -74,10 +82,14 @@ const store = useSessionStore();
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/overtime" class="btn btn-warning btn-sm" role="button">早出/残業申請</RouterLink>
+        <RouterLink
+          to="/apply/generic-time-period/overtime"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >早出/残業申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/leaveproxy" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
+        <RouterLink to="/apply/leave-proxy" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/approve/route" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
@@ -93,7 +105,11 @@ const store = useSessionStore();
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/lateness" class="btn btn-warning btn-sm" role="button">遅刻申請</RouterLink>
+        <RouterLink
+          to="/apply/generic-time-period/lateness"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >遅刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/apply/other" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
@@ -112,7 +128,11 @@ const store = useSessionStore();
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/earliness" class="btn btn-warning btn-sm" role="button">早退申請</RouterLink>
+        <RouterLink
+          to="/apply/generic-time-period/leave-early"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >早退申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>

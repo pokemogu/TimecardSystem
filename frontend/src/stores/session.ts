@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia';
-import axios from 'axios';
 import * as backendAccess from '@/BackendAccess';
 
 export const useSessionStore = defineStore({
-  id: 'session',
+  id: 'timecard-system-session',
   state: () => ({
     //accessTokenData: '',
     refreshToken: '',
@@ -14,6 +13,11 @@ export const useSessionStore = defineStore({
     token: (state) => state.refreshToken
   },
   actions: {
+    clear() {
+      this.refreshToken = '';
+      this.userId = '';
+      this.userName = '';
+    },
     async login(userId: string, userPassword: string) {
       try {
         const result = await backendAccess.login(userId, userPassword);
@@ -41,6 +45,7 @@ export const useSessionStore = defineStore({
     async logout() {
       try {
         await backendAccess.logout(this.userId, this.refreshToken);
+        this.clear();
       } catch (error) {
         console.log(error);
       }
@@ -48,5 +53,8 @@ export const useSessionStore = defineStore({
     isLoggedIn() {
       return (this.refreshToken !== '');
     }
+  },
+  persist: {
+    enabled: true
   }
 });

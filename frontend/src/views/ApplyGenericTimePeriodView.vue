@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -8,36 +8,31 @@ import ApplyForm from '@/components/ApplyForm.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
+const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
+
+const applyTypeAndName: { [name: string]: string } = {
+  'overtime': '早出・残業',
+  'lateness': '遅刻',
+  'leave-early': '早退',
+  'break': '外出',
+  'holiday-work': '休日出勤',
+};
+
+console.log(route.params);
+const applyType = ref((route.params as { type?: string }).type);
+if (!applyType.value) {
+  router.push('dashboard');
+}
 
 const userDepartment = ref('');
 const userSection = ref('');
 
-const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
-const applyTypeValue1 = ref('');
-const applyTypeOptions2 = ref<{ name: string, description: string }[]>([]);
-const applyTypeValue2 = ref('');
-const dateFrom = ref(new Date().toISOString().slice(0, 10));
+const dateFrom = ref('');
 const timeFrom = ref('');
+const timeTo = ref('');
 const reason = ref('');
-
-backendAccess.getApplyTypeOptions('record')
-  .then((applyTypeOptions) => {
-    if (applyTypeOptions?.optionTypes) {
-      applyTypeOptions1.value = applyTypeOptions?.optionTypes
-        .find(optionType => optionType.name === 'situation')?.options || [];
-      applyTypeValue1.value = applyTypeOptions1.value.length > 0 ? applyTypeOptions1.value[0].name : '';
-
-      applyTypeOptions2.value = applyTypeOptions?.optionTypes
-        .find(optionType => optionType.name === 'recordType')?.options || [];
-      applyTypeValue2.value = applyTypeOptions2.value.length > 0 ? applyTypeOptions2.value[0].name : '';
-    }
-    console.log(applyTypeOptions)
-  })
-  .catch((error) => {
-    console.log(error);
-  });
 
 store.getToken()
   .then((token) => {
@@ -63,17 +58,7 @@ store.getToken()
     console.log(error);
   });
 
-watch(applyTypeValue1, (value) => {
-  console.log(value);
-});
-
-watch(applyTypeValue2, (value) => {
-  console.log(value);
-});
-
 function onSubmit() {
-  console.log(applyTypeValue1.value);
-  console.log(applyTypeValue2.value);
   console.log(dateFrom.value);
   router.push('/dashboard');
 }
@@ -96,21 +81,29 @@ function onSubmit() {
 
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
-        <ApplyForm
-          applyName="打刻"
-          applyType="record"
-          v-bind:userName="store.userName"
-          v-bind:userDepartment="userDepartment"
-          v-bind:userSection="userSection"
-          v-model:applyTypeValue1="applyTypeValue1"
-          v-bind:applyTypeOptions1="applyTypeOptions1"
-          v-model:applyTypeValue2="applyTypeValue2"
-          v-bind:applyTypeOptions2="applyTypeOptions2"
-          v-model:dateFrom="dateFrom"
-          v-model:timeFrom="timeFrom"
-          v-model:reason="reason"
-          v-on:submit="onSubmit"
-        ></ApplyForm>
+        <div class="row">
+          <ApplyForm
+            v-bind:applyName="applyType ? applyTypeAndName[applyType] : ''"
+            v-bind:applyType="applyType || ''"
+            v-bind:userName="store.userName"
+            v-bind:userDepartment="userDepartment"
+            v-bind:userSection="userSection"
+            v-model:dateFrom="dateFrom"
+            v-model:timeFrom="timeFrom"
+            v-model:timeTo="timeTo"
+            v-model:reason="reason"
+            v-on:submit="onSubmit"
+          ></ApplyForm>
+        </div>
+        <div v-if="applyType === 'holiday-work'" class="row">
+          <div class="col-9"></div>
+          <div class="col-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" value id="flexCheckChecked" checked />
+              <label class="form-check-label" for="flexCheckChecked">同時に代休を申請する</label>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="col-2">
         <div class="row">承認待ち</div>
