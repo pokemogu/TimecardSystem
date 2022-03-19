@@ -16,7 +16,7 @@ const router = createRouter({
       meta: { title: `${appName} - ログイン` }
     },
     {
-      path: '/record/:method',
+      path: '/record',
       name: 'record',
       component: () => import('@/views/RecordView.vue'),
       meta: { title: `${appName} - 打刻` }
@@ -58,16 +58,10 @@ const router = createRouter({
       meta: { title: `${appName} - 申請` }
     },
     {
-      path: '/apply/lateness',
-      name: 'apply-lateness',
-      component: () => import('@/views/ApplyLatenessView.vue'),
-      meta: { title: `${appName} - 遅刻申請` }
-    },
-    {
-      path: '/apply/leave-early',
-      name: 'apply-leave-early',
-      component: () => import('@/views/ApplyLeaveEarlyView.vue'),
-      meta: { title: `${appName} - 早退申請` }
+      path: '/apply/makeup-leave',
+      name: 'apply-makeup-leave',
+      component: () => import('@/views/ApplyMakeupLeaveView.vue'),
+      meta: { title: `${appName} - 代休申請` }
     },
     {
       path: '/approval/pending',

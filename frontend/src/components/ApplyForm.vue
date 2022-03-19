@@ -28,6 +28,8 @@ interface ApplyFormProps {
   applyTypeValue2?: string,
   applyTypeOptions2?: { name: string, description: string }[],
   isApplyTypeOptionsDropdown?: boolean,
+  dateOptional?: string,
+  dateOptionalType?: string,
   dateFrom: string,
   dateTo?: string,
   isDateToOptional?: boolean,
@@ -38,10 +40,10 @@ interface ApplyFormProps {
 }
 
 const props = defineProps<ApplyFormProps>();
-console.log('timeFrom: ' + props.timeFrom);
 const emits = defineEmits<{
   (event: 'update:applyTypeValue1', value: string): void,
   (event: 'update:applyTypeValue2', value: string): void,
+  (event: 'update:dateOptional', value: string): void,
   (event: 'update:dateFrom', value: string): void,
   (event: 'update:dateTo', value: string): void,
   (event: 'update:timeFrom', value: string): void,
@@ -59,6 +61,11 @@ function onChangeApplyType1(event: Event) {
 function onChangeApplyType2(event: Event) {
   const value = (<HTMLInputElement>event.target).value;
   emits('update:applyTypeValue2', value);
+}
+
+function onChangeDateOptional(event: Event) {
+  const value = (<HTMLInputElement>event.target).value;
+  emits('update:dateOptional', value);
 }
 
 function onChangeDateFrom(event: Event) {
@@ -206,6 +213,20 @@ function onSubmit() {
                 v-bind:for="'apply-type-option1-' + option.name"
               >{{ option.description }}</label>
             </div>
+          </div>
+        </div>
+        <div
+          v-if="props.dateOptional !== undefined && props.dateOptionalType !== undefined"
+          class="row"
+        >
+          <div class="col-2 bg-dark text-white border border-dark">{{ props.dateOptionalType }}</div>
+          <div class="col-9 bg-white text-black border border-dark">
+            <input
+              type="date"
+              v-bind:value="props.dateOptional"
+              v-on:change="onChangeDateOptional"
+              required
+            />
           </div>
         </div>
         <div class="row">

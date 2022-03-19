@@ -69,10 +69,26 @@ watch(applyTypeValue2, (value) => {
 });
 
 function onSubmit() {
-  console.log(applyTypeValue1.value);
-  console.log(applyTypeValue2.value);
-  console.log(dateFrom.value);
-  router.push('/dashboard');
+  store.getToken()
+    .then((token) => {
+      if (token) {
+        const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+        tokenAccess.apply('leave', {
+          dateFrom: new Date(`${dateFrom.value}T00:00:00`),
+          dateTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`) : undefined,
+          timestamp: new Date(),
+          options: [
+            { name: 'leaveType', value: applyTypeValue1.value }
+          ],
+          reason: reason.value
+        });
+
+        router.push('/dashboard');
+      }
+    })
+    .catch((error) => {
+      alert(error);
+    });
 }
 
 </script>

@@ -2,11 +2,16 @@
   "name": "timecard-system",
   "version": "v0.1.1",
   "workspaces": [
-    "frontend"
+    "frontend",
+    "backend"
   ],
   "scripts": {},
   "private": true,
   "msw": {
     "workerDirectory": "frontend/public"
+  },
+  "dependencies": {
+    "backend": "^0.0.0",
+    "mysql2": "^2.3.3"
   }
 }

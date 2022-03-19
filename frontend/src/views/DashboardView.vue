@@ -33,7 +33,7 @@ const store = useSessionStore();
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/record/bylogin" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
+        <RouterLink to="/record" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/apply/record" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
@@ -89,7 +89,7 @@ const store = useSessionStore();
         >早出/残業申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/leave-proxy" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
+        <RouterLink to="/apply/makeup-leave" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/approve/route" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>

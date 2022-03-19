@@ -47,7 +47,7 @@ function onLogin(event: Event): void {
           v-bind:isAuthorized="false"
           titleName="ログイン画面"
           customButton1="QR打刻画面"
-          v-on:customButton1="router.push('/record/byqrcode')"
+          v-on:customButton1="router.push('/record')"
         ></Header>
       </div>
     </div>

@@ -20,14 +20,18 @@ const applyTypeAndName: { [name: string]: string } = {
   'holiday-work': '休日出勤',
 };
 
-console.log(route.params);
-const applyType = ref((route.params as { type?: string }).type);
-if (!applyType.value) {
-  router.push('dashboard');
+const applyTypeStr = (route.params as { type?: string }).type;
+const applyType = ref('');
+if (!applyTypeStr) {
+  router.push('/dashboard');
+}
+else {
+  applyType.value = applyTypeStr;
 }
 
 const userDepartment = ref('');
 const userSection = ref('');
+const doApplyMakeupLeave = ref(true);
 
 const dateFrom = ref('');
 const timeFrom = ref('');
@@ -59,8 +63,32 @@ store.getToken()
   });
 
 function onSubmit() {
-  console.log(dateFrom.value);
-  router.push('/dashboard');
+  store.getToken()
+    .then((token) => {
+      if (token) {
+        const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+        tokenAccess.apply(applyType.value, {
+          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+          dateTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+          timestamp: new Date(),
+          reason: reason.value
+        })
+          .then(() => {
+            if (doApplyMakeupLeave.value === true) {
+              router.push('/apply/makeup-leave?relatedDate=' + dateFrom.value);
+            }
+            else {
+              router.push('/dashboard');
+            }
+          })
+          .catch((error) => {
+            alert(error);
+          });
+      }
+    })
+    .catch((error) => {
+      alert(error);
+    });
 }
 
 </script>
@@ -99,7 +127,13 @@ function onSubmit() {
           <div class="col-9"></div>
           <div class="col-3">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" value id="flexCheckChecked" checked />
+              <input
+                class="form-check-input"
+                type="checkbox"
+                value
+                id="flexCheckChecked"
+                v-model="doApplyMakeupLeave"
+              />
               <label class="form-check-label" for="flexCheckChecked">同時に代休を申請する</label>
             </div>
           </div>

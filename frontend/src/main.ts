@@ -21,7 +21,7 @@ app.use(pinia);
 app.use(router);
 app.use(VueQrcodeReader);
 
-if (import.meta.env.DEV && !import.meta.env.VITE_DUMMP_API) {
+if (import.meta.env.DEV && import.meta.env.VITE_MOCK_API) {
   import('./mocks/browser').then((msw) => {
     msw.worker.start({
       onUnhandledRequest: 'bypass'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -8,12 +8,29 @@ import ApplyForm from '@/components/ApplyForm.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
+const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
 
 function onSubmit() {
   router.push('/dashboard');
 }
+
+const departmentList = ref<{
+  name: string
+  sections?: {
+    name: string
+  }[]
+}[]>([]);
+const department = ref('');
+const section = ref('');
+
+backendAccess.getDepartments()
+  .then((result) => {
+    if (result) {
+      Array.prototype.push.apply(departmentList.value, result);
+    }
+  });
 
 </script>
 
@@ -52,32 +69,44 @@ function onSubmit() {
                 </div>
               </div>
               <div class="row m-1">
-                <label for="user-section" class="col-3 col-form-label">所属</label>
+                <label for="user-department" class="col-3 col-form-label">部門</label>
                 <div class="col-9">
-                  <input class="form-control" list="user-section-list" id="user-section" />
-                  <datalist id="user-section-list">
-                    <option value="総務部"></option>
-                    <option value="開発部"></option>
-                    <option value="企画部"></option>
-                    <option value="人事部"></option>
-                    <option value="社長室"></option>
+                  <input
+                    type="text"
+                    class="form-control"
+                    list="user-department-list"
+                    id="user-department"
+                    v-model="department"
+                    required
+                  />
+                  <datalist id="user-department-list">
+                    <option v-for="(item, index) in departmentList" v-bind:value="item.name"></option>
                   </datalist>
                 </div>
               </div>
               <div class="row m-1">
-                <label for="user-department" class="col-3 col-form-label">部門</label>
+                <label for="user-section" class="col-3 col-form-label">所属</label>
                 <div class="col-9">
-                  <input class="form-control" list="user-department-list" id="user-department" />
-                  <datalist id="user-department-list">
-                    <option value="東海工場"></option>
-                    <option value="名古屋事業所"></option>
+                  <input
+                    type="text"
+                    class="form-control"
+                    list="user-section-list"
+                    id="user-section"
+                    v-model="section"
+                    required
+                  />
+                  <datalist id="user-section-list">
+                    <option
+                      v-for="(item, index) in departmentList.find(selectedDepartment => selectedDepartment.name === department)?.sections"
+                      v-bind:value="item.name"
+                    ></option>
                   </datalist>
                 </div>
               </div>
               <div class="row m-1">
                 <label for="user-name" class="col-3 col-form-label">氏名</label>
                 <div class="col-9">
-                  <input type="text" id="user-name" class="form-control" />
+                  <input type="text" id="user-name" class="form-control" required />
                 </div>
               </div>
               <div class="row m-1">
@@ -87,8 +116,9 @@ function onSubmit() {
                     type="text"
                     id="user-phonetic"
                     class="form-control"
-                    pattern="^[ァ-ンヴー]+$ , [\u30A1-\u30FF]*"
+                    pattern="^[ァ-ンヴー|　| ]+$"
                     title="カタカナのみ入力可能です"
+                    required
                   />
                 </div>
               </div>
@@ -175,35 +205,37 @@ function onSubmit() {
                 </div>
               </div>
               <div class="row m-1">
-                <label for="user-wage-per-hour" class="col-6 col-form-label">時給(月給の場合は1h単価)</label>
+                <label for="user-paid-leave-total" class="col-6 col-form-label">有給日数</label>
                 <div class="col-6">
                   <div class="input-group">
                     <input
                       type="number"
-                      id="user-wage-per-hour"
+                      id="user-paid-leave-days"
                       class="form-control"
                       value="0"
                       min="0"
                     />
-                    <span class="input-group-text">円</span>
+                    <span class="input-group-text">日</span>
                   </div>
                 </div>
               </div>
+              <!--
               <div class="row m-1">
-                <label for="user-commute-allowance" class="col-6 col-form-label">通勤手当</label>
+                <label for="user-paid-leave-hours" class="col-6 col-form-label">時間有給</label>
                 <div class="col-6">
                   <div class="input-group">
                     <input
                       type="number"
-                      id="user-commute-allowance"
+                      id="user-paid-leave-hours"
                       class="form-control"
                       value="0"
                       min="0"
                     />
-                    <span class="input-group-text">円</span>
+                    <span class="input-group-text">時間</span>
                   </div>
                 </div>
               </div>
+              -->
             </div>
           </div>
           <div class="row justify-content-center m-1">

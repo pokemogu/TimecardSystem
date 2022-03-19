@@ -1,7 +1,5 @@
 export interface User {
-  // @PrimaryGeneratedColumn()
   id: number,
-  // @Column()
   available: boolean,
   account: string,
   password: string,
@@ -9,18 +7,25 @@ export interface User {
   name: string,
   phonetic: string,
   section: number,
-  department: number,
   privilege: number,
   hourlyWage?: number,
   commuteAllowance?: number,
-  //qrTokenIssued?: boolean,
+  qrTokenIssued?: boolean,
   printOutWageDetail?: boolean
+}
+
+export interface PaidLeave {
+  id: number,
+  user: number,
+  hours: number,
+  providedYear?: number
 }
 
 export interface UserWorkPattern {
   id: number,
   user: number,
-  workPatter: number
+  workPatter: number,
+  isDefault?: boolean
 }
 
 export interface Department {
@@ -30,6 +35,7 @@ export interface Department {
 
 export interface Section {
   id: number,
+  department: number,
   name: string
 }
 
@@ -58,6 +64,7 @@ export interface Record {
 
 export interface ApplyType {
   id: number,
+  isSystemType: boolean,
   name: string,
   description: string
 }
@@ -65,6 +72,7 @@ export interface ApplyType {
 export interface ApplyOptionType {
   id: number,
   type: number,
+  isSystemType: boolean,
   name: string,
   description: string
 }
@@ -72,7 +80,8 @@ export interface ApplyOptionType {
 export interface ApplyOptionTypeValue {
   id: number,
   optionType: number,
-  name: string,
+  isSystemType: boolean,
+  name?: string,
   description: string
 }
 
@@ -80,12 +89,20 @@ export interface Apply {
   id: number,
   type: number,
   user: number,
+  appliedUser?: number,
   timestamp: Date,
   dateFrom: Date,
   dateTo?: Date,
   dateRelated?: Date,
   reason?: string,
   contact?: string
+}
+
+export interface ApplyOption {
+  id: number,
+  apply: number,
+  optionType: number,
+  optionValue: number
 }
 
 export interface Approval {
@@ -112,13 +129,6 @@ export interface ApprovalRouteMember {
   route: number,
   user: number,
   role: number
-}
-
-export interface ApplyOption {
-  id: number,
-  apply: number,
-  optionType: number,
-  optionValue: number
 }
 
 export interface Privilege {
@@ -154,24 +164,31 @@ export interface Privilege {
 export interface WorkPattern {
   id: number,
   name: string,
+  periodFrom?: Date,
+  periodTo?: Date,
   fixedMinutesOfDayFrom: number,
   fixedMinutesOfDayTo: number,
+  breakTimeMinutes: number,
   overtimeMinutes: number,
-  holidayWorkWageRate: number,
+  holidayWorkWageRate?: number,
   extraOvertimeMinutesOfDayFrom: number,
   extraOvertimeMinutesOfDayTo: number,
   nightMinutesOfDayFrom: number,
   nightMinutesOfDayTo: number,
-  nightWorkWageRate: number,
-  extraNightMinutesOfDayFrom: number,
-  extraNightMinutesOfDayTo: number,
-  maxAllowedLateHoursPerMonth: number,
-  maxAllowedLateNumPerMonth: number,
-  wageCalculationMinutes: number,
-  measureLeaveWageRate: number
+  nightWorkWageRate?: number,
+  maxAllowedLateHoursPerMonth?: number,
+  maxAllowedLateNumPerMonth?: number,
+  wageCalculationMinutes?: number,
+  measureLeaveWageRate?: number
 }
 
 export interface Device {
   id: number,
+  name: string,
+  refreshToken?: string
+}
+
+export interface Holiday {
+  date: Date,
   name: string
 }

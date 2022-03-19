@@ -2,6 +2,7 @@ import { rest } from 'msw'
 import type { DefaultRequestBody, PathParams } from 'msw'
 
 import * as db from './db'
+import type { User } from 'shared/models';
 
 const generateRandomString = (length: number) => {
   const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -91,6 +92,31 @@ interface optionsApplyResponseBody {
   }[]
 }
 
+type applyRequestPathParams = Record<'applyType', string>;
+
+interface applyRequestBody {
+  targetUserId?: string,
+  timestamp: string,
+  dateFrom: string,
+  dateTo?: string,
+  dateRelated?: string,
+  options?: {
+    name: string,
+    value: string
+  }[],
+  reason: string,
+  contact: string
+}
+
+interface departmentResponseBody {
+  departments: {
+    name: string
+    sections?: {
+      name: string
+    }[]
+  }[]
+}
+
 const getUserFromTokenHeader = (header?: string | null) => {
   const nowMilliSec = Date.now();
 
@@ -126,7 +152,7 @@ export const handlers = [
     const refreshToken = generateDummyToken();
     const refreshTokenExpiration = nowMilliSec + (1000 * 60 * 60);
 
-    const id = db.tokens.map(token => token.id).reduce((prev, current) => prev < current ? current : prev, 0);
+    const id = db.tokens.map(token => token.id).reduce((prev, current) => prev < current ? current : prev, 0) + 1;
 
     db.tokens.push({
       id: id,
@@ -135,6 +161,8 @@ export const handlers = [
       refreshTokenExpiration: refreshTokenExpiration,
       isQrToken: false
     });
+
+    console.dir(db.tokens);
 
     return res(ctx.status(200), ctx.json({
       message: 'ok',
@@ -205,6 +233,9 @@ export const handlers = [
       return res(ctx.status(404), ctx.json({ message: 'user not found' }));
     }
 
+    const authorizedUserDepartment = db.sections.find((section) => section.id === authorizedUser.section)?.department;
+    const targetUserDepartment = db.sections.find((section) => section.id === targetUser.section)?.department;
+
     // ユーザー情報を取得する権限があるかどうか確認する
     let isPermitted = false;
     const privilege = db.privileges.find(privilege => privilege.id === authorizedUser.privilege);
@@ -217,7 +248,7 @@ export const handlers = [
         isPermitted = true;
       }
       // 自部門の全てのユーザー情報を取得する権限がある
-      else if (privilege.viewDepartmentUserInfo && authorizedUser.department === targetUser.department) {
+      else if (privilege.viewDepartmentUserInfo && authorizedUserDepartment && targetUserDepartment && (authorizedUserDepartment === targetUserDepartment)) {
         isPermitted = true;
       }
       // 自部署の全てのユーザー情報を取得する権限がある
@@ -235,12 +266,38 @@ export const handlers = [
         phonetic: targetUser.phonetic,
         email: targetUser.email,
         section: db.sections.find(section => section.id === targetUser.section)?.name ?? undefined,
-        department: db.departments.find(department => department.id === targetUser.department)?.name ?? undefined
+        department: db.departments.find(department => department.id === targetUserDepartment)?.name ?? undefined
       }));
     }
     else {
       return res(ctx.status(403), ctx.json({ message: 'do not have enough privilege' }));
     }
+  }),
+
+  rest.post<recordRequestBody, recordRequestPathParams, messageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
+
+    // ユーザー認証する
+    const user = getUserFromTokenHeader(req.headers.get('Authorization'));
+    if (!user) {
+      return res(ctx.status(401), ctx.json({ message: 'authorization required' }));
+    }
+
+    const recordId = db.records.map(record => record.id).reduce((prev, current) => prev < current ? current : prev, 0) + 1;
+    const recordType = db.recordTypes.find(recordType => recordType.name === req.params.recordType);
+    if (!recordType) {
+      return res(ctx.status(400), ctx.json({ message: 'invalid record type' }));
+    }
+
+    db.records.push({
+      id: recordId,
+      user: user.id,
+      type: recordType.id,
+      timestamp: new Date(req.body.timestamp)
+    });
+
+    console.dir(db.records);
+
+    return res(ctx.status(200), ctx.json({ message: 'ok' }));
   }),
 
   rest.get<DefaultRequestBody, PathParams, devicesResponseBody>('/api/devices', (req, res, ctx) => {
@@ -251,8 +308,32 @@ export const handlers = [
     }));
   }),
 
+  rest.post<devicesRequestBody, PathParams, messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
+    const id = db.devices.map(device => device.id).reduce((prev, current) => prev < current ? current : prev, 0);
+    db.devices.push({
+      id: id,
+      name: req.body.name
+    });
+    return res(ctx.status(200), ctx.json({
+      message: 'ok'
+    }));
+  }),
 
-  rest.post<recordRequestBody, recordRequestPathParams, messageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, PathParams, departmentResponseBody>('/api/department', (req, res, ctx) => {
+    const devices = db.devices.map((device) => { return { name: device.name } });
+
+    const departmentsAndSections: departmentResponseBody = { departments: [] };
+    for (const department of db.departments) {
+      departmentsAndSections.departments.push({
+        name: department.name,
+        sections: db.sections.filter((section) => section.department === department.id).map((section) => { return { name: section.name } })
+      });
+    }
+
+    return res(ctx.status(200), ctx.json(departmentsAndSections));
+  }),
+
+  rest.post<applyRequestBody, applyRequestPathParams, messageOnlyResponseBody>('/api/apply/:applyType', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -260,18 +341,52 @@ export const handlers = [
       return res(ctx.status(401), ctx.json({ message: 'authorization required' }));
     }
 
-    const id = db.records.map(record => record.id).reduce((prev, current) => prev < current ? current : prev, 0);
-    const recordType = db.recordTypes.find(recordType => recordType.name === req.params.recordType);
-    if (!recordType) {
-      return res(ctx.status(400), ctx.json({ message: 'invalid record type' }));
+    const applyId = db.applies.map(apply => apply.id).reduce((prev, current) => prev < current ? current : prev, 0) + 1;
+    const applyType = db.applyTypes.find(applyType => applyType.name === req.params.applyType);
+    if (!applyType) {
+      return res(ctx.status(400), ctx.json({ message: 'invalid apply type' }));
     }
 
-    db.records.push({
-      id: id,
-      user: user.id,
-      type: recordType.id,
-      timestamp: new Date(req.body.timestamp)
+    let targetUser: User | undefined = undefined;
+    if (req.body.targetUserId) {
+      targetUser = db.users.find((user) => user.name === req.body.targetUserId);
+      if (!targetUser) {
+        return res(ctx.status(404), ctx.json({ message: 'target user id not found' }));
+      }
+    }
+
+    db.applies.push({
+      id: applyId,
+      user: targetUser ? targetUser.id : user.id,
+      appliedUser: user.id,
+      type: applyType.id,
+      timestamp: new Date(req.body.timestamp),
+      dateFrom: new Date(req.body.dateFrom),
+      dateTo: req.body.dateTo ? new Date(req.body.dateTo) : undefined,
+      dateRelated: req.body.dateRelated ? new Date(req.body.dateRelated) : undefined,
+      reason: req.body.reason,
+      contact: req.body.contact
     });
+
+    console.dir(db.applies);
+
+    if (req.body.options) {
+      for (const option of req.body.options) {
+        const applyOptionType = db.applyOptionTypes.find((applyOptionType) => applyOptionType.name === option.name);
+        const applyOptionValue = db.applyOptionTypeValues.find((applyOptionTypeValue) => applyOptionTypeValue.name === option.value);
+        if (applyOptionType && applyOptionValue) {
+          const applyOptionId = db.applyOptions.map(apply => apply.id).reduce((prev, current) => prev < current ? current : prev, 0) + 1;
+          db.applyOptions.push({
+            id: applyOptionId,
+            apply: applyId,
+            optionType: applyOptionType.id,
+            optionValue: applyOptionValue.id
+          });
+        }
+      }
+
+      console.dir(db.applyOptions);
+    }
 
     return res(ctx.status(200), ctx.json({ message: 'ok' }));
   }),
@@ -304,7 +419,7 @@ export const handlers = [
         description: applyOptionType.description,
         options: db.applyOptionTypeValues
           .filter((applyOptionTypeValue) => applyOptionTypeValue.optionType === applyOptionType.id)
-          .map((applyOptionTypeValue) => { return { name: applyOptionTypeValue.name, description: applyOptionTypeValue.description } })
+          .map((applyOptionTypeValue) => { return { name: applyOptionTypeValue.name || '', description: applyOptionTypeValue.description } })
       };
     });
 

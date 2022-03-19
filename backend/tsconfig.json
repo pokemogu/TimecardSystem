@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "outDir": "dist",
+    "sourceMap": true,
+    "allowJs": false,
+    "paths": {
+      "shared/*": [
+        "../shared/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../shared/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

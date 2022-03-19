@@ -35,11 +35,16 @@ export const useSessionStore = defineStore({
         return false;
       }
     },
-    async getToken() {
+    async getToken(refreshToken: string | null = null) {
       try {
-        return await backendAccess.getToken(this.refreshToken);
+        if (refreshToken) {
+          this.refreshToken = refreshToken;
+        }
+        const result = await backendAccess.getToken(this.refreshToken);
+        return result;
       } catch (error) {
         console.log(error);
+        throw error;
       }
     },
     async logout() {
@@ -47,7 +52,9 @@ export const useSessionStore = defineStore({
         await backendAccess.logout(this.userId, this.refreshToken);
         this.clear();
       } catch (error) {
+        this.clear();
         console.log(error);
+        throw error;
       }
     },
     isLoggedIn() {
