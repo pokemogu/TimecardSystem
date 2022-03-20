@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, defineAsyncComponent } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
@@ -8,11 +8,34 @@ import ApplyForm from '@/components/ApplyForm.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
+import cardImageUrl from '../static/cardframe.png';
+
+/*
+console.log(cardImageUrl);
+fetch(cardImageUrl)
+  .then((response) => {
+    response.arrayBuffer()
+      .then((buffer) => {
+        console.log("YES!!! " + buffer.byteLength);
+      })
+      .catch((error) => {
+
+      });
+  })
+  .catch((error) => {
+    console.log(error);
+  })
+*/
+
 const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
 
-function onSubmit() {
+async function onSubmit() {
+  const response = await fetch(cardImageUrl);
+  const buffer = await response.arrayBuffer();
+  console.log("YES!!! " + buffer.byteLength);
+
   router.push('/dashboard');
 }
 
