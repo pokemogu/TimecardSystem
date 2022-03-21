@@ -1,8 +1,10 @@
 import path from 'path';
 import fs from 'fs';
 import express from 'express';
+import { Knex } from 'knex';
+
 import { Worker } from 'worker_threads';
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 
 import getLogger from './logger';
 import registerHandlers from './webapp';
@@ -14,11 +16,38 @@ dotenv.config({
 });
 const logger = getLogger('timecard');
 
-const worker = new Worker(path.join(__dirname, './worker_wrapper.js'));
-worker.on('exit', () => {
-  console.log('WORKER EXITED!!');
+// データベースアクセス設定
+const knexconfig: Knex.Config = {
+  client: process.env.DB_TYPE || 'sqlite3',
+};
+
+if (knexconfig.client === 'sqlite3') {
+  knexconfig.connection = { filename: process.env.DB_NAME || './my_db.sqlite' };
+}
+else {
+  knexconfig.connection = {
+    host: process.env.DB_HOST || "localhost",
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
+    database: process.env.DB_NAME || "my_db",
+    user: process.env.DB_APP_USER || "my_user",
+    password: process.env.DB_APP_PASSWORD || "P@ssw0rd",
+    charset: 'utf8mb4'
+  };
+  knexconfig.pool = {
+    min: 2,
+    max: 10
+  };
+}
+console.log(path.join(__dirname, './worker_wrapper.js'));
+const worker = new Worker(path.join(__dirname, './worker_wrapper.js'), { workerData: knexconfig });
+console.log(worker);
+worker.on('exit', (exitCode) => {
+  console.log('WORKER EXITED!! Exit code: ' + exitCode);
 });
 worker.on('message', (message: any) => {
+  console.log('FROM WORKER: ' + message);
+});
+worker.on('error', (message: any) => {
   console.log('FROM WORKER: ' + message);
 });
 
@@ -34,7 +63,7 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
 });
 
 app.listen(3010, () => {
-  logger.info("Start on port 3000.");
+  logger.info("Start on port 3010.");
 });
 
-registerHandlers(app, logger);
+registerHandlers(app, knexconfig, logger);

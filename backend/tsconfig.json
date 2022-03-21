@@ -18,7 +18,8 @@
   },
   "include": [
     "src/**/*",
-    "../shared/**/*"
+    "../shared/**/*",
+    "./knexfile.ts"
   ],
   "exclude": [
     "node_modules",

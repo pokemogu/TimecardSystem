@@ -62,8 +62,8 @@ export const users: models.User[] = [
     email: 'pokemogu@me.com',
     name: '山本 三郎',
     phonetic: 'ヤマモト サブロウ',
-    section: 1,
-    privilege: 2,
+    section: 1, // 名古屋事業所 第一営業部
+    privilege: 4, // 事務社員
     qrTokenIssued: true
   },
   {
@@ -74,8 +74,8 @@ export const users: models.User[] = [
     email: 'pokemogu@me.com',
     name: '鈴木 四郎',
     phonetic: 'スズキ シロウ',
-    section: 2,
-    privilege: 2,
+    section: 6,
+    privilege: 2, // パート
     qrTokenIssued: true
   },
   {

@@ -11,6 +11,23 @@ import * as backendAccess from '@/BackendAccess';
 const router = useRouter();
 const store = useSessionStore();
 
+store.getToken()
+  .then((token) => {
+    if (token) {
+      const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+      tokenAccess.getApplies(false, false, false)
+        .then((applies) => {
+          console.log(applies);
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    }
+  })
+  .catch((error) => {
+    console.log(error);
+  });
+
 </script>
 
 <template>

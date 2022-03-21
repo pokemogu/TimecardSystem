@@ -2,7 +2,7 @@ import { rest } from 'msw'
 import type { DefaultRequestBody, PathParams } from 'msw'
 
 import * as db from './db'
-import type { User } from 'shared/models';
+import type * as apiif from 'shared/APIInterfaces';
 
 const generateRandomString = (length: number) => {
   const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -16,106 +16,6 @@ const generateRandomString = (length: number) => {
 };
 
 const generateDummyToken = () => (generateRandomString(36) + '.' + generateRandomString(74) + '.' + generateRandomString(43));
-
-interface messageOnlyResponseBody {
-  message: string
-}
-
-interface issueTokenRequestBody {
-  userId: string,
-  userPassword: string
-}
-
-interface issueTokenResponseBody {
-  message: string,
-  accessToken?: string,
-  refreshToken?: string
-}
-
-type userRequestPathParams = Record<'userId', string>;
-
-interface refreshTokenRequestBody {
-  refreshToken: string
-}
-
-interface refreshTokenResponseBody {
-  message: string,
-  userId?: string,
-  accessToken?: string,
-}
-
-interface revokeTokenRequestBody {
-  userId: string,
-  refreshToken: string
-}
-
-interface userInfoResponseBody {
-  message: string,
-  id?: string,
-  name?: string,
-  phonetic?: string,
-  email?: string,
-  section?: string,
-  department?: string
-}
-
-interface recordRequestBody {
-  timestamp: string
-}
-
-type recordRequestPathParams = Record<'recordType', string>;
-
-interface devicesRequestBody {
-  name: string
-}
-
-interface devicesResponseBody {
-  message: string,
-  devices:
-  {
-    name: string
-  }[]
-}
-
-type optionsApplyRequestPathParams = Record<'type', string>;
-
-interface optionsApplyResponseBody {
-  message: string,
-  type?: string,
-  optionTypes?: {
-    name: string,
-    description: string,
-    options: {
-      name: string,
-      description: string
-    }[]
-  }[]
-}
-
-type applyRequestPathParams = Record<'applyType', string>;
-
-interface applyRequestBody {
-  targetUserId?: string,
-  timestamp: string,
-  dateFrom: string,
-  dateTo?: string,
-  dateRelated?: string,
-  options?: {
-    name: string,
-    value: string
-  }[],
-  reason: string,
-  contact: string
-}
-
-interface departmentResponseBody {
-  departments: {
-    name: string
-    sections?: {
-      name: string
-    }[]
-  }[]
-}
 
 const getUserFromTokenHeader = (header?: string | null) => {
   const nowMilliSec = Date.now();
@@ -141,7 +41,7 @@ const getUserFromTokenHeader = (header?: string | null) => {
 
 export const handlers = [
   // Handles a POST /login request
-  rest.post<issueTokenRequestBody, PathParams, issueTokenResponseBody>('/api/token/issue', (req, res, ctx) => {
+  rest.post<apiif.issueTokenRequestBody, PathParams, apiif.issueTokenResponseBody>('/api/token/issue', (req, res, ctx) => {
 
     const user = db.users.find((user) => user.account === req.body.userId);
     if (!user || !user.available || user.password !== req.body.userPassword) {
@@ -172,7 +72,7 @@ export const handlers = [
     }));
   }),
 
-  rest.post<refreshTokenRequestBody, PathParams, refreshTokenResponseBody>('/api/token/refresh', (req, res, ctx) => {
+  rest.post<apiif.refreshTokenRequestBody, PathParams, apiif.refreshTokenResponseBody>('/api/token/refresh', (req, res, ctx) => {
 
     const token = db.tokens.find((token) => {
       return (token.refreshToken === req.body.refreshToken);
@@ -199,7 +99,7 @@ export const handlers = [
     }));
   }),
 
-  rest.post<revokeTokenRequestBody, PathParams, messageOnlyResponseBody>('/api/token/revoke', (req, res, ctx) => {
+  rest.post<apiif.revokeTokenRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/token/revoke', (req, res, ctx) => {
     const nowMilliSec = Date.now();
     const tokenIndex = db.tokens.findIndex((token) => token.refreshToken === req.body.refreshToken);
     const user = db.users.find((user) => user.account === req.body.userId);
@@ -219,7 +119,7 @@ export const handlers = [
     }
   }),
 
-  rest.get<DefaultRequestBody, userRequestPathParams, userInfoResponseBody>('/api/user/:userId', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, apiif.userRequestPathParams, apiif.userInfoResponseBody>('/api/user/:userId', (req, res, ctx) => {
 
     // ユーザー認証する
     const authorizedUser = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -274,7 +174,7 @@ export const handlers = [
     }
   }),
 
-  rest.post<recordRequestBody, recordRequestPathParams, messageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
+  rest.post<apiif.recordRequestBody, apiif.recordRequestPathParams, apiif.messageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -300,7 +200,7 @@ export const handlers = [
     return res(ctx.status(200), ctx.json({ message: 'ok' }));
   }),
 
-  rest.get<DefaultRequestBody, PathParams, devicesResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, PathParams, apiif.devicesResponseBody>('/api/devices', (req, res, ctx) => {
     const devices = db.devices.map((device) => { return { name: device.name } });
     return res(ctx.status(200), ctx.json({
       message: 'ok',
@@ -308,7 +208,7 @@ export const handlers = [
     }));
   }),
 
-  rest.post<devicesRequestBody, PathParams, messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.post<apiif.devicesRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
     const id = db.devices.map(device => device.id).reduce((prev, current) => prev < current ? current : prev, 0);
     db.devices.push({
       id: id,
@@ -319,10 +219,10 @@ export const handlers = [
     }));
   }),
 
-  rest.get<DefaultRequestBody, PathParams, departmentResponseBody>('/api/department', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, PathParams, apiif.departmentResponseBody>('/api/department', (req, res, ctx) => {
     const devices = db.devices.map((device) => { return { name: device.name } });
 
-    const departmentsAndSections: departmentResponseBody = { departments: [] };
+    const departmentsAndSections: apiif.departmentResponseBody = { departments: [] };
     for (const department of db.departments) {
       departmentsAndSections.departments.push({
         name: department.name,
@@ -333,7 +233,7 @@ export const handlers = [
     return res(ctx.status(200), ctx.json(departmentsAndSections));
   }),
 
-  rest.post<applyRequestBody, applyRequestPathParams, messageOnlyResponseBody>('/api/apply/:applyType', (req, res, ctx) => {
+  rest.post<apiif.applyRequestBody, apiif.applyRequestPathParams, apiif.messageOnlyResponseBody>('/api/apply/:applyType', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -365,7 +265,8 @@ export const handlers = [
       dateTo: req.body.dateTo ? new Date(req.body.dateTo) : undefined,
       dateRelated: req.body.dateRelated ? new Date(req.body.dateRelated) : undefined,
       reason: req.body.reason,
-      contact: req.body.contact
+      contact: req.body.contact,
+      route: 1
     });
 
     console.dir(db.applies);
@@ -391,7 +292,7 @@ export const handlers = [
     return res(ctx.status(200), ctx.json({ message: 'ok' }));
   }),
 
-  rest.post<devicesRequestBody, PathParams, messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.post<apiif.devicesRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
     const id = db.devices.map(device => device.id).reduce((prev, current) => prev < current ? current : prev, 0);
     db.devices.push({
       id: id,
@@ -402,7 +303,7 @@ export const handlers = [
     }));
   }),
 
-  rest.get<DefaultRequestBody, optionsApplyRequestPathParams, optionsApplyResponseBody>('/api/options/apply/:type', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, apiif.optionsApplyRequestPathParams, apiif.optionsApplyResponseBody>('/api/options/apply/:type', (req, res, ctx) => {
     const applyType = db.applyTypes.find((applyType) => applyType.name === req.params.type);
     if (!applyType) {
       return res(ctx.status(404), ctx.json({ message: 'type not found' }));
@@ -428,5 +329,75 @@ export const handlers = [
       type: applyType.name,
       optionTypes: result
     }));
-  })
+  }),
+
+
+  rest.get<DefaultRequestBody, PathParams, apiif.applyResponseBody>('/api/apply', (req, res, ctx) => {
+
+    // ユーザー認証する
+    const user = getUserFromTokenHeader(req.headers.get('Authorization'));
+    if (!user) {
+      return res(ctx.status(401), ctx.json({ message: 'authorization required' }));
+    }
+
+    // 表示すべきなのは
+    // 1. 自分自身の申請
+    // 2. 自分が代理申請した申請
+    // 3. 自分が回付ルートに入っている申請
+    const applies = db.applies.filter((apply) =>
+      (apply.user === user.id) ||
+      (apply.appliedUser === user.id) ||
+      db.approvalRouteMembers.some((member) => (member.route === apply.route) && (member.user === user.id))
+    );
+
+    const filterType = req.url.searchParams.get('filter');
+
+    // 抽出したレスポンスを返す
+    const applyResponses = applies.map((apply) => {
+      const type = db.applyTypes.find((type) => type.id === apply.type);
+      const appliedUser = db.users.find((appliedUser) => (apply.appliedUser ? appliedUser.id === apply.appliedUser : appliedUser.id === user.id));
+      //const approveUsers = db.users.filter((approveUser) => db.approvalRouteMembers.some)
+      const approvalMembers = db.approvalRouteMembers
+        .filter((member) => member.route === apply.route)
+        .map((member) => {
+          const approveUser = db.users.find((appUser) => appUser.id === member.user);
+          const approveRole = db.roles.find((role) => role.id === member.role);
+          const approval = db.approvals.find((approve) => (approve.apply === apply.id) && (approve.user === member.user));
+
+          return {
+            id: approveUser ? approveUser.account : '',
+            name: approveUser ? approveUser.name : '',
+            role: {
+              name: approveRole ? approveRole.name : '',
+              level: approveRole ? approveRole.level : -1
+            },
+            timestamp: approval ? approval.timestamp.toISOString() : '',
+            isApproved: !approval?.rejected
+          };
+        });
+
+      const applyResponse =
+      {
+        id: apply.id,
+        timestamp: apply.timestamp.toISOString(),
+        type: {
+          name: type ? type.name : '',
+          description: type ? type.description : '',
+        },
+        userApplied: {
+          id: appliedUser?.account,
+          name: appliedUser?.name
+        },
+        userApproves: approvalMembers || [],
+        dateFrom: apply.dateFrom.toISOString(),
+        dateTo: apply.dateTo ? apply.dateTo.toISOString() : undefined
+      };
+      return applyResponse;
+    });
+
+    return res(ctx.status(200), ctx.json({
+      message: 'ok',
+      applies: applyResponses
+    }));
+  }),
 ]

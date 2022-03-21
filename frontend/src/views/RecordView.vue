@@ -104,7 +104,7 @@ function onDecode(decodedQrcode: string) {
         access.getUserInfo(token.userId).then((userInfo) => {
           if (userInfo) {
             userId.value = token.userId;
-            userName.value = userInfo.name;
+            userName.value = userInfo.name || '';
           }
         });
 

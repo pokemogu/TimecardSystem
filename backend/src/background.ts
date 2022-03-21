@@ -21,6 +21,6 @@ export default class BackgroundProcess {
   }
 
   doJob() {
-    console.log('BACKGROUND JOB DOING');
+    //console.log('BACKGROUND JOB DOING');
   }
 }

@@ -1,13 +1,13 @@
 export interface User {
-  id: number,
-  available: boolean,
+  id?: number,
+  available?: boolean,
   account: string,
-  password: string,
+  password?: string,
   email: string,
   name: string,
   phonetic: string,
-  section: number,
-  privilege: number,
+  section?: number,
+  privilege?: number,
   hourlyWage?: number,
   commuteAllowance?: number,
   qrTokenIssued?: boolean,
@@ -95,7 +95,8 @@ export interface Apply {
   dateTo?: Date,
   dateRelated?: Date,
   reason?: string,
-  contact?: string
+  contact?: string,
+  route: number
 }
 
 export interface ApplyOption {
@@ -110,7 +111,9 @@ export interface Approval {
   apply: number,
   timestamp: Date,
   user: number,
-  role: number
+  role: number,
+  rejected: boolean,
+  comment?: string
 }
 
 export interface Role {

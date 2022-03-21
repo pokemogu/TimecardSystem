@@ -157,9 +157,9 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
       table.string('refreshToken').notNullable().unique().index();
-      table.datetime('refreshTokenExpiration').notNullable().index();
+      //table.datetime('refreshTokenExpiration').notNullable().index();
       table.string('accessToken');
-      table.datetime('accessTokenExpiration');
+      //table.datetime('accessTokenExpiration');
       table.boolean('isQrToken').notNullable().defaultTo(false);
 
       table.foreign('user').references('id').inTable('user');
@@ -270,6 +270,7 @@ export async function up(knex: Knex): Promise<void> {
       table.datetime('dateRelated').comment('申請内容に関連する日時(例: 代休申請での休日出勤日)');
       table.string('reason').comment('申請理由');
       table.string('contact').comment('申請における連絡先(休暇取得時の連絡先)');
+      table.boolean('isApproved').index().comment('TRUEの場合は承認済、FALSEの場合は否認済、NULLの場合は未承認');
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('appliedUser').references('id').inTable('user');
@@ -298,8 +299,10 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.integer('apply').unsigned().notNullable();
       table.integer('user').unsigned().notNullable();
-      table.integer('role').unsigned().notNullable(); // この値は実際に承認された際の権限の実値を記録する。従業員に紐付いた権限は昇格等で変更される可能性がある為。
+      table.integer('role').unsigned().notNullable().comment('実際に承認された際の権限の実値を記録する。従業員に紐付いた権限は昇格等で変更される可能性がある為。');
       table.datetime('timestamp').notNullable();
+      table.boolean('rejected').notNullable().index().comment('TRUEの場合は否認、FALSEの場合は承認');
+      table.string('comment');
 
       table.foreign('apply').references('id').inTable('apply');
       table.foreign('user').references('id').inTable('user');
@@ -328,6 +331,11 @@ export async function up(knex: Knex): Promise<void> {
       table.string('token').unique();
       table.datetime('tokenExpiration');
     });
+
+    await knex.schema.createTable('config', function (table) {
+      table.string('key').notNullable().unique().primary();
+      table.string('value');
+    });
   }
   catch (error) {
     await down(knex);
@@ -336,6 +344,7 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  await knex.schema.dropTableIfExists('config');
   await knex.schema.dropTableIfExists('device');
   await knex.schema.dropTableIfExists('approvalRouteMember');
   await knex.schema.dropTableIfExists('approvalRoute');

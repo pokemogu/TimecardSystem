@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { acceptHMRUpdate } from 'pinia';
+import type * as apiif from 'shared/APIInterfaces';
 
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
 
@@ -43,6 +43,9 @@ export async function logout(userId: string, refreshToken: string) {
       }
       throw error;
     }
+    else {
+      throw axiosError;
+    }
   }
 }
 
@@ -54,15 +57,12 @@ export class TokenAccess {
   }
   public async getUserInfo(userId: string) {
     try {
-      return (await axios.get<{
-        message: string,
-        id: string,
-        name: string,
-        phonetic: string,
-        email: string,
-        section?: string,
-        department?: string
-      }>(`${urlPrefix}/api/user/${userId}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${userId}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+      if (!result.info) {
+        throw new Error('response data undefined');
+      } else {
+        return result.info;
+      }
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
         const error = new Error();
@@ -71,6 +71,9 @@ export class TokenAccess {
           error.message = (axiosError.response?.data as { message: string }).message;
         }
         throw error;
+      }
+      else {
+        throw axiosError;
       }
     }
   }
@@ -92,6 +95,9 @@ export class TokenAccess {
         }
         throw error;
       }
+      else {
+        throw axiosError;
+      }
     }
   }
 
@@ -109,9 +115,7 @@ export class TokenAccess {
     contact?: string
   }) {
     try {
-      return (await axios.post<{
-        message: string,
-      }>(`${urlPrefix}/api/apply/${applyType}`,
+      return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/${applyType}`,
         {
           targetUserId: params.targetUserId,
           timestamp: params.timestamp.toISOString(),
@@ -132,6 +136,30 @@ export class TokenAccess {
           error.message = (axiosError.response?.data as { message: string }).message;
         }
         throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async getApplies(isUnapproved: boolean, isApproved: boolean, isRejected: boolean) {
+    try {
+      const filter = isUnapproved ? 'unapproved' : (isApproved ? 'approved' : (isRejected ? 'rejected' : undefined));
+      return (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply` + (filter ? `?filter=${filter}` : ''),
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+      )).data;
+    } catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
       }
     }
   }
@@ -155,6 +183,9 @@ export async function getToken(refreshToken: string) {
         error.message = (axiosError.response?.data as { message: string }).message;
       }
       throw error;
+    }
+    else {
+      throw axiosError;
     }
   }
 }
@@ -213,6 +244,9 @@ export async function getApplyTypeOptions(applyType: string) {
         error.message = (axiosError.response?.data as { message: string }).message;
       }
       throw error;
+    }
+    else {
+      throw axiosError;
     }
   }
 }

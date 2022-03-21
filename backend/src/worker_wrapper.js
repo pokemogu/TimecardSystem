@@ -1,12 +1,14 @@
 const path = require('path');
-const { isMainThread } = require('worker_threads');
+const { isMainThread, workerData } = require('worker_threads');
 
 if (!isMainThread) {
   if (process.env.NODE_ENV === 'development') {
     require('ts-node').register();
-    require(path.join(__dirname, 'worker.ts'))
+    const worker = require(path.join(__dirname, 'worker.ts')).worker;
+    worker(workerData);
   }
   else {
-    require(path.join(__dirname, 'worker.js'))
+    const worker = require(path.join(__dirname, 'worker.js')).worker;
+    worker(workerData);
   }
 }

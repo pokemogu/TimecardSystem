@@ -1,6 +1,6 @@
 const { build } = require('esbuild');
 const glob = require('glob');
-const entryPoints = glob.sync('./src/**/*.ts');
+const entryPoints = glob.sync('./src/**/*.ts', '../shared/**/*.ts');
 
 build({
   entryPoints,
