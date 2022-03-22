@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import AppVue from '@/App.vue';
-import TheWelcome from '@/components/TheWelcome.vue';
-import { RouterLink, useRouter } from 'vue-router';
-import { ref, computed, inject } from 'vue';
-import type { TimecardSession } from '../timecard-session-interface';
+import { useRoute, useRouter } from 'vue-router';
+import { ref, computed } from 'vue';
 import { useSessionStore } from '../stores/session';
 
 import Header from '@/components/Header.vue';
 
-let alertMessage = ref<string | null>(null);
-let userId = ref('');
-let userPassword = ref('');
+const router = useRouter();
+const route = useRoute();
+const store = useSessionStore();
+
+const alertMessage = ref<string | null>(null);
+const userId = ref('');
+const userPassword = ref('');
 const formFilled = computed(() => (userId.value !== '' && userPassword.value !== ''));
 
-const session = inject<TimecardSession>('session');
-const router = useRouter();
-const store = useSessionStore();
+const redirectedStatus = route.query.status ? route.query.status as string : '';
+if (redirectedStatus === 'forcedLogout') {
+  alertMessage.value = 'セッションが無効となり強制ログアウトしました';
+}
 
 function onLogin(event: Event): void {
 
   store.login(userId.value, userPassword.value)
     .then((success) => {
       if (success) {
-        router.push({
-          path: '/dashboard'
-        });
+        router.push({ name: 'dashboard' });
       }
       else {
         alertMessage.value = 'IDかPASSが間違っています';
@@ -47,7 +47,7 @@ function onLogin(event: Event): void {
           v-bind:isAuthorized="false"
           titleName="ログイン画面"
           customButton1="QR打刻画面"
-          v-on:customButton1="router.push('/record')"
+          v-on:customButton1="router.push({ name: 'record' })"
         ></Header>
       </div>
     </div>
@@ -100,11 +100,6 @@ function onLogin(event: Event): void {
       </div>
     </form>
   </div>
-  <!--
-<main>
-    <TheWelcome />
-  </main>
-  -->
 </template>
 
 <style>

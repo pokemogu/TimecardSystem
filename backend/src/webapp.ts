@@ -73,7 +73,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.RevokeTokenRequestBody>('/api/token/revoke', async (req, res) => {
     try {
       const access = new DatabaseAccess(knexconfig);
-      await access.revokeRefreshToken(null, req.body.refreshToken);
+      await access.revokeRefreshToken(req.body.account, req.body.refreshToken);
       res.send({
         message: 'ok'
       });
@@ -111,6 +111,29 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
       res.send({
         message: 'ok',
         optionTypes: optionTypes
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
+  // メール送信
+  app.post<{}, apiif.MessageOnlyResponseBody, {
+    from: string, to: string, cc?: string, subject: string, body: string
+  }>('/api/mail', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knexconfig);
+      await access.queueMail({
+        to: req.body.to,
+        from: req.body.from,
+        cc: req.body.cc,
+        subject: req.body.subject,
+        body: req.body.body.replace('\\n', '\r\n').replace('\\t', '\t')
+      });
+      res.send({
+        message: 'ok'
       });
     }
     catch (error) {

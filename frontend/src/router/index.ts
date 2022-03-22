@@ -1,38 +1,31 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import HomeView from '../views/HomeView.vue';
-import { nextTick, provide, inject } from 'vue';
+import { createRouter, createWebHashHistory } from 'vue-router';
+import { nextTick } from 'vue';
 
-import type { TimecardSession } from '../timecard-session-interface';
+import { useSessionStore } from '@/stores/session';
 
 const appName = '勤怠管理システム';
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  //history: createWebHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(),
   routes: [
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('@/views/HomeView.vue'),
       meta: { title: `${appName} - ログイン` }
     },
     {
       path: '/record',
       name: 'record',
       component: () => import('@/views/RecordView.vue'),
-      meta: { title: `${appName} - 打刻` }
+      meta: { title: `${appName} - 打刻` },
     },
     {
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
       meta: { title: `${appName} - 管理` }
-    },
-    {
-      path: '/auth',
-      name: 'auth',
-      component: function () {
-
-      }
     },
     {
       path: '/logout',
@@ -71,11 +64,32 @@ const router = createRouter({
     },
     {
       path: '/admin/reguser',
-      name: 'reguser',
+      name: 'admin-reguser',
       component: () => import('@/views/RegisterUserView.vue'),
       meta: { title: `${appName} - 従業員登録` }
     }
   ]
+});
+
+router.beforeEach(async (to, from) => {
+  const store = useSessionStore();
+
+  // ログインしていない場合はホーム画面にリダイレクトする
+  if (to.name !== 'home' && to.name !== 'record') {
+    if (!store.isLoggedIn()) {
+      return { name: 'home' };
+    } else {
+      try {
+        // リフレッシュトークンが有効かどうか、サーバーに問い合わせる
+        const token = await store.getToken();
+      }
+      catch (error) {
+        // リフレッシュトークンが有効でないので、ログアウトする。
+        await store.logout();
+        return { name: 'home', params: { status: 'forcedLogout' } };
+      }
+    }
+  }
 });
 
 router.afterEach((to, from) => {

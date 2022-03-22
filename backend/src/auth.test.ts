@@ -46,6 +46,12 @@ describe('auth', () => {
         jest.useFakeTimers().setSystemTime(toDate.getTime());
         expect(() => {
           const dataResult = isRefreshTokenTest ? auth.verifyRefreshToken(tokenSuccess, data) : auth.verifyAccessToken(tokenSuccess, data);
+          /* JWTの日時情報をローカル時間で出力するサンプルコードです。このテストソースコードからは消さないこと。
+          console.log(dataResult);
+          const tzOffset = new Date().getTimezoneOffset() * 60 * 1000;
+          console.log('iat: ' + new Date((dataResult as any).iat * 1000 - tzOffset).toISOString());
+          console.log('exp: ' + new Date((dataResult as any).exp * 1000 - tzOffset).toISOString());
+          */
           expect(data).toEqual(lodash.omit(dataResult as object, ['exp', 'iat']));
         }).not.toThrow();
 

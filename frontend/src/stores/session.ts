@@ -6,7 +6,7 @@ export const useSessionStore = defineStore({
   state: () => ({
     //accessTokenData: '',
     refreshToken: '',
-    userId: '',
+    userAccount: '',
     userName: ''
   }),
   getters: {
@@ -15,16 +15,16 @@ export const useSessionStore = defineStore({
   actions: {
     clear() {
       this.refreshToken = '';
-      this.userId = '';
+      this.userAccount = '';
       this.userName = '';
     },
-    async login(userId: string, userPassword: string) {
+    async login(account: string, password: string) {
       try {
-        const result = await backendAccess.login(userId, userPassword);
-        if (result.refreshToken && result.userName) {
+        const result = await backendAccess.login(account, password);
+        if (result.refreshToken && result.name) {
           this.refreshToken = result.refreshToken;
-          this.userId = userId;
-          this.userName = result.userName;
+          this.userAccount = account;
+          this.userName = result.name;
           return true;
         }
         else {
@@ -49,7 +49,7 @@ export const useSessionStore = defineStore({
     },
     async logout() {
       try {
-        await backendAccess.logout(this.userId, this.refreshToken);
+        await backendAccess.logout(this.userAccount, this.refreshToken);
         this.clear();
       } catch (error) {
         this.clear();

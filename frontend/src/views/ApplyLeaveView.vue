@@ -40,7 +40,7 @@ store.getToken()
   .then((token) => {
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
-      tokenAccess.getUserInfo(store.userId)
+      tokenAccess.getUserInfo(store.userAccount)
         .then((userInfo) => {
           if (userInfo) {
             if (userInfo.department) {
@@ -83,7 +83,7 @@ function onSubmit() {
           reason: reason.value
         });
 
-        router.push('/dashboard');
+        router.push({ name: 'dashboard' });
       }
     })
     .catch((error) => {
@@ -102,7 +102,7 @@ function onSubmit() {
           titleName="申請画面"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
-          v-on:customButton1="router.push('/dashboard')"
+          v-on:customButton1="router.push({ name: 'dashboard' })"
         ></Header>
       </div>
     </div>

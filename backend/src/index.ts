@@ -38,18 +38,26 @@ else {
     max: 10
   };
 }
-console.log(path.join(__dirname, './worker_wrapper.js'));
-const worker = new Worker(path.join(__dirname, './worker_wrapper.js'), { workerData: knexconfig });
-console.log(worker);
-worker.on('exit', (exitCode) => {
-  console.log('WORKER EXITED!! Exit code: ' + exitCode);
-});
-worker.on('message', (message: any) => {
-  console.log('FROM WORKER: ' + message);
-});
-worker.on('error', (message: any) => {
-  console.log('FROM WORKER: ' + message);
-});
+
+function execWorker() {
+
+  const worker = new Worker(path.join(__dirname, './worker_wrapper.js'), {
+    workerData: knexconfig,
+    // ts-node-devではWorker threadがそのままでは正常に起動しない問題への対処
+    // worker側tsファイルは自動トランスパイルされないので注意
+    execArgv: []
+  });
+  worker.on('exit', (exitCode) => {
+    logger.warn(`[バックグラウンド処理警告] バックグラウンド処理スレッドが終了しました。終了コードは${exitCode}です。再起動します。`);
+    execWorker();
+  });
+  worker.on('error', (message: any) => {
+    logger.warn(`[バックグラウンド処理エラー] バックグラウンド処理スレッドでエラーが発生しました。 ${message}`);
+  });
+
+};
+
+execWorker();
 
 const app = express();
 app.use(express.json());
@@ -62,8 +70,9 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 
-app.listen(3010, () => {
-  logger.info("Start on port 3010.");
+const port = process.env.NODE_PORT || 3010;
+app.listen(port, () => {
+  logger.info(`サービスを開始します。ポート番号${port}で起動しました。`);
 });
 
 registerHandlers(app, knexconfig, logger);

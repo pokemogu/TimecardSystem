@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
@@ -23,7 +23,7 @@ const applyTypeAndName: { [name: string]: string } = {
 const applyTypeStr = (route.params as { type?: string }).type;
 const applyType = ref('');
 if (!applyTypeStr) {
-  router.push('/dashboard');
+  router.push({ name: 'dashboard' });
 }
 else {
   applyType.value = applyTypeStr;
@@ -42,7 +42,7 @@ store.getToken()
   .then((token) => {
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
-      tokenAccess.getUserInfo(store.userId)
+      tokenAccess.getUserInfo(store.userAccount)
         .then((userInfo) => {
           if (userInfo) {
             if (userInfo.department) {
@@ -78,7 +78,7 @@ function onSubmit() {
               router.push('/apply/makeup-leave?relatedDate=' + dateFrom.value);
             }
             else {
-              router.push('/dashboard');
+              router.push({ name: 'dashboard' });
             }
           })
           .catch((error) => {
@@ -102,7 +102,7 @@ function onSubmit() {
           titleName="申請画面"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
-          v-on:customButton1="router.push('/dashboard')"
+          v-on:customButton1="router.push({ name: 'dashboard' })"
         ></Header>
       </div>
     </div>

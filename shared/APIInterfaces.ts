@@ -36,7 +36,7 @@ export interface AccessTokenResponseBody {
 }
 
 export interface RevokeTokenRequestBody {
-  userId: string,
+  account: string,
   refreshToken: string
 }
 
@@ -91,8 +91,8 @@ export interface ApplyOptionsResponseBody {
 
 export type ApplyRequestPathParams = Record<'applyType', string>;
 
-export interface applyRequestBody {
-  targetUserId?: string,
+export interface ApplyRequestBody {
+  targetUserAccount?: string,
   timestamp: string,
   dateFrom: string,
   dateTo?: string,
@@ -101,8 +101,8 @@ export interface applyRequestBody {
     name: string,
     value: string
   }[],
-  reason: string,
-  contact: string
+  reason?: string,
+  contact?: string
 }
 
 export interface DepartmentResponseData {
@@ -117,23 +117,23 @@ export interface DepartmentResponseBody {
   departments?: DepartmentResponseData[]
 }
 
-interface ApplyResponseData {
+export interface ApplyResponseData {
   id: number,
   timestamp: string,
   type: {
     name: string,
     description: string
   }
-  user: {
-    id: string,
+  userTargeted?: {
+    account: string,
     name: string
   },
-  userApplied?: {
-    id: string,
+  userApplied: {
+    account: string,
     name: string
   },
   userApproves: {
-    id: string,
+    account: string,
     name: string,
     role: {
       name: string,

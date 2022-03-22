@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, defineAsyncComponent } from 'vue';
+import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
@@ -10,23 +10,6 @@ import * as backendAccess from '@/BackendAccess';
 
 import cardImageUrl from '../static/cardframe.png';
 
-/*
-console.log(cardImageUrl);
-fetch(cardImageUrl)
-  .then((response) => {
-    response.arrayBuffer()
-      .then((buffer) => {
-        console.log("YES!!! " + buffer.byteLength);
-      })
-      .catch((error) => {
-
-      });
-  })
-  .catch((error) => {
-    console.log(error);
-  })
-*/
-
 const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
@@ -36,7 +19,7 @@ async function onSubmit() {
   const buffer = await response.arrayBuffer();
   console.log("YES!!! " + buffer.byteLength);
 
-  router.push('/dashboard');
+  router.push({ name: 'dashboard' });
 }
 
 const departmentList = ref<{
@@ -66,7 +49,7 @@ backendAccess.getDepartments()
           titleName="従業員登録画面"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
-          v-on:customButton1="router.push('/dashboard')"
+          v-on:customButton1="router.push({ name: 'dashboard' })"
         ></Header>
       </div>
     </div>

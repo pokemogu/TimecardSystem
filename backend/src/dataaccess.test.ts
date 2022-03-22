@@ -4,8 +4,6 @@ import { Knex } from 'knex';
 import knexConnect from 'knex';
 import { hashPassword } from './auth';
 import { DatabaseAccess } from "./dataaccess";
-import debug from 'debug';
-import { doesNotMatch } from 'assert';
 
 const testSuperUserAccount = '____TEST_SUPER_USER_NAME___';
 const testSuperUserName = 'スーパーシステム管理者X';
@@ -215,6 +213,39 @@ describe('データアクセステスト', () => {
       await knex('privilege').where('name', testSuperPrivilegeName).del();
       knex.destroy();
       */
+    });
+  });
+
+  describe('メールキュー関連テスト', () => {
+    test('queueMail && getMails && deleteMail', async () => {
+      const access = new DatabaseAccess(knexconfig);
+
+      await access.queueMail({
+        to: 'sample11@sample.com',
+        from: 'sample22@sample.com',
+        subject: '承認依頼',
+        body: 'このメールを読んだらすぐに承認すること。\nわかったな。'
+      });
+
+      await access.queueMail({
+        to: 'sample14@sample.com',
+        from: 'sample92@sample.com',
+        subject: '打刻未済',
+        body: 'このメールを読んだらすぐに打刻すること。\nわかったな。'
+      });
+
+      const mails = await access.getMails();
+      expect(mails).toBeDefined();
+      expect(mails.length).toBeGreaterThanOrEqual(2);
+
+      for (const mail of mails) {
+        console.log(mail);
+        await access.deleteMail(mail.id);
+      }
+
+      const mailsAfter = await access.getMails();
+      expect(mailsAfter).toBeDefined();
+      expect(mailsAfter.length).toBe(0);
     });
   });
 

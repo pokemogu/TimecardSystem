@@ -3,6 +3,7 @@ import type { DefaultRequestBody, PathParams } from 'msw'
 
 import * as db from './db'
 import type * as apiif from 'shared/APIInterfaces';
+import type * as models from 'shared/models';
 
 const generateRandomString = (length: number) => {
   const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -41,10 +42,10 @@ const getUserFromTokenHeader = (header?: string | null) => {
 
 export const handlers = [
   // Handles a POST /login request
-  rest.post<apiif.issueTokenRequestBody, PathParams, apiif.issueTokenResponseBody>('/api/token/issue', (req, res, ctx) => {
+  rest.post<apiif.IssueTokenRequestBody, PathParams, apiif.IssueTokenResponseBody>('/api/token/issue', (req, res, ctx) => {
 
-    const user = db.users.find((user) => user.account === req.body.userId);
-    if (!user || !user.available || user.password !== req.body.userPassword) {
+    const user = db.users.find((user) => user.account === req.body.account);
+    if (!user || !user.available || user.password !== req.body.password) {
       return res(ctx.status(401), ctx.json({ message: 'authorization failed' }));
     }
 
@@ -56,23 +57,27 @@ export const handlers = [
 
     db.tokens.push({
       id: id,
-      user: user.id,
+      user: user.id || 0,
       refreshToken: refreshToken,
       refreshTokenExpiration: refreshTokenExpiration,
       isQrToken: false
     });
 
-    console.dir(db.tokens);
+    const section = db.sections.find((section) => section.id === user.section);
+    const department = db.departments.find((department) => department.id === section?.department);
 
     return res(ctx.status(200), ctx.json({
       message: 'ok',
-      userId: user.account,
-      userName: user.name,
-      refreshToken: refreshToken
+      token: {
+        name: user.name,
+        department: department?.name || '',
+        section: section?.name || '',
+        refreshToken: refreshToken
+      }
     }));
   }),
 
-  rest.post<apiif.refreshTokenRequestBody, PathParams, apiif.refreshTokenResponseBody>('/api/token/refresh', (req, res, ctx) => {
+  rest.post<apiif.AccessTokenRequestBody, PathParams, apiif.AccessTokenResponseBody>('/api/token/refresh', (req, res, ctx) => {
 
     const token = db.tokens.find((token) => {
       return (token.refreshToken === req.body.refreshToken);
@@ -99,10 +104,10 @@ export const handlers = [
     }));
   }),
 
-  rest.post<apiif.revokeTokenRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/token/revoke', (req, res, ctx) => {
+  rest.post<apiif.RevokeTokenRequestBody, PathParams, apiif.MessageOnlyResponseBody>('/api/token/revoke', (req, res, ctx) => {
     const nowMilliSec = Date.now();
     const tokenIndex = db.tokens.findIndex((token) => token.refreshToken === req.body.refreshToken);
-    const user = db.users.find((user) => user.account === req.body.userId);
+    const user = db.users.find((user) => user.account === req.body.account);
 
     if (tokenIndex >= 0 && user) {
       if (db.tokens[tokenIndex].refreshTokenExpiration < nowMilliSec) {
@@ -119,7 +124,7 @@ export const handlers = [
     }
   }),
 
-  rest.get<DefaultRequestBody, apiif.userRequestPathParams, apiif.userInfoResponseBody>('/api/user/:userId', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, apiif.UserRequestPathParams, apiif.UserInfoResponseBody>('/api/user/:userId', (req, res, ctx) => {
 
     // ユーザー認証する
     const authorizedUser = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -159,14 +164,16 @@ export const handlers = [
 
     // 自分のユーザー情報を取得する
     if (isPermitted) {
-      return res(ctx.status(200), ctx.json({
+      return res(ctx.status(200), ctx.json(<apiif.UserInfoResponseBody>{
         message: 'ok',
-        id: targetUser.account,
-        name: targetUser.name,
-        phonetic: targetUser.phonetic,
-        email: targetUser.email,
-        section: db.sections.find(section => section.id === targetUser.section)?.name ?? undefined,
-        department: db.departments.find(department => department.id === targetUserDepartment)?.name ?? undefined
+        info: <apiif.UserInfoResponseData>{
+          id: targetUser.account,
+          name: targetUser.name,
+          phonetic: targetUser.phonetic,
+          email: targetUser.email,
+          section: db.sections.find(section => section.id === targetUser.section)?.name ?? undefined,
+          department: db.departments.find(department => department.id === targetUserDepartment)?.name ?? undefined
+        }
       }));
     }
     else {
@@ -174,7 +181,7 @@ export const handlers = [
     }
   }),
 
-  rest.post<apiif.recordRequestBody, apiif.recordRequestPathParams, apiif.messageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
+  rest.post<apiif.RecordRequestBody, apiif.RecordRequestPathParams, apiif.MessageOnlyResponseBody>('/api/record/:recordType', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -190,7 +197,7 @@ export const handlers = [
 
     db.records.push({
       id: recordId,
-      user: user.id,
+      user: user.id || 0,
       type: recordType.id,
       timestamp: new Date(req.body.timestamp)
     });
@@ -200,40 +207,43 @@ export const handlers = [
     return res(ctx.status(200), ctx.json({ message: 'ok' }));
   }),
 
-  rest.get<DefaultRequestBody, PathParams, apiif.devicesResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, PathParams, apiif.DevicesResponseBody>('/api/devices', (req, res, ctx) => {
     const devices = db.devices.map((device) => { return { name: device.name } });
-    return res(ctx.status(200), ctx.json({
+    return res(ctx.status(200), ctx.json(<apiif.DevicesResponseBody>{
       message: 'ok',
       devices: devices
     }));
   }),
 
-  rest.post<apiif.devicesRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.post<apiif.DevicesRequestBody, PathParams, apiif.MessageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
     const id = db.devices.map(device => device.id).reduce((prev, current) => prev < current ? current : prev, 0);
     db.devices.push({
       id: id,
       name: req.body.name
     });
-    return res(ctx.status(200), ctx.json({
+    return res(ctx.status(200), ctx.json(<apiif.MessageOnlyResponseBody>{
       message: 'ok'
     }));
   }),
 
-  rest.get<DefaultRequestBody, PathParams, apiif.departmentResponseBody>('/api/department', (req, res, ctx) => {
-    const devices = db.devices.map((device) => { return { name: device.name } });
+  rest.get<DefaultRequestBody, PathParams, apiif.DepartmentResponseBody>('/api/department', (req, res, ctx) => {
+    const departments = db.departments.map((department) => { return { name: department.name } });
 
-    const departmentsAndSections: apiif.departmentResponseBody = { departments: [] };
+    const departmentsAndSections: apiif.DepartmentResponseData[] = [];
     for (const department of db.departments) {
-      departmentsAndSections.departments.push({
+      departmentsAndSections.push({
         name: department.name,
         sections: db.sections.filter((section) => section.department === department.id).map((section) => { return { name: section.name } })
       });
     }
 
-    return res(ctx.status(200), ctx.json(departmentsAndSections));
+    return res(ctx.status(200), ctx.json(<apiif.DepartmentResponseBody>{
+      message: 'ok',
+      departments: departmentsAndSections
+    }));
   }),
 
-  rest.post<apiif.applyRequestBody, apiif.applyRequestPathParams, apiif.messageOnlyResponseBody>('/api/apply/:applyType', (req, res, ctx) => {
+  rest.post<apiif.ApplyRequestBody, apiif.ApplyRequestPathParams, apiif.MessageOnlyResponseBody>('/api/apply/:applyType', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -247,9 +257,9 @@ export const handlers = [
       return res(ctx.status(400), ctx.json({ message: 'invalid apply type' }));
     }
 
-    let targetUser: User | undefined = undefined;
-    if (req.body.targetUserId) {
-      targetUser = db.users.find((user) => user.name === req.body.targetUserId);
+    let targetUser: models.User | undefined = undefined;
+    if (req.body.targetUserAccount) {
+      targetUser = db.users.find((user) => user.name === req.body.targetUserAccount);
       if (!targetUser) {
         return res(ctx.status(404), ctx.json({ message: 'target user id not found' }));
       }
@@ -257,7 +267,7 @@ export const handlers = [
 
     db.applies.push({
       id: applyId,
-      user: targetUser ? targetUser.id : user.id,
+      user: targetUser ? (targetUser.id || 0) : (user.id || 0),
       appliedUser: user.id,
       type: applyType.id,
       timestamp: new Date(req.body.timestamp),
@@ -289,10 +299,10 @@ export const handlers = [
       console.dir(db.applyOptions);
     }
 
-    return res(ctx.status(200), ctx.json({ message: 'ok' }));
+    return res(ctx.status(200), ctx.json(<apiif.DepartmentResponseBody>{ message: 'ok' }));
   }),
 
-  rest.post<apiif.devicesRequestBody, PathParams, apiif.messageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
+  rest.post<apiif.DevicesRequestBody, PathParams, apiif.MessageOnlyResponseBody>('/api/devices', (req, res, ctx) => {
     const id = db.devices.map(device => device.id).reduce((prev, current) => prev < current ? current : prev, 0);
     db.devices.push({
       id: id,
@@ -303,7 +313,7 @@ export const handlers = [
     }));
   }),
 
-  rest.get<DefaultRequestBody, apiif.optionsApplyRequestPathParams, apiif.optionsApplyResponseBody>('/api/options/apply/:type', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, apiif.optionsApplyRequestPathParams, apiif.ApplyOptionsResponseBody>('/api/options/apply/:type', (req, res, ctx) => {
     const applyType = db.applyTypes.find((applyType) => applyType.name === req.params.type);
     if (!applyType) {
       return res(ctx.status(404), ctx.json({ message: 'type not found' }));
@@ -324,15 +334,14 @@ export const handlers = [
       };
     });
 
-    return res(ctx.status(200), ctx.json({
+    return res(ctx.status(200), ctx.json(<apiif.ApplyOptionsResponseBody>{
       message: 'ok',
-      type: applyType.name,
       optionTypes: result
     }));
   }),
 
 
-  rest.get<DefaultRequestBody, PathParams, apiif.applyResponseBody>('/api/apply', (req, res, ctx) => {
+  rest.get<DefaultRequestBody, PathParams, apiif.ApplyResponseBody>('/api/apply', (req, res, ctx) => {
 
     // ユーザー認証する
     const user = getUserFromTokenHeader(req.headers.get('Authorization'));
@@ -365,7 +374,7 @@ export const handlers = [
           const approval = db.approvals.find((approve) => (approve.apply === apply.id) && (approve.user === member.user));
 
           return {
-            id: approveUser ? approveUser.account : '',
+            account: approveUser ? approveUser.account : '',
             name: approveUser ? approveUser.name : '',
             role: {
               name: approveRole ? approveRole.name : '',
@@ -375,8 +384,9 @@ export const handlers = [
             isApproved: !approval?.rejected
           };
         });
+      apply.id
 
-      const applyResponse =
+      const applyResponse: apiif.ApplyResponseData =
       {
         id: apply.id,
         timestamp: apply.timestamp.toISOString(),
@@ -385,8 +395,8 @@ export const handlers = [
           description: type ? type.description : '',
         },
         userApplied: {
-          id: appliedUser?.account,
-          name: appliedUser?.name
+          account: appliedUser?.account || '',
+          name: appliedUser?.name || ''
         },
         userApproves: approvalMembers || [],
         dateFrom: apply.dateFrom.toISOString(),

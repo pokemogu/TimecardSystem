@@ -3,35 +3,39 @@ import type * as apiif from 'shared/APIInterfaces';
 
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
 
-export async function login(userId: string, userPassword: string) {
-  const response = await axios.post<{
-    refreshToken?: string,
-    message: string,
-    userId?: string,
-    userName?: string
-  }>('/api/token/issue', {
-    userId: userId,
-    userPassword: userPassword
-  });
+export async function login(account: string, password: string) {
+  try {
+    const data = (await axios.post<apiif.IssueTokenResponseBody>('/api/token/issue', <apiif.IssueTokenRequestBody>{
+      account: account,
+      password: password
+    })).data;
 
-  if (response.status !== 200) {
-    const error = new Error(response.data.message);
-    error.name = response.status.toString();
-    throw error;
+    console.log(data);
+    if (!data.token) {
+      throw new Error('token undefined');
+    }
+    else {
+      return data.token;
+    }
+  } catch (axiosError) {
+    if (axios.isAxiosError(axiosError)) {
+      const error = new Error();
+      if (axiosError.response) {
+        error.name = axiosError.response.status.toString();
+        error.message = (axiosError.response?.data as { message: string }).message;
+      }
+      throw error;
+    }
+    else {
+      throw axiosError;
+    }
   }
-
-  return {
-    refreshToken: response.data.refreshToken,
-    userName: response.data.userName
-  };
 }
 
-export async function logout(userId: string, refreshToken: string) {
+export async function logout(account: string, refreshToken: string) {
   try {
-    await axios.post<{
-      message: string,
-    }>('/api/token/revoke', {
-      userId: userId,
+    await axios.post<apiif.MessageOnlyResponseBody>('/api/token/revoke', <apiif.RevokeTokenRequestBody>{
+      account: account,
       refreshToken: refreshToken
     });
   } catch (axiosError) {
@@ -55,9 +59,9 @@ export class TokenAccess {
   constructor(accessToken: string) {
     this.accessToken = accessToken;
   }
-  public async getUserInfo(userId: string) {
+  public async getUserInfo(account: string) {
     try {
-      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${userId}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${account}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
       if (!result.info) {
         throw new Error('response data undefined');
       } else {
@@ -116,8 +120,8 @@ export class TokenAccess {
   }) {
     try {
       return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/${applyType}`,
-        {
-          targetUserId: params.targetUserId,
+        <apiif.ApplyRequestBody>{
+          targetUserAccount: params.targetUserId,
           timestamp: params.timestamp.toISOString(),
           dateFrom: params.dateFrom.toISOString(),
           dateTo: params.dateTo ? params.dateTo.toISOString() : undefined,

@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import TheWelcome from '@/components/TheWelcome.vue'
-import { ref, computed, inject } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
-import type { TimecardSession } from '../timecard-session-interface';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -33,14 +30,14 @@ const store = useSessionStore();
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/record" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
+        <RouterLink :to="{ name: 'record' }" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/record" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-record' }" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          to="/apply/generic-time-period/break"
+          :to="{ name: 'apply-generic-time-period', params: { type: 'break' } }"
           class="btn btn-warning btn-sm"
           role="button"
         >外出申請</RouterLink>
@@ -59,11 +56,11 @@ const store = useSessionStore();
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/leave" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-leave' }" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          to="/apply/generic-time-period/holiday-work"
+          :to="{ name: 'apply-generic-time-period', params: { type: 'holiday-work' } }"
           class="btn btn-warning btn-sm"
           role="button"
         >休日出勤申請</RouterLink>
@@ -106,7 +103,7 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          to="/apply/generic-time-period/lateness"
+          :to="{ name: 'apply-generic-time-period', params: { type: 'lateness' } }"
           class="btn btn-warning btn-sm"
           role="button"
         >遅刻申請</RouterLink>
@@ -121,7 +118,11 @@ const store = useSessionStore();
         <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程登録</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/reguser" class="btn btn-warning btn-sm" role="button">従業員登録</RouterLink>
+        <RouterLink
+          :to="{ name: 'admin-reguser' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >従業員登録</RouterLink>
       </div>
     </div>
 
@@ -129,7 +130,7 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          to="/apply/generic-time-period/leave-early"
+          :to="{ name: 'apply-generic-time-period', params: { type: 'leave-early' } }"
           class="btn btn-warning btn-sm"
           role="button"
         >早退申請</RouterLink>

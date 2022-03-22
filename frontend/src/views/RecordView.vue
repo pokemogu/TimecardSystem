@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, onBeforeRouteLeave } from 'vue-router';
 import Cookies from 'js-cookie';
 
 import { useSessionStore } from '@/stores/session';
@@ -9,8 +9,12 @@ import * as backendAccess from '@/BackendAccess';
 import Header from '@/components/Header.vue';
 import { BeepSound } from '@/BeepSound';
 
+import { openRecordDB } from '@/RecordDBSchema';
+import RecordWorker from '@/RecordWorker?worker';
+
 const router = useRouter();
 const store = useSessionStore();
+const worker = new RecordWorker();
 
 const isLoggedIn = store.isLoggedIn();
 let refreshToken = '';
@@ -23,7 +27,7 @@ const selectedDeviceName = ref(thisDeviceName.value);
 const errorName = ref('');
 const cameraMode = ref('auto');
 
-const userId = ref(store.isLoggedIn() ? store.userId : '');
+const userId = ref(store.isLoggedIn() ? store.userAccount : '');
 const userName = ref(store.isLoggedIn() ? store.userName : '');
 
 const status = ref(store.isLoggedIn() ? 'waitForRecord' : 'waitForScan');
@@ -37,7 +41,7 @@ const resetCamera = () => {
 
 const initStatus = () => {
   refreshToken = '';
-  userId.value = store.isLoggedIn() ? store.userId : '';
+  userId.value = store.isLoggedIn() ? store.userAccount : '';
   userName.value = store.isLoggedIn() ? store.userName : '';
   errorName.value = '';
   status.value = store.isLoggedIn() ? 'waitForRecord' : 'waitForScan';
@@ -46,13 +50,18 @@ const initStatus = () => {
 const recordTokenThen = (token: { message: string, userId: string, accessToken: string } | undefined) => {
   if (token) {
     const access = new backendAccess.TokenAccess(token.accessToken);
-    access.record(recordType.value, new Date())
+    const dateNow = new Date();
+    access.record(recordType.value, dateNow)
       .then(() => {
         resetCamera();
         status.value = 'recordCompleted';
 
         clearTimeout(timeout);
-        timeout = setTimeout(initStatus, 3000)
+        timeout = setTimeout(initStatus, 3000);
+
+        openRecordDB().then((db) => {
+          db.put('timecard-record', { type: recordType.value, timestamp: dateNow, refreshToken: refreshToken });
+        });
       })
       .catch((error) => {
         resetCamera();
@@ -162,6 +171,11 @@ function onSaveDeviceNameButton() {
   openDeviceModal.value = false;
 }
 
+onBeforeRouteLeave((to, from) => {
+  // ワーカーに打刻画面終了を告知する
+  worker.postMessage('ending');
+});
+
 </script>
 
 <template>
@@ -174,7 +188,7 @@ function onSaveDeviceNameButton() {
           customButton1="端末名設定"
           v-on:customButton1="onSetDeviceNameButton"
           v-bind:customButton2="isLoggedIn ? 'メニュー画面' : 'ログイン画面'"
-          v-on:customButton2="isLoggedIn ? router.push('/dashboard') : router.push('/')"
+          v-on:customButton2="isLoggedIn ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
           :deviceName="thisDeviceName"
         ></Header>
       </div>

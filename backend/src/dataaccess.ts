@@ -5,8 +5,6 @@ import { hashPassword, verifyPassword, issueRefreshToken, verifyRefreshToken, is
 
 import type * as models from 'shared/models';
 import type * as apiif from 'shared/APIInterfaces';
-import { stringify } from 'querystring';
-import { config } from 'dotenv';
 
 export class DatabaseAccess {
   private knexconfig: Knex.Config;
@@ -120,6 +118,28 @@ export class DatabaseAccess {
       .first();
 
     await knex('token').where('user', user.id).del();
+  }
+
+  public async deleteAllExpiredRefreshTokens() {
+    const knex = knexConnect(this.knexconfig);
+    const tokenData = await knex.select<{ account: string, tokenId: number, refreshToken: string }[]>(
+      { account: 'user.account', tokenId: 'token.id', refreshToken: 'token.refreshToken' }
+    )
+      .from('token')
+      .join('user', { 'user.id': 'token.user' })
+
+    for (const token of tokenData) {
+      try {
+        verifyRefreshToken(token.refreshToken, { account: token.account });
+      } catch (error: unknown) {
+        if ((error as Error).name === 'TokenExpiredError') {
+          await knex('token').del().where('id', token.tokenId);
+        }
+        else {
+          throw error;
+        }
+      }
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -316,6 +336,44 @@ export class DatabaseAccess {
       })
         .where('id', userInfo.id);
     }
+  }
+
+  ///////////////////////////////////////////////////////////////////////
+  // メールキュー
+  ///////////////////////////////////////////////////////////////////////
+
+  public async queueMail(params: {
+    from: string, to: string, cc?: string, subject: string, body: string
+  }) {
+    const knex = knexConnect(this.knexconfig);
+
+    await knex('mailQueue').insert([
+      {
+        from: params.from,
+        to: params.to,
+        cc: params.cc,
+        subject: params.subject,
+        body: params.body,
+        timestamp: new Date()
+      }
+    ]);
+  }
+
+  public async getMails() {
+    const knex = knexConnect(this.knexconfig);
+
+    return await knex
+      .select<{ id: number, from: string, to: string, cc: string, subject: string, body: string, timestamp: Date }[]>
+      (
+        { id: 'id' }, { from: 'from' }, { to: 'to' }, { cc: 'cc' }, { subject: 'subject' }, { body: 'body' }, { timestamp: 'timestamp' }
+      )
+      .from('mailQueue');
+  }
+
+  public async deleteMail(id: number) {
+    const knex = knexConnect(this.knexconfig);
+
+    await knex('mailQueue').where('id', id).del();
   }
 
   ///////////////////////////////////////////////////////////////////////

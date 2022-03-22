@@ -7,7 +7,7 @@ const store = useSessionStore();
 
 store.logout()
   .then(() => {
-    router.push('/');
+    router.push({ name: 'home' });
   });
 
 </script>

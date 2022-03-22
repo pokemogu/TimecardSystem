@@ -336,6 +336,16 @@ export async function up(knex: Knex): Promise<void> {
       table.string('key').notNullable().unique().primary();
       table.string('value');
     });
+
+    await knex.schema.createTable('mailQueue', function (table) {
+      table.increments('id');
+      table.string('to').notNullable();
+      table.string('from');
+      table.string('cc');
+      table.string('subject');
+      table.string('body');
+      table.datetime('timestamp');
+    });
   }
   catch (error) {
     await down(knex);

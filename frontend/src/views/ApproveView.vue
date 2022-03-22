@@ -39,7 +39,7 @@ store.getToken()
           titleName="承認一覧画面"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
-          v-on:customButton1="router.push('/dashboard')"
+          v-on:customButton1="router.push({ name: 'dashboard' })"
         ></Header>
       </div>
     </div>
