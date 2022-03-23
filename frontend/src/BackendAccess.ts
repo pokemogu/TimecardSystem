@@ -2,15 +2,15 @@ import axios from 'axios';
 import type * as apiif from 'shared/APIInterfaces';
 
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
+const timeout = import.meta.env.VITE_API_TIMEOUT ?? 5000;
 
 export async function login(account: string, password: string) {
   try {
-    const data = (await axios.post<apiif.IssueTokenResponseBody>('/api/token/issue', <apiif.IssueTokenRequestBody>{
+    const data = (await axios.post<apiif.IssueTokenResponseBody>(`${urlPrefix}/api/token/issue`, <apiif.IssueTokenRequestBody>{
       account: account,
       password: password
-    })).data;
+    }, { timeout: timeout })).data;
 
-    console.log(data);
     if (!data.token) {
       throw new Error('token undefined');
     }
@@ -34,10 +34,10 @@ export async function login(account: string, password: string) {
 
 export async function logout(account: string, refreshToken: string) {
   try {
-    await axios.post<apiif.MessageOnlyResponseBody>('/api/token/revoke', <apiif.RevokeTokenRequestBody>{
+    await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/token/revoke`, <apiif.RevokeTokenRequestBody>{
       account: account,
       refreshToken: refreshToken
-    });
+    }, { timeout: timeout });
   } catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {
       const error = new Error();
@@ -61,11 +61,62 @@ export class TokenAccess {
   }
   public async getUserInfo(account: string) {
     try {
-      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${account}`, { headers: { 'Authorization': `Bearer ${this.accessToken}` } })).data;
+      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${account}`,
+        { headers: { 'Authorization': `Bearer ${this.accessToken}`, timeout: timeout } })).data;
       if (!result.info) {
         throw new Error('response data undefined');
       } else {
         return result.info;
+      }
+    } catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async getUserInfos(params: {
+    byId?: number,
+    isAvailable?: boolean,
+    byAccount?: string,
+    byName?: string,
+    byPhonetic?: string,
+    bySection?: string,
+    byDepartment?: string,
+    registeredFrom?: Date,
+    registeredTo?: Date,
+    limit?: number,
+    offset?: number
+  }) {
+    try {
+      const result = (await axios.get<apiif.UserInfosResponseBody>(`${urlPrefix}/api/user`,
+        {
+          headers: { 'Authorization': `Bearer ${this.accessToken}`, timeout: timeout },
+          params: <apiif.UserInfoRequestQuery>{
+            id: params.byId,
+            account: params.byAccount,
+            name: params.byName,
+            phonetic: params.byPhonetic,
+            department: params.byDepartment,
+            section: params.bySection,
+            registeredFrom: params.registeredFrom?.toISOString(),
+            registeredTo: params.registeredTo?.toISOString(),
+            limit: params.limit,
+            offset: params.offset
+          }
+        })).data;
+      if (!result.infos) {
+        throw new Error('response data undefined');
+      } else {
+        return result.infos;
       }
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
@@ -88,7 +139,7 @@ export class TokenAccess {
         message: string,
       }>(`${urlPrefix}/api/record/${recordType}`,
         { timestamp: timestamp.toISOString() },
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
@@ -130,7 +181,7 @@ export class TokenAccess {
           reason: params.reason,
           contact: params.contact
         },
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
@@ -151,7 +202,7 @@ export class TokenAccess {
     try {
       const filter = isUnapproved ? 'unapproved' : (isApproved ? 'approved' : (isRejected ? 'rejected' : undefined));
       return (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply` + (filter ? `?filter=${filter}` : ''),
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` } }
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (axiosError) {
       if (axios.isAxiosError(axiosError)) {
@@ -171,13 +222,9 @@ export class TokenAccess {
 
 export async function getToken(refreshToken: string) {
   try {
-    return (await axios.post<{
-      message: string,
-      userId: string,
-      accessToken: string
-    }>(`${urlPrefix}/api/token/refresh`, {
+    return (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
       refreshToken: refreshToken
-    })).data;
+    }, { timeout: timeout })).data;
   }
   catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {
@@ -198,7 +245,7 @@ export async function getDevices() {
   const response = await axios.get<{
     message: string,
     devices: { name: string }[]
-  }>(`${urlPrefix}/api/devices`);
+  }>(`${urlPrefix}/api/devices`, { timeout: timeout });
 
   if (response.status === 200) {
     return response.data.devices;
@@ -216,7 +263,7 @@ export async function getDepartments() {
         name: string
       }[]
     }[]
-  }>(`${urlPrefix}/api/department`);
+  }>(`${urlPrefix}/api/department`, { timeout: timeout });
 
   if (response.status === 200) {
     return response.data.departments;
@@ -239,7 +286,7 @@ export async function getApplyTypeOptions(applyType: string) {
           description: string
         }[]
       }[]
-    }>(`${urlPrefix}/api/options/apply/${applyType}`)).data;
+    }>(`${urlPrefix}/api/options/apply/${applyType}`, { timeout: timeout })).data;
   } catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {
       const error = new Error();

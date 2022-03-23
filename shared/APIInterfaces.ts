@@ -40,13 +40,35 @@ export interface RevokeTokenRequestBody {
   refreshToken: string
 }
 
+export interface UserInfoRequestQuery {
+  id?: number,
+  account?: string,
+  name?: string,
+  phonetic?: string,
+  department?: string,
+  section?: string,
+  registeredFrom?: string,
+  registeredTo?: string,
+  limit?: number,
+  offset?: number
+}
+
+export interface UserInfosResponseBody {
+  message: string,
+  infos?: UserInfoResponseData[]
+}
+
 export interface UserInfoResponseData {
-  id: string,
+  id: number,
+  available: boolean,
+  registeredAt: string,
+  account: string,
   name: string,
   phonetic: string,
   email: string,
   section: string,
-  department: string
+  department: string,
+  qrCodeIssueNum: number
 }
 
 export interface UserInfoResponseBody {
@@ -55,7 +77,9 @@ export interface UserInfoResponseBody {
 }
 
 export interface RecordRequestBody {
-  timestamp: string
+  timestamp: string,
+  device?: string,
+  deviceToken?: string
 }
 
 export type RecordRequestPathParams = Record<'recordType', string>;

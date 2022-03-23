@@ -67,12 +67,32 @@ const router = createRouter({
       name: 'admin-reguser',
       component: () => import('@/views/RegisterUserView.vue'),
       meta: { title: `${appName} - 従業員登録` }
+    },
+    {
+      path: '/admin/issueqr',
+      name: 'admin-issueqr',
+      component: () => import('@/views/IssueQrCodeView.vue'),
+      meta: { title: `${appName} - QRコード発行` }
     }
   ]
 });
 
 router.beforeEach(async (to, from) => {
   const store = useSessionStore();
+
+  // ログインしていてホーム画面に行こうとした場合はメニュー画面にリダイレクトする
+  if (to.name === 'home' && store.isLoggedIn()) {
+    try {
+      // リフレッシュトークンが有効かどうか、サーバーに問い合わせる
+      const token = await store.getToken();
+      return { name: 'dashboard' };
+    }
+    catch (error) {
+      // リフレッシュトークンが有効でないので、ログアウトする。
+      await store.logout();
+      return { name: 'home', params: { status: 'forcedLogout' } };
+    }
+  }
 
   // ログインしていない場合はホーム画面にリダイレクトする
   if (to.name !== 'home' && to.name !== 'record') {

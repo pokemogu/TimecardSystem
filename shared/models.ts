@@ -1,6 +1,7 @@
 export interface User {
   id?: number,
   available?: boolean,
+  registeredAt: Date,
   account: string,
   password?: string,
   email: string,

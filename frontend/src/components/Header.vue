@@ -6,6 +6,7 @@ import type { TimecardSession } from '../timecard-session-interface';
 interface HeaderProps {
   isAuthorized: boolean,
   titleName: string,
+  customMessage?: string,
   deviceName?: string,
   userName?: string,
   customButton1?: string,
@@ -27,8 +28,22 @@ const emits = defineEmits<{
     <div class="container-fluid">
       <span class="navbar-text">{{ props.titleName }}</span>
       <div class="collapse navbar-collapse justify-content-end">
+        <ul class="navbar-nav">
+          <li v-if="props.customMessage" class="nav-item">
+            <span class="navbar-text">{{ props.customMessage }}</span>
+          </li>
+          <li v-if="props.deviceName" class="nav-item">
+            <span class="navbar-text">{{ props.deviceName }}</span>
+          </li>
+          <li v-if="props.userName" class="nav-item">
+            <span class="navbar-text">{{ props.userName }}</span>
+          </li>
+        </ul>
+        <!--
+        <span v-if="props.customMessage" class="navbar-text">{{ props.customMessage }}</span>
         <span v-if="props.deviceName" class="navbar-text">{{ props.deviceName }}</span>
         <span v-if="props.userName" class="navbar-text">{{ props.userName }}</span>
+        -->
       </div>
       <button
         v-if="props.customButton1"
@@ -50,7 +65,7 @@ const emits = defineEmits<{
       >{{ props.customButton3 }}</button>
       <RouterLink
         v-if="props.isAuthorized"
-        to="/logout"
+        :to="{ name: 'logout' }"
         class="ms-2 btn btn-warning btn-sm"
         role="button"
       >ログアウト</RouterLink>

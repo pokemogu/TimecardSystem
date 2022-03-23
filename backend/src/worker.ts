@@ -1,4 +1,6 @@
 import type { Knex } from 'knex';
+import knexConnect from 'knex';
+
 import nodemailer from 'nodemailer';
 
 import getLogger from './logger';
@@ -6,8 +8,8 @@ import { DatabaseAccess } from './dataaccess';
 
 const logger = getLogger('timecard');
 
-export async function sendQueuedMails(knexconfig: Knex.Config) {
-  const access = new DatabaseAccess(knexconfig);
+export async function sendQueuedMails(knex: Knex) {
+  const access = new DatabaseAccess(knex);
 
   const mails = await access.getMails();
   if (mails.length < 1) {
@@ -56,13 +58,14 @@ export async function sendQueuedMails(knexconfig: Knex.Config) {
 
 export function worker(knexconfig: Knex.Config) {
 
+  const knex = knexConnect(knexconfig);
   const interval = setInterval(async function () {
     try {
       // ジョブ一覧
       const jobs: Promise<any>[] = [];
 
       // メール送信ジョブを実行する
-      jobs.push(sendQueuedMails(knexconfig));
+      jobs.push(sendQueuedMails(knex));
 
       // 全てのジョブが終了するまで待つ
       await Promise.all(jobs);

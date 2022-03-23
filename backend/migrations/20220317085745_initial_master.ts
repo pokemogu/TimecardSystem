@@ -3,39 +3,39 @@ import { Knex } from "knex";
 export async function up(knex: Knex): Promise<void> {
   try {
     await knex.schema.createTable('holiday', function (table) {
-      table.datetime('date').unique().index();
+      table.date('date').unique().index();
       table.string('name');
     });
 
     await knex('holiday').insert([
-      { date: new Date('2022-04-29T00:00:00'), name: '昭和の日' },
-      { date: new Date('2022-05-03T00:00:00'), name: '憲法記念日' },
-      { date: new Date('2022-05-04T00:00:00'), name: 'みどりの日' },
-      { date: new Date('2022-05-05T00:00:00'), name: 'こどもの日' },
-      { date: new Date('2022-07-18T00:00:00'), name: '海の日' },
-      { date: new Date('2022-08-11T00:00:00'), name: '山の日' },
-      { date: new Date('2022-09-19T00:00:00'), name: '敬老の日' },
-      { date: new Date('2022-09-23T00:00:00'), name: '秋分の日' },
-      { date: new Date('2022-10-10T00:00:00'), name: 'スポーツの日' },
-      { date: new Date('2022-11-03T00:00:00'), name: '文化の日' },
-      { date: new Date('2022-11-23T00:00:00'), name: '勤労感謝の日' },
-      { date: new Date('2023-01-01T00:00:00'), name: '元日' },
-      { date: new Date('2023-01-02T00:00:00'), name: '休日' },
-      { date: new Date('2023-01-09T00:00:00'), name: '成人の日' },
-      { date: new Date('2023-02-11T00:00:00'), name: '建国記念の日' },
-      { date: new Date('2023-02-23T00:00:00'), name: '天皇誕生日' },
-      { date: new Date('2023-03-21T00:00:00'), name: '春分の日' },
-      { date: new Date('2023-04-29T00:00:00'), name: '昭和の日' },
-      { date: new Date('2023-05-03T00:00:00'), name: '憲法記念日' },
-      { date: new Date('2023-05-04T00:00:00'), name: 'みどりの日' },
-      { date: new Date('2023-05-05T00:00:00'), name: 'こどもの日' },
-      { date: new Date('2023-07-17T00:00:00'), name: '海の日' },
-      { date: new Date('2023-08-11T00:00:00'), name: '山の日' },
-      { date: new Date('2023-09-18T00:00:00'), name: '敬老の日' },
-      { date: new Date('2023-09-23T00:00:00'), name: '秋分の日' },
-      { date: new Date('2023-10-09T00:00:00'), name: 'スポーツの日' },
-      { date: new Date('2023-11-03T00:00:00'), name: '文化の日' },
-      { date: new Date('2023-11-23T00:00:00'), name: '勤労感謝の日' },
+      { date: new Date('2022-04-29'), name: '昭和の日' },
+      { date: new Date('2022-05-03'), name: '憲法記念日' },
+      { date: new Date('2022-05-04'), name: 'みどりの日' },
+      { date: new Date('2022-05-05'), name: 'こどもの日' },
+      { date: new Date('2022-07-18'), name: '海の日' },
+      { date: new Date('2022-08-11'), name: '山の日' },
+      { date: new Date('2022-09-19'), name: '敬老の日' },
+      { date: new Date('2022-09-23'), name: '秋分の日' },
+      { date: new Date('2022-10-10'), name: 'スポーツの日' },
+      { date: new Date('2022-11-03'), name: '文化の日' },
+      { date: new Date('2022-11-23'), name: '勤労感謝の日' },
+      { date: new Date('2023-01-01'), name: '元日' },
+      { date: new Date('2023-01-02'), name: '休日' },
+      { date: new Date('2023-01-09'), name: '成人の日' },
+      { date: new Date('2023-02-11'), name: '建国記念の日' },
+      { date: new Date('2023-02-23'), name: '天皇誕生日' },
+      { date: new Date('2023-03-21'), name: '春分の日' },
+      { date: new Date('2023-04-29'), name: '昭和の日' },
+      { date: new Date('2023-05-03'), name: '憲法記念日' },
+      { date: new Date('2023-05-04'), name: 'みどりの日' },
+      { date: new Date('2023-05-05'), name: 'こどもの日' },
+      { date: new Date('2023-07-17'), name: '海の日' },
+      { date: new Date('2023-08-11'), name: '山の日' },
+      { date: new Date('2023-09-18'), name: '敬老の日' },
+      { date: new Date('2023-09-23'), name: '秋分の日' },
+      { date: new Date('2023-10-09'), name: 'スポーツの日' },
+      { date: new Date('2023-11-03'), name: '文化の日' },
+      { date: new Date('2023-11-23'), name: '勤労感謝の日' },
     ]);
 
     await knex.schema.createTable('department', function (table) {
@@ -51,29 +51,6 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('department').references('id').inTable('department');
       table.unique(['department', 'name']);
     });
-
-    await knex('department').insert([
-      { name: '名古屋事業所' },
-      { name: '浜松工場' },
-      { name: '東名工場' }
-    ]);
-
-    const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
-    const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
-    const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
-    await knex('section').insert([
-      { department: departmentNagoya, name: '第一営業部' },
-      { department: departmentNagoya, name: '第ニ営業部' },
-      { department: departmentNagoya, name: '第三営業部' },
-      { department: departmentNagoya, name: '経理・総務部' },
-      { department: departmentHamamatsu, name: '営業部' },
-      { department: departmentHamamatsu, name: '製造部' },
-      { department: departmentHamamatsu, name: '品質保証部' },
-      { department: departmentHamamatsu, name: '技術部' },
-      { department: departmentHamamatsu, name: '総務部' },
-      { department: departmentTomei, name: '製造部' },
-      { department: departmentTomei, name: '品質保証部' },
-    ]);
 
     await knex.schema.createTable('privilege', function (table) {
       table.increments('id');
@@ -128,6 +105,7 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('user', function (table) {
       table.increments('id');
       table.boolean('available').notNullable().defaultTo(false);
+      table.datetime('registeredAt').notNullable();
       table.string('account').notNullable().unique().index();
       table.string('password');
       table.string('name').notNullable().index();
@@ -143,6 +121,9 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('section').references('id').inTable('section');
       table.foreign('privilege').references('id').inTable('privilege');
     });
+
+    await knex.schema.raw('ALTER TABLE user MODIFY account VARCHAR(255) CHARACTER SET ascii;');
+    await knex.schema.raw('ALTER TABLE user MODIFY password VARCHAR(255) CHARACTER SET ascii;');
 
     await knex.schema.createTable('userWorkPattern', function (table) {
       table.increments('id');
@@ -165,11 +146,16 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('user').references('id').inTable('user');
     });
 
+    await knex.schema.raw('ALTER TABLE token MODIFY refreshToken VARCHAR(255) CHARACTER SET ascii;');
+    await knex.schema.raw('ALTER TABLE token MODIFY accessToken VARCHAR(255) CHARACTER SET ascii;');
+
     await knex.schema.createTable('recordType', function (table) {
       table.increments('id');
-      table.string('name').notNullable().unique();
+      table.string('name', 15).notNullable().unique();
       table.string('description').notNullable();
     });
+
+    await knex.schema.raw('ALTER TABLE recordType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
     await knex('recordType').insert([
       { name: 'clockin', description: '出勤' },
@@ -178,22 +164,33 @@ export async function up(knex: Knex): Promise<void> {
       { name: 'reenter', description: '再入' },
     ]);
 
+    await knex.schema.createTable('device', function (table) {
+      table.increments('id');
+      table.string('name').notNullable().unique();
+      table.string('token').unique();
+      table.datetime('tokenExpiration');
+    });
+
     await knex.schema.createTable('record', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable();
       table.integer('type').unsigned().notNullable();
-      table.datetime('timestamp').notNullable().index();
+      table.integer('device').unsigned();
+      table.datetime('timestamp').notNullable().index().comment('打刻が行なわれた日時');
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('type').references('id').inTable('recordType');
+      table.foreign('device').references('id').inTable('device');
     });
 
     await knex.schema.createTable('applyType', function (table) {
       table.increments('id');
-      table.string('name').notNullable().unique();
+      table.string('name', 15).notNullable().unique();
       table.boolean('isSystemType').notNullable().defaultTo(false);
       table.string('description').notNullable();
     });
+
+    await knex.schema.raw('ALTER TABLE applyType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
     await knex('applyType').insert([
       { name: 'record', isSystemType: true, description: '打刻' },
@@ -209,12 +206,14 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('applyOptionType', function (table) {
       table.increments('id');
       table.integer('type').unsigned().notNullable().index();
-      table.string('name').index();
+      table.string('name', 15).index();
       table.boolean('isSystemType').notNullable().defaultTo(false);
       table.string('description').notNullable();
 
       table.foreign('type').references('id').inTable('applyType');
     });
+
+    await knex.schema.raw('ALTER TABLE applyOptionType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
     const typeRecord = await knex.select<{ id: number }[]>('id').as('type').from('applyType').where('name', 'record');
     const typeLeave = await knex.select<{ id: number }[]>('id').as('type').from('applyType').where('name', 'leave');
@@ -227,12 +226,14 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('applyOptionValue', function (table) {
       table.increments('id');
       table.integer('optionType').unsigned().notNullable().index();
-      table.string('name').notNullable().index();
+      table.string('name', 15).notNullable().index();
       table.boolean('isSystemType').notNullable().defaultTo(false);
       table.string('description').notNullable();
 
       table.foreign('optionType').references('id').inTable('applyOptionType');
     });
+
+    await knex.schema.raw('ALTER TABLE applyOptionValue MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
     const optionTypeRecordSituation = await knex.select<{ id: number }[]>('id').as('optionType').from('applyOptionType')
       .where('type', typeRecord[0].id)
@@ -264,7 +265,7 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('type').unsigned().notNullable().index().comment('申請種別');
       table.integer('user').unsigned().notNullable().index().comment('申請対象ユーザー');
       table.integer('appliedUser').unsigned().comment('申請を実施したユーザー()');
-      table.datetime('timestamp').notNullable().index().comment('申請日時');
+      table.datetime('timestamp').notNullable().index().comment('申請が行なわれた日時');
       table.datetime('dateFrom').notNullable().comment('申請内容の開始日時');
       table.datetime('dateTo').comment('申請内容の終了日時');
       table.datetime('dateRelated').comment('申請内容に関連する日時(例: 代休申請での休日出勤日)');
@@ -325,25 +326,27 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('role').references('id').inTable('role');
     });
 
-    await knex.schema.createTable('device', function (table) {
-      table.increments('id');
-      table.string('name').notNullable().unique();
-      table.string('token').unique();
-      table.datetime('tokenExpiration');
+    await knex.schema.createTable('config', function (table) {
+      table.string('key').notNullable().unique().primary().comment('設定データID');
+      table.string('value').comment('設定データ値');
+      table.string('description').comment('設定データ名称');
     });
 
-    await knex.schema.createTable('config', function (table) {
-      table.string('key').notNullable().unique().primary();
-      table.string('value');
-    });
+    await knex('config').insert([
+      { key: 'smtpHost', value: '', description: 'メール送信(SMTP)サーバーホスト名/IPアドレス' },
+      { key: 'smtpPort', value: '', description: 'メール送信(SMTP)サーバーポート番号' },
+      { key: 'smtpUsername', value: '', description: 'メール送信(SMTP)サーバーログインユーザー名' },
+      { key: 'smtpPassword', value: '', description: 'メール送信(SMTP)サーバーログインパスワード' },
+    ]);
 
     await knex.schema.createTable('mailQueue', function (table) {
       table.increments('id');
       table.string('to').notNullable();
-      table.string('from');
+      table.string('from', 63);
       table.string('cc');
-      table.string('subject');
-      table.string('body');
+      table.string('bcc');
+      table.string('subject', 63);
+      table.string('body', 1023);
       table.datetime('timestamp');
     });
   }
@@ -354,8 +357,8 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  await knex.schema.dropTableIfExists('mailQueue');
   await knex.schema.dropTableIfExists('config');
-  await knex.schema.dropTableIfExists('device');
   await knex.schema.dropTableIfExists('approvalRouteMember');
   await knex.schema.dropTableIfExists('approvalRoute');
   await knex.schema.dropTableIfExists('approval');
@@ -366,6 +369,7 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('applyOptionType');
   await knex.schema.dropTableIfExists('applyType');
   await knex.schema.dropTableIfExists('record');
+  await knex.schema.dropTableIfExists('device');
   await knex.schema.dropTableIfExists('recordType');
   await knex.schema.dropTableIfExists('token');
   await knex.schema.dropTableIfExists('userWorkPattern');

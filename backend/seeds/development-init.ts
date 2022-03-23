@@ -1,11 +1,42 @@
-import { Knex } from "knex";
+import { Knex } from 'knex';
 import { hashPassword } from '../src/auth';
+import { fakeNames } from '../../fakeNames';
+import * as models from '../../shared/models';
 
 export async function seed(knex: Knex): Promise<void> {
 
   await knex('device').del();
   await knex("user").del();
   await knex("privilege").del();
+  await knex('section').del();
+  await knex('department').del();
+
+  // 部署情報
+  await knex('department').insert([
+    { name: '名古屋事業所' },
+    { name: '浜松工場' },
+    { name: '東名工場' }
+  ]);
+
+  const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
+  const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
+  const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
+  await knex('section').insert([
+    { department: departmentNagoya, name: '第一営業部' },
+    { department: departmentNagoya, name: '第二営業部' },
+    { department: departmentNagoya, name: '第三営業部' },
+    { department: departmentNagoya, name: '経理・総務部' },
+    { department: departmentHamamatsu, name: '営業部' },
+    { department: departmentHamamatsu, name: '製造部' },
+    { department: departmentHamamatsu, name: '品質保証部' },
+    { department: departmentHamamatsu, name: '技術部' },
+    { department: departmentHamamatsu, name: '総務部' },
+    { department: departmentTomei, name: '製造部' },
+    { department: departmentTomei, name: '品質保証部' },
+    { department: departmentNagoya, name: '' },
+    { department: departmentHamamatsu, name: '' },
+    { department: departmentTomei, name: '' },
+  ]);
 
   // 端末情報
   await knex('device').insert([
@@ -70,73 +101,167 @@ export async function seed(knex: Knex): Promise<void> {
     .select<{ id: number, name: string }[]>()
     .from('privilege');
 
-  await knex('user').insert([
-    {
+  const fakeUsers: models.User[] = [];
+  for (let i = 0; i < fakeNames.length; i++) {
+
+    let section = 0;
+    let privilege = 0;
+    if (i < 30) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '製造パート').id
+    }
+    else if (i < 50) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '製造パート').id
+    }
+    else if (i < 60) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
+      privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+    }
+    else if (i < 65) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+    }
+    else if (i < 70) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+    }
+    else if (i < 75) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+    }
+    else if (i < 80) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+    }
+    else if (i < 170) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '製造社員').id
+    }
+    else if (i < 230) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '製造社員').id
+    }
+    else if (i < 240) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 245) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 250) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 255) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '品質保証部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 260) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '品質保証部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 265) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 275) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '技術部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 277) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 280) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
+      privilege = privileges.find(privilege => privilege.name === '事務社員').id
+    }
+    else if (i < 281) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 282) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 283) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 284) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 285) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 286) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 287) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 288) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '品質保証部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 289) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '品質保証部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 290) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '技術部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 291) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
+      privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+    }
+    else if (i < 292) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '').section
+      privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+    }
+    else if (i < 293) {
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '').section
+      privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+    }
+    else if (i < 295) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '').section
+      privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+    }
+    else if (i < 298) {
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
+      privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
+    }
+    else if (i < 300) {
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
+      privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
+    }
+
+    const usrnum = i.toString().padStart(5, '0');
+    fakeUsers.push({
       available: true,
-      account: 'USR99999',
-      password: hashPassword('P@ssw0rd001'),
-      email: 'usr99999@sample.com',
-      name: 'システム管理者',
-      phonetic: 'システム管理者',
-      privilege: privileges.find(privilege => privilege.name === 'システム管理者').id
-    },
-    {
-      available: true,
-      account: 'USR00001',
-      password: hashPassword('P@ssw0rd001'),
-      email: 'usr00001@sample.com',
-      name: '山田 太郎',
-      phonetic: 'ヤマダ タロウ',
-      section: sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section,
-      privilege: privileges.find(privilege => privilege.name === '製造社員').id
-    },
-    {
-      available: true,
-      account: 'USR00002',
-      password: hashPassword('P@ssw0rd002'),
-      email: 'usr00002@sample.com',
-      name: '田中 次郎',
-      phonetic: 'タナカ ジロウ',
-      section: sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section,
-      privilege: privileges.find(privilege => privilege.name === '製造社員').id
-    },
-    {
-      available: true,
-      account: 'USR00003',
-      password: hashPassword('P@ssw0rd003'),
-      email: 'usr00001@sample.com',
-      name: '山本 三郎',
-      phonetic: 'ヤマモト サブロウ',
-      section: sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section,
-      privilege: privileges.find(privilege => privilege.name === '製造社員').id
-    },
-    {
-      available: true,
-      account: 'USR00004',
-      password: hashPassword('P@ssw0rd004'),
-      email: 'usr00001@sample.com',
-      name: '山田 太郎',
-      phonetic: 'ヤマダ タロウ',
-      section: sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section,
-      privilege: privileges.find(privilege => privilege.name === '事務社員').id
-    },
-    {
-      available: true,
-      account: 'USR00005',
-      password: hashPassword('P@ssw0rd005'),
-      email: 'usr00001@sample.com',
-      name: '山田 太郎',
-      phonetic: 'ヤマダ タロウ',
-      section: sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section,
-      privilege: privileges.find(privilege => privilege.name === '製造社員').id
-    },
-  ]);
+      account: 'USR' + usrnum,
+      registeredAt: new Date(),
+      name: fakeNames[i].name,
+      password: hashPassword('P@ss' + usrnum),
+      email: 'usr' + usrnum + '@sample.co.jp',
+      phonetic: fakeNames[i].phonetic,
+      privilege: privilege,
+      section: section,
+    });
+  }
+
+  await knex('user').insert(fakeUsers);
 
   // その他情報
-  await knex('config').insert([
-    { key: 'smtpHost', value: 'smtp.mailtrap.io' },
-    { key: 'smtpPort', value: '2525' },
-    { key: 'smtpUsername', value: 'f4d144bc16e53b' },
-    { key: 'smtpPassword', value: '6ae992dd9335f9' },
-  ]);
+  await knex('config').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');
+  await knex('config').update({ value: '2525' }).where('key', 'smtpPort');
+  await knex('config').update({ value: 'f4d144bc16e53b' }).where('key', 'smtpUsername');
+  await knex('config').update({ value: '6ae992dd9335f9' }).where('key', 'smtpPassword');
 };

@@ -14,6 +14,7 @@ const testSuperPrivilegeName = '____TEST_SUPER_USER_PRIVILEGE___';
 describe('データアクセステスト', () => {
 
   let knexconfig: Knex.Config = {};
+  let knex: Knex;
   let refreshToken: string = '';
 
   // 初期化
@@ -47,7 +48,7 @@ describe('データアクセステスト', () => {
     }
 
     // テスト用特権ユーザーの作成
-    const knex = knexConnect(knexconfig);
+    knex = knexConnect(knexconfig);
     await knex('privilege').insert({
       name: testSuperPrivilegeName,
       recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
@@ -66,7 +67,7 @@ describe('データアクセステスト', () => {
     });
 
     // 特権ユーザーのログイン
-    const access = new DatabaseAccess(knexconfig);
+    const access = new DatabaseAccess(knex);
     const tokenInfo = await access.issueRefreshToken(testSuperUserAccount, testSuperUserPassword);
     refreshToken = tokenInfo.refreshToken;
   });
@@ -75,14 +76,14 @@ describe('データアクセステスト', () => {
 
     // デバイス情報取得
     test('getDevices', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
       const result = await access.getDevices();
       expect(result).toBeDefined();
       console.log(result);
     });
 
     test('getDepartments', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
       const departments = await access.getDepartments();
       expect(departments).toBeDefined();
 
@@ -94,7 +95,7 @@ describe('データアクセステスト', () => {
 
     // 申請オプション情報取得
     test('getApplyOptionTypes', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
 
       const applyTypes = await access.getApplyTypes();
       expect(applyTypes).toBeDefined();
@@ -114,7 +115,7 @@ describe('データアクセステスト', () => {
   // アクセストークン取得・検証
   describe('認証関連テスト', () => {
     test('issueAccessToken & getUserInfoFromAccessToken', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
       const token = await access.issueAccessToken(refreshToken);
       expect(token).not.toBe('');
       const userData = await access.getUserInfoFromAccessToken(token);
@@ -124,7 +125,7 @@ describe('データアクセステスト', () => {
     });
 
     test('changeUserPassword', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
       const token = await access.issueAccessToken(refreshToken);
       expect(token).not.toBe('');
 
@@ -162,33 +163,70 @@ describe('データアクセステスト', () => {
     });
 
     test('getUser', async () => {
-      const access = new DatabaseAccess(knexconfig);
-      const userInfo = await access.getUser(testSuperUserAccount);
+      const access = new DatabaseAccess(knex);
+      const token = await access.issueAccessToken(refreshToken);
+
+      let userInfo = await access.getUsers(token, {
+        byName: '金子'
+      });
       console.log(userInfo);
       expect(userInfo).toBeDefined();
+
+      userInfo = await access.getUsers(token, {
+        byPhonetic: 'ホシ'
+      });
+      console.log(userInfo);
+      expect(userInfo).toBeDefined();
+
+      userInfo = await access.getUsers(token, {
+        byAccount: 'USR00234'
+      });
+      console.log(userInfo);
+      expect(userInfo).toBeDefined();
+
+      userInfo = await access.getUsers(token, {
+        byDepartment: '浜松工場',
+        bySection: '製造部'
+      });
+      //console.log(userInfo);
+      expect(userInfo).toBeDefined();
+
+      userInfo = await access.getUsers(token, {
+        byDepartment: '東名工場',
+        bySection: '製造部',
+        limit: 25
+      });
+      //console.log(userInfo);
+      expect(userInfo).toBeDefined();
+      expect(userInfo.length).toBeLessThanOrEqual(25);
+
+      userInfo = await access.getUsers(token, {
+        byName: '久保田',
+        byDepartment: '東名工場'
+      });
+      console.log(userInfo);
+      expect(userInfo).toBeDefined();
+
     });
 
-    test('getUsersByName', async () => {
-      const access = new DatabaseAccess(knexconfig);
-      const userInfos = await access.getUsersByName(
-        testSuperUserName.slice(Math.floor(testSuperUserName.length / 2))
-      );
-      console.log(userInfos);
-      expect(userInfos).toBeDefined();
-      expect(userInfos.length).toBeGreaterThan(0);
-      expect(userInfos.some(userInfo => userInfo.account === testSuperUserAccount)).toBeTruthy();
+    test('issueQrCodeRefreshToken && getUsersWithQrCodeIssued', async () => {
+      const account = 'USR00001';
+      const access = new DatabaseAccess(knex);
+      const token = await access.issueAccessToken(refreshToken);
+
+      let userInfo = await access.getUsers(token, { byAccount: account });
+      console.log(userInfo);
+      expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeTruthy();
+
+      const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(token, account);
+      userInfo = await access.getUsers(token, { byAccount: account });
+      console.log(userInfo);
+      expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeFalsy();
+      console.log(qrCodeRefreshToken);
+
+      await access.revokeRefreshToken(account, qrCodeRefreshToken.refreshToken);
     });
 
-    test('getUsersByPhonetic', async () => {
-      const access = new DatabaseAccess(knexconfig);
-      const userInfos = await access.getUsersByPhonetic(
-        testSuperUserPhonetic.slice(Math.floor(testSuperUserPhonetic.length / 2))
-      );
-      console.log(userInfos);
-      expect(userInfos).toBeDefined();
-      expect(userInfos.length).toBeGreaterThan(0);
-      expect(userInfos.some(userInfo => userInfo.account === testSuperUserAccount)).toBeTruthy();
-    });
     /*
         test('registerUser & deleteUser', async () => {
           const access = new DatabaseAccess(knexconfig);
@@ -218,7 +256,7 @@ describe('データアクセステスト', () => {
 
   describe('メールキュー関連テスト', () => {
     test('queueMail && getMails && deleteMail', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
 
       await access.queueMail({
         to: 'sample11@sample.com',
@@ -239,7 +277,6 @@ describe('データアクセステスト', () => {
       expect(mails.length).toBeGreaterThanOrEqual(2);
 
       for (const mail of mails) {
-        console.log(mail);
         await access.deleteMail(mail.id);
       }
 
@@ -249,9 +286,79 @@ describe('データアクセステスト', () => {
     });
   });
 
+  describe('打刻情報取得テスト', () => {
+    test('getRecords', async () => {
+      const access = new DatabaseAccess(knex);
+
+      let result = await access.getRecords({});
+
+      result = await access.getRecords({
+        byUserAccount: 'USR00'
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        from: new Date('2022-03-12')
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        to: new Date('2022-03-21')
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21')
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        byUserAccount: 'USR00',
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21')
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        byUserAccount: 'USR00',
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21'),
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        byUserName: '太郎',
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21'),
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        byDepartment: '浜松',
+        sortBy: 'byDepartment',
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21'),
+        limit: 10
+      });
+      console.log(result);
+
+      result = await access.getRecords({
+        byDepartment: '浜松',
+        bySection: '製造',
+        sortBy: 'byDepartment',
+        from: new Date('2022-03-01'),
+        to: new Date('2022-03-21'),
+        limit: 10
+      });
+      console.log(result);
+
+    });
+  });
+
   describe('その他テスト', () => {
     test('getSmtpServerInfo', async () => {
-      const access = new DatabaseAccess(knexconfig);
+      const access = new DatabaseAccess(knex);
       const smtpInfo = await access.getSmtpServerInfo();
       console.log(smtpInfo);
     });
@@ -259,12 +366,12 @@ describe('データアクセステスト', () => {
 
   // 後始末
   afterAll(async () => {
-    const access = new DatabaseAccess(knexconfig);
+    const access = new DatabaseAccess(knex);
     await access.revokeRefreshToken(testSuperUserAccount, refreshToken);
 
-    const knex = knexConnect(knexconfig);
     await knex('user').where('account', testSuperUserAccount).del();
     await knex('privilege').where('name', testSuperPrivilegeName).del();
+
     knex.destroy();
   });
 

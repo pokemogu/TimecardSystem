@@ -14,7 +14,6 @@ import RecordWorker from '@/RecordWorker?worker';
 
 const router = useRouter();
 const store = useSessionStore();
-const worker = new RecordWorker();
 
 const isLoggedIn = store.isLoggedIn();
 let refreshToken = '';
@@ -26,6 +25,7 @@ const thisDeviceName = ref(Cookies.get('deviceName') ?? '');
 const selectedDeviceName = ref(thisDeviceName.value);
 const errorName = ref('');
 const cameraMode = ref('auto');
+const headerMessage = ref('');
 
 const userId = ref(store.isLoggedIn() ? store.userAccount : '');
 const userName = ref(store.isLoggedIn() ? store.userName : '');
@@ -47,33 +47,6 @@ const initStatus = () => {
   status.value = store.isLoggedIn() ? 'waitForRecord' : 'waitForScan';
 };
 
-const recordTokenThen = (token: { message: string, userId: string, accessToken: string } | undefined) => {
-  if (token) {
-    const access = new backendAccess.TokenAccess(token.accessToken);
-    const dateNow = new Date();
-    access.record(recordType.value, dateNow)
-      .then(() => {
-        resetCamera();
-        status.value = 'recordCompleted';
-
-        clearTimeout(timeout);
-        timeout = setTimeout(initStatus, 3000);
-
-        openRecordDB().then((db) => {
-          db.put('timecard-record', { type: recordType.value, timestamp: dateNow, refreshToken: refreshToken });
-        });
-      })
-      .catch((error) => {
-        resetCamera();
-        errorName.value = error.toString();
-        status.value = 'error';
-
-        clearTimeout(timeout);
-        timeout = setTimeout(initStatus, 5000);
-      });
-  }
-};
-
 const recordTokenCatch = (error: Error) => {
   resetCamera();
   if (error.name === '401') {
@@ -89,35 +62,49 @@ const recordTokenCatch = (error: Error) => {
   timeout = setTimeout(initStatus, 5000);
 };
 
-function onRecord(event: Event) {
-  if (store.isLoggedIn()) {
-    store.getToken()
-      .then(recordTokenThen)
-      .catch(recordTokenCatch);
-  }
-  else {
-    backendAccess.getToken(refreshToken)
-      .then(recordTokenThen)
-      .catch(recordTokenCatch);
+async function onRecord(event: Event) {
+  try {
+    const dateNow = new Date();
+
+    if (!store.isLoggedIn()) {
+      // QR打刻端末からの打刻の場合はキューイングで打刻する
+      const db = await openRecordDB();
+      await db.put('timecard-record', { type: recordType.value, timestamp: dateNow, refreshToken: refreshToken });
+    }
+    else {
+      // PC端末からの打刻の場合は即時打刻する。
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      await access.record(recordType.value, dateNow);
+    }
+
+    resetCamera();
+    status.value = 'recordCompleted';
+
+    clearTimeout(timeout);
+    timeout = setTimeout(initStatus, 3000);
+
+  } catch (error) {
+    recordTokenCatch(error as Error);
   }
 }
 
 function onDecode(decodedQrcode: string) {
   BeepSound.play();
-  status.value = 'waitForAuth';
+  status.value = 'waitForRecord';
   backendAccess.getToken(decodedQrcode)
     .then((token) => {
-      if (token) {
+      if (token.token) {
         refreshToken = decodedQrcode;
-        const access = new backendAccess.TokenAccess(token.accessToken);
-        access.getUserInfo(token.userId).then((userInfo) => {
-          if (userInfo) {
-            userId.value = token.userId;
+        const access = new backendAccess.TokenAccess(token.token.accessToken);
+        access.getUserInfo(token.token.account).then((userInfo) => {
+          if (userInfo && token.token) {
+            userId.value = token.token.account;
             userName.value = userInfo.name || '';
           }
         });
 
-        status.value = 'waitForRecord';
+        //status.value = 'waitForRecord';
 
         // 認証してから1分経過しても打刻していない場合は認証をクリアする
         clearTimeout(timeout);
@@ -171,10 +158,26 @@ function onSaveDeviceNameButton() {
   openDeviceModal.value = false;
 }
 
-onBeforeRouteLeave((to, from) => {
-  // ワーカーに打刻画面終了を告知する
-  worker.postMessage('ending');
-});
+// QR打刻端末の場合はバックグラウンドでの打刻送信ワーカーを起動する
+if (!store.isLoggedIn()) {
+  const worker = new RecordWorker();
+
+  onBeforeRouteLeave((to, from) => {
+    // ワーカーに打刻画面終了を告知する
+    worker.postMessage('ending');
+  });
+
+  worker.onmessage = (ev) => {
+    const message = <{ type: string, message: string }>ev.data;
+    console.log(message);
+    if (message.type === 'error') {
+      headerMessage.value = message.message;
+      setTimeout(() => {
+        headerMessage.value = '';
+      }, 5000);
+    }
+  };
+}
 
 </script>
 
@@ -189,6 +192,7 @@ onBeforeRouteLeave((to, from) => {
           v-on:customButton1="onSetDeviceNameButton"
           v-bind:customButton2="isLoggedIn ? 'メニュー画面' : 'ログイン画面'"
           v-on:customButton2="isLoggedIn ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
+          :customMessage="headerMessage"
           :deviceName="thisDeviceName"
         ></Header>
       </div>

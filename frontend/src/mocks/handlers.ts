@@ -167,7 +167,7 @@ export const handlers = [
       return res(ctx.status(200), ctx.json(<apiif.UserInfoResponseBody>{
         message: 'ok',
         info: <apiif.UserInfoResponseData>{
-          id: targetUser.account,
+          id: targetUser.id,
           name: targetUser.name,
           phonetic: targetUser.phonetic,
           email: targetUser.email,

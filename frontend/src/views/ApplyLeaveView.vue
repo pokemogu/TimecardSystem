@@ -39,7 +39,7 @@ backendAccess.getApplyTypeOptions('leave')
 store.getToken()
   .then((token) => {
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+      const tokenAccess = new backendAccess.TokenAccess(token);
       tokenAccess.getUserInfo(store.userAccount)
         .then((userInfo) => {
           if (userInfo) {
@@ -72,7 +72,7 @@ function onSubmit() {
   store.getToken()
     .then((token) => {
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+        const tokenAccess = new backendAccess.TokenAccess(token);
         tokenAccess.apply('leave', {
           dateFrom: new Date(`${dateFrom.value}T00:00:00`),
           dateTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`) : undefined,

@@ -26,7 +26,7 @@ const reason = ref('');
 store.getToken()
   .then((token) => {
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+      const tokenAccess = new backendAccess.TokenAccess(token);
       tokenAccess.getUserInfo(store.userAccount)
         .then((userInfo) => {
           if (userInfo) {
@@ -51,7 +51,7 @@ function onSubmit() {
   store.getToken()
     .then((token) => {
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+        const tokenAccess = new backendAccess.TokenAccess(token);
         tokenAccess.apply('makeup-leave', {
           dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
           dateTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),

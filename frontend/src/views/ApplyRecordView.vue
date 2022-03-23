@@ -33,7 +33,6 @@ backendAccess.getApplyTypeOptions('record')
         .find(optionType => optionType.name === 'recordType')?.options || [];
       applyTypeValue2.value = applyTypeOptions2.value.length > 0 ? applyTypeOptions2.value[0].name : '';
     }
-    console.log(applyTypeOptions)
   })
   .catch((error) => {
     console.log(error);
@@ -42,7 +41,7 @@ backendAccess.getApplyTypeOptions('record')
 store.getToken()
   .then((token) => {
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+      const tokenAccess = new backendAccess.TokenAccess(token);
       tokenAccess.getUserInfo(store.userAccount)
         .then((userInfo) => {
           if (userInfo) {
@@ -75,7 +74,7 @@ function onSubmit() {
   store.getToken()
     .then((token) => {
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+        const tokenAccess = new backendAccess.TokenAccess(token);
         tokenAccess.apply('record', {
           dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
           timestamp: new Date(),

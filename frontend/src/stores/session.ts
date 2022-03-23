@@ -7,7 +7,9 @@ export const useSessionStore = defineStore({
     //accessTokenData: '',
     refreshToken: '',
     userAccount: '',
-    userName: ''
+    userName: '',
+    userDepartment: '',
+    userSection: ''
   }),
   getters: {
     token: (state) => state.refreshToken
@@ -41,7 +43,10 @@ export const useSessionStore = defineStore({
           this.refreshToken = refreshToken;
         }
         const result = await backendAccess.getToken(this.refreshToken);
-        return result;
+        if (!result.token) {
+          throw new Error('toke not returned');
+        }
+        return result.token.accessToken;
       } catch (error) {
         console.log(error);
         throw error;

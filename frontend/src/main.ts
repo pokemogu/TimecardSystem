@@ -21,12 +21,16 @@ app.use(pinia);
 app.use(router);
 app.use(VueQrcodeReader);
 
-if (import.meta.env.DEV && import.meta.env.VITE_MOCK_API) {
+if (import.meta.env.DEV && import.meta.env.VITE_MOCK_API && import.meta.env.VITE_MOCK_API === true) {
+  console.log('MOCKING API');
   import('./mocks/browser').then((msw) => {
     msw.worker.start({
       onUnhandledRequest: 'bypass'
     });
   });
+}
+else {
+  console.log('REAL API');
 }
 
 app.mount('#app');

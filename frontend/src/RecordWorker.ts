@@ -1,19 +1,28 @@
 import { openRecordDB } from '@/RecordDBSchema';
+import * as backendAccess from '@/BackendAccess';
 
 async function recordSenderJob() {
   try {
     const db = await openRecordDB();
     const keys = await db.getAllKeys('timecard-record');
-    for (const key of keys) {
-      const recordData = await db.get('timecard-record', key);
-      console.log(recordData);
-      await db.delete('timecard-record', key);
+
+    if (keys.length > 0) {
+      for (const key of keys) {
+        const recordData = await db.get('timecard-record', key);
+        if (recordData) {
+          const token = await backendAccess.getToken(recordData.refreshToken);
+          const access = new backendAccess.TokenAccess(token.accessToken);
+          await access.record(recordData.type, recordData.timestamp);
+          await db.delete('timecard-record', key);
+        }
+      }
+      postMessage({ type: 'info', message: 'records sent' });
     }
 
   } catch (error) {
     console.log(error);
+    postMessage({ type: 'error', message: error });
   }
-  console.log('worker working!!');
 }
 
 const interval = setInterval(recordSenderJob, 5000);

@@ -13,5 +13,9 @@
   "dependencies": {
     "backend": "^0.0.0",
     "mysql2": "^2.3.3"
+  },
+  "devDependencies": {
+    "@types/kuromoji": "^0.1.1",
+    "kuromoji": "^0.1.2"
   }
 }

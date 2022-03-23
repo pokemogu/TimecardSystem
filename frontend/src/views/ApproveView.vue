@@ -14,7 +14,7 @@ const store = useSessionStore();
 store.getToken()
   .then((token) => {
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token.accessToken);
+      const tokenAccess = new backendAccess.TokenAccess(token);
       tokenAccess.getApplies(false, false, false)
         .then((applies) => {
           console.log(applies);

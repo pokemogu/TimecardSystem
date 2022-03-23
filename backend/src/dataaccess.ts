@@ -1,5 +1,4 @@
 import lodash from 'lodash';
-import knexConnect, { knex } from 'knex';
 import type { Knex } from 'knex';
 import { hashPassword, verifyPassword, issueRefreshToken, verifyRefreshToken, issueAccessToken, verifyAccessToken } from './auth';
 
@@ -7,22 +6,37 @@ import type * as models from 'shared/models';
 import type * as apiif from 'shared/APIInterfaces';
 
 export class DatabaseAccess {
-  private knexconfig: Knex.Config;
+  private knex: Knex;
 
-  constructor(knexconfig: Knex.Config) {
-    this.knexconfig = knexconfig;
-    //knexConnect(this.knexconfig);
+  constructor(knex: Knex) {
+    this.knex = knex;
   }
 
+  ///////////////////////////////////////////////////////////////////////
+  // 基本不変なデータベース内データ(マスターデータ等)のキャッシュ保持
+  ///////////////////////////////////////////////////////////////////////
+
+  private static recordTypeCache: { [name: string]: { id: number, description: string } } = {};
+
+  public static async initCache(knex: Knex) {
+    const recordTypes = await knex.select<{
+      id: number, name: string, description: string
+    }[]>({ id: 'id', name: 'name', description: 'description' })
+      .from('recordType');
+
+    for (const recordType of recordTypes) {
+      DatabaseAccess.recordTypeCache[recordType.name] = { id: recordType.id, description: recordType.description };
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////
   // 認証関連
   ///////////////////////////////////////////////////////////////////////
-  public async issueRefreshToken(account: string, password: string, isQrToken: boolean = false): Promise<apiif.IssueTokenResponseData> {
-    const knex = knexConnect(this.knexconfig);
+
+  public async issueRefreshToken(account: string, password: string): Promise<apiif.IssueTokenResponseData> {
 
     // 部門や部署に所属していない可能性があるのでLEFT JOINとする。
-    const user = await knex.select<{
+    const user = await this.knex.select<{
       id: number, available: boolean, account: string, password: string, name: string, department: string, section: string
     }>({ id: 'user.id', available: 'user.available', account: 'user.account', password: 'user.password', name: 'user.name', department: 'department.name', section: 'section.name' })
       .from('user')
@@ -31,29 +45,72 @@ export class DatabaseAccess {
       .where('user.account', account)
       .first();
 
-    if (!user.available) {
-      throw new Error('user is not available.');
-    }
-
     if (!verifyPassword(user.password, password)) {
-      throw new Error('password verification failed.');
+      const error = new Error('password verification failed.');
+      error.name = 'AuthenticationError';
+      throw error;
     }
 
-    // 通常のトークン期限は1日、QRコード用の場合だけ10年とする
+    if (!user.available) {
+      const error = new Error('user is not available.');
+      error.name = 'UserNotAvailableError';
+      throw error;
+    }
+
+    // 通常のトークン期限は1日
     const secondsPerDay = 60 * 60 * 24;
-    const token = issueRefreshToken({ account: account }, secondsPerDay * (isQrToken ? 3650 : 1));
-    await knex('token').insert({
+    const token = issueRefreshToken({ account: account }, secondsPerDay);
+    await this.knex('token').insert({
       user: user.id,
       refreshToken: token,
-      isQrToken: isQrToken
+      isQrToken: false
     });
 
     return { refreshToken: token, name: user.name, department: user.department, section: user.section };
   }
 
+  public async issueQrCodeRefreshToken(accessToken: string, account: string): Promise<apiif.IssueTokenResponseData> {
+
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+    const privilege = await this.getUserPrivilege(authUserInfo.id);
+
+    // QRコード発行の権限が無い場合はエラー
+    if (!privilege.issueQr) {
+      const error = new Error('qr code issueing not allowed.');
+      error.name = 'PermissionDeniedError';
+      throw error;
+    }
+
+    // 部門や部署に所属していない可能性があるのでLEFT JOINとする。
+    const user = await this.knex.select<{
+      id: number, available: boolean, account: string, password: string, name: string, department: string, section: string
+    }>({ id: 'user.id', available: 'user.available', account: 'user.account', name: 'user.name', department: 'department.name', section: 'section.name' })
+      .from('user')
+      .leftJoin('section', { 'user.section': 'section.id' })
+      .leftJoin('department', { 'section.department': 'department.id' })
+      .where('user.account', account)
+      .first();
+
+    if (!user.available) {
+      const error = new Error('user is not available.');
+      error.name = 'UserNotAvailableError';
+      throw error;
+    }
+
+    // QRコード用のトークン期限は10年とする
+    const secondsPerDay = 60 * 60 * 24;
+    const refreshToken = issueRefreshToken({ account: account }, secondsPerDay * 3650);
+    await this.knex('token').insert({
+      user: user.id,
+      refreshToken: refreshToken,
+      isQrToken: true
+    });
+
+    return { refreshToken: refreshToken, name: user.name, department: user.department, section: user.section };
+  }
+
   public async issueAccessToken(token: string) {
-    const knex = knexConnect(this.knexconfig);
-    const tokenData = await knex.select<{ account: string, tokenId: number, refreshToken: string }>(
+    const tokenData = await this.knex.select<{ account: string, tokenId: number, refreshToken: string }>(
       { account: 'user.account', tokenId: 'token.id', refreshToken: 'token.refreshToken' }
     )
       .from('user')
@@ -62,7 +119,9 @@ export class DatabaseAccess {
       .first();
 
     if (!tokenData) {
-      throw new Error('refresh token does not exist');
+      const error = new Error('refresh token does not exist.');
+      error.name = 'AuthenticationError';
+      throw error;
     }
 
     if (!verifyRefreshToken(token, { account: tokenData.account })) {
@@ -70,7 +129,7 @@ export class DatabaseAccess {
     }
 
     const accessToken = issueAccessToken({ account: tokenData.account }, 60);
-    await knex('token').update({
+    await this.knex('token').update({
       accessToken: accessToken
     })
       .where('id', tokenData.tokenId)
@@ -86,8 +145,7 @@ export class DatabaseAccess {
     phonetic: string,
     privilege: number
   }> {
-    const knex = knexConnect(this.knexconfig);
-    const userData = await knex.select<{ id: number, account: string, section: number, email: string, phonetic: string, privilege: number }>(
+    const userData = await this.knex.select<{ id: number, account: string, section: number, email: string, phonetic: string, privilege: number }>(
       { id: 'user.id', account: 'user.account', section: 'user.section', email: 'user.email', phonetic: 'user.phonetic', privilege: 'user.privilege' }
     )
       .from('user')
@@ -111,18 +169,16 @@ export class DatabaseAccess {
       throw new Error('refresh token verification failed.');
     }
 
-    const knex = knexConnect(this.knexconfig);
-    const user = await knex.select<{ id: number }>({ id: 'user.id' })
+    const user = await this.knex.select<{ id: number }>({ id: 'user.id' })
       .from('user')
       .where('user.account', account)
       .first();
 
-    await knex('token').where('user', user.id).del();
+    await this.knex('token').where('user', user.id).del();
   }
 
   public async deleteAllExpiredRefreshTokens() {
-    const knex = knexConnect(this.knexconfig);
-    const tokenData = await knex.select<{ account: string, tokenId: number, refreshToken: string }[]>(
+    const tokenData = await this.knex.select<{ account: string, tokenId: number, refreshToken: string }[]>(
       { account: 'user.account', tokenId: 'token.id', refreshToken: 'token.refreshToken' }
     )
       .from('token')
@@ -133,7 +189,7 @@ export class DatabaseAccess {
         verifyRefreshToken(token.refreshToken, { account: token.account });
       } catch (error: unknown) {
         if ((error as Error).name === 'TokenExpiredError') {
-          await knex('token').del().where('id', token.tokenId);
+          await this.knex('token').del().where('id', token.tokenId);
         }
         else {
           throw error;
@@ -146,9 +202,8 @@ export class DatabaseAccess {
   // 部署情報関連
   ///////////////////////////////////////////////////////////////////////
   public async getDepartments() {
-    const knex = knexConnect(this.knexconfig);
 
-    const sections = await knex
+    const sections = await this.knex
       .select<{ departmentName: string, sectionName: string }[]>
       ({ departmentName: 'department.name' }, { sectionName: 'section.name' })
       .from('section')
@@ -178,8 +233,7 @@ export class DatabaseAccess {
   // デバイス情報関連
   ///////////////////////////////////////////////////////////////////////
   public async getDevices() {
-    const knex = knexConnect(this.knexconfig);
-    const devices = await knex.table<models.Device>('device');
+    const devices = await this.knex.table<models.Device>('device');
 
     return devices.map((device) => { return <apiif.DevicesResponseData>{ name: device.name } });
   }
@@ -188,9 +242,8 @@ export class DatabaseAccess {
   // 申請タイプ情報関連
   ///////////////////////////////////////////////////////////////////////
   public async getApplyTypes() {
-    const knex = knexConnect(this.knexconfig);
 
-    const applyTypes = await knex
+    const applyTypes = await this.knex
       .select<{ name: string, description: string }[]>
       ({ name: 'name' }, { description: 'description' })
       .from('applyType');
@@ -199,9 +252,8 @@ export class DatabaseAccess {
   }
 
   public async getApplyOptionTypes(applyType: string) {
-    const knex = knexConnect(this.knexconfig);
 
-    const optionTypes = await knex
+    const optionTypes = await this.knex
       .select<{ typeName: string, typeDescription: string, optionName: string, optionDescription: string }[]>
       (
         { typeName: 'applyOptionType.name' }, { typeDescription: 'applyOptionType.description' },
@@ -245,50 +297,132 @@ export class DatabaseAccess {
   }) {
     const privilege = lodash.omit(privilegeData, ['id']);
 
-    const knex = knexConnect(this.knexconfig);
-    await knex('privilege').insert(privilege);
+    await this.knex('privilege').insert(privilege);
   }
 
   public async deletePrivilege(idOrName: string | number) {
-    const knex = knexConnect(this.knexconfig);
 
     if (typeof idOrName === 'string') {
-      return await knex('privilege').del().where('name', idOrName);
+      return await this.knex('privilege').del().where('name', idOrName);
     }
     else {
-      return await knex('privilege').del().where('id', idOrName);
+      return await this.knex('privilege').del().where('id', idOrName);
+    }
+  }
+
+  public async getUserPrivilege(idOrAccount: string | number): Promise<models.Privilege> {
+    if (typeof idOrAccount === 'string') {
+      return await this.knex.table<models.Privilege>('privilege')
+        .first()
+        .join('user', { 'user.privilege': 'privilege.id' })
+        .where('user.account', idOrAccount);
+    }
+    else {
+      return await this.knex.table<models.Privilege>('privilege')
+        .first()
+        .join('user', { 'user.privilege': 'privilege.id' })
+        .where('user.id', idOrAccount);
     }
   }
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連
   ///////////////////////////////////////////////////////////////////////
-  public async getUser(idOrAccount: string | number) {
-    const knex = knexConnect(this.knexconfig);
 
-    if (typeof idOrAccount === 'string') {
-      return await knex.table<models.User>('user').first().where('account', idOrAccount);
-    }
-    else {
-      return await knex.table<models.User>('user').first().where('id', idOrAccount);
-    }
+  public async getUsers(accessToken: string, params: {
+    byId?: number,
+    isAvailable?: boolean,
+    byAccount?: string,
+    byName?: string,
+    byPhonetic?: string,
+    bySection?: string,
+    byDepartment?: string,
+    registeredFrom?: Date,
+    registeredTo?: Date,
+    limit?: number,
+    offset?: number
+  }) {
+    type RecordResult = {
+      id: number,
+      isAvailable: boolean,
+      registeredAt: Date,
+      account: string,
+      name: string,
+      phonetic: string,
+      email: string,
+      department: string,
+      section: string
+      privilege: string,
+      qrCodeIssuedNum: number
+    };
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+    const result = await this.knex
+      .select<RecordResult[]>
+      (
+        { id: 'user.id' }, { isAvailable: 'user.available' }, { registeredAt: 'user.registeredAt' }, { account: 'user.account' }, { name: 'user.name' }, { email: 'user.email' },
+        { phonetic: 'user.phonetic' }, { department: 'department.name' }, { section: 'section.name' }, { privilege: 'privilege.name' },
+      )
+      .count('token.isQrToken', { as: 'qrCodeIssuedNum' })
+      .from('user')
+      .leftJoin('section', { 'section.id': 'user.section' })
+      .leftJoin('department', { 'department.id': 'section.department' })
+      .join('privilege', { 'privilege.id': 'user.privilege' })
+      .leftJoin('token', { 'token.user': 'user.id' })
+      .where(function (builder) {
+        if (params.byId) {
+          builder.where('user.id', params.byId);
+        }
+
+        if (params.isAvailable === false) {
+          builder.where('user.available', false);
+        }
+        else {
+          builder.where('user.available', true);
+        }
+
+        if (params.byAccount) {
+          builder.where('user.account', params.byAccount);
+        }
+        if (params.byName) {
+          builder.where('user.name', 'like', `%${params.byName}%`);
+        }
+        if (params.byPhonetic) {
+          builder.where('user.phonetic', 'like', `%${params.byPhonetic}%`);
+        }
+        if (params.bySection) {
+          builder.where('section.name', 'like', `%${params.bySection}%`);
+        }
+        if (params.byDepartment) {
+          builder.where('department.name', 'like', `%${params.byDepartment}%`);
+        }
+        if (params.registeredFrom && params.registeredTo) {
+          builder.whereBetween('timestamp', [params.registeredFrom, params.registeredTo]);
+        }
+        else if (params.registeredFrom) {
+          builder.where('timestamp', '>=', params.registeredFrom);
+        }
+        else if (params.registeredTo) {
+          builder.where('timestamp', '<=', params.registeredTo);
+        }
+      })
+      .groupBy('user.id')
+      .modify(function (builder) {
+        if (params.limit) {
+          builder.limit(params.limit);
+        }
+        if (params.offset) {
+          builder.offset(params.offset);
+        }
+      });
+
+    return <RecordResult[]>result;
   }
 
-  public async getUsersByName(name: string) {
-    const knex = knexConnect(this.knexconfig);
-
-    return await knex.table<models.User>('user').where('name', 'like', `%${name}%`);
-  }
-
-  public async getUsersByPhonetic(phonetic: string) {
-    const knex = knexConnect(this.knexconfig);
-
-    return await knex.table<models.User>('user').where('phonetic', 'like', `%${phonetic}%`);
-  }
-
-  public async registerUser(userData: models.User, password: string, params?: {
+  public async registerUser(accessToken: string, userData: models.User, password: string, params?: {
     department?: string, section?: string, privilege?: string
   }) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
     const user = lodash.omit(userData, ['id']);
     user.password = hashPassword(password);
 
@@ -298,44 +432,153 @@ export class DatabaseAccess {
 
     }
 
-    const knex = knexConnect(this.knexconfig);
-    await knex('user').insert(user);
+    await this.knex('user').insert(user);
   }
 
   public async deleteUser(idOrAccount: number | string) {
-    const knex = knexConnect(this.knexconfig);
 
     if (typeof idOrAccount === 'string') {
-      return await knex('user').del().where('account', idOrAccount);
+      return await this.knex('user').del().where('account', idOrAccount);
     }
     else {
-      return await knex('user').del().where('id', idOrAccount);
+      return await this.knex('user').del().where('id', idOrAccount);
     }
   }
 
-  public async changeUserPassword(token: string, account: string | null, oldPassword: string, newPassword: string) {
-    const authUserInfo = await this.getUserInfoFromAccessToken(token);
-    const knex = knexConnect(this.knexconfig);
+  public async changeUserPassword(accessToken: string, account: string | null, oldPassword: string, newPassword: string) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
     if (!account) {
-      const userInfo = await knex.table<models.User>('user').first().where('id', authUserInfo.id);
+      const userInfo = await this.knex.table<models.User>('user').first().where('id', authUserInfo.id);
       if (!verifyPassword(userInfo.password, oldPassword)) {
         throw new Error('invalid password');
       }
-      await knex('user').update({
+      await this.knex('user').update({
         password: hashPassword(newPassword)
       })
         .where('id', userInfo.id);
     } else {
-      const userInfo = await knex.table<models.User>('user').first().where('account', account);
+      const userInfo = await this.knex.table<models.User>('user').first().where('account', account);
       if (!verifyPassword(userInfo.password, oldPassword)) {
-        throw new Error('invalid password');
+        const error = new Error('password verification failed.');
+        error.name = 'AuthenticationError';
+        throw error;
       }
-      await knex('user').update({
+      await this.knex('user').update({
         password: hashPassword(newPassword)
       })
         .where('id', userInfo.id);
     }
+  }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 打刻情報関連
+  ///////////////////////////////////////////////////////////////////////
+
+  public async putRecord(accessToken: string, type: string, timestamp: Date, device?: string) {
+
+    // type はデータベースから取得済のキャッシュを利用する
+    if (!(type in DatabaseAccess.recordTypeCache)) {
+      throw new Error('invalid type');
+    }
+
+    const userInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    await this.knex('record').insert([
+      {
+        user: userInfo.id,
+        type: DatabaseAccess.recordTypeCache[type].id,
+        device: device,
+        timestamp: timestamp
+      }
+    ]);
+  }
+
+  public async getRecords(params: {
+    byUserAccount?: string,
+    byUserName?: string,
+    bySection?: string,
+    byDepartment?: string,
+    byDevice?: string,
+    sortBy?: 'byUserAccount' | 'byUserName' | 'bySection' | 'byDepartment',
+    sortDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
+    from?: Date,
+    to?: Date,
+    sortDateDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
+    limit?: number,
+    offset?: number
+  }) {
+    type RecordResult = {
+      id: number,
+      type: string,
+      typeDescription: string,
+      timestamp: Date,
+      userAccount: string,
+      userName: string,
+      department?: string,
+      section?: string
+    };
+
+    const result = await this.knex
+      .select<RecordResult[]>
+      (
+        { id: 'record.id' }, { type: 'recordType.name' }, { typeDescription: 'recordType.description' },
+        { timestamp: 'record.timestamp' }, { userAccount: 'user.account' }, { userName: 'user.name' }, { department: 'department.name' }, { section: 'section.name' }
+      )
+      .from('record')
+      .join('recordType', { 'recordType.id': 'record.type' })
+      .join('user', { 'user.id': 'record.user' })
+      .join('device', { 'device.id': 'record.device' })
+      .leftJoin('section', { 'section.id': 'user.section' })
+      .leftJoin('department', { 'department.id': 'section.department' })
+      .where(function (builder) {
+        if (params.byUserAccount) {
+          builder.where('user.account', 'like', `%${params.byUserAccount}%`);
+        }
+        if (params.byUserName) {
+          builder.where('user.name', 'like', `%${params.byUserName}%`);
+        }
+        if (params.bySection) {
+          builder.where('section.name', 'like', `%${params.bySection}%`);
+        }
+        if (params.byDepartment) {
+          builder.where('department.name', 'like', `%${params.byDepartment}%`);
+        }
+        if (params.byDevice) {
+          builder.where('department.name', 'like', `%${params.byDepartment}%`);
+        }
+        if (params.from && params.to) {
+          builder.whereBetween('timestamp', [params.from, params.to]);
+        }
+        else if (params.from) {
+          builder.where('timestamp', '>=', params.from);
+        }
+        else if (params.to) {
+          builder.where('timestamp', '<=', params.to);
+        }
+      })
+      .modify(function (builder) {
+        if (params.sortBy === 'byUserAccount') {
+          builder.orderBy('user.account', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'byUserName') {
+          builder.orderBy('user.name', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'byDepartment') {
+          builder.orderBy('department.name', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'bySection') {
+          builder.orderBy('section.name', params.sortDesc ? 'desc' : 'asc')
+        }
+        if (params.limit) {
+          builder.limit(params.limit);
+        }
+        if (params.offset) {
+          builder.offset(params.offset);
+        }
+      });
+
+    return result;
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -345,9 +588,8 @@ export class DatabaseAccess {
   public async queueMail(params: {
     from: string, to: string, cc?: string, subject: string, body: string
   }) {
-    const knex = knexConnect(this.knexconfig);
 
-    await knex('mailQueue').insert([
+    await this.knex('mailQueue').insert([
       {
         from: params.from,
         to: params.to,
@@ -360,9 +602,8 @@ export class DatabaseAccess {
   }
 
   public async getMails() {
-    const knex = knexConnect(this.knexconfig);
 
-    return await knex
+    return await this.knex
       .select<{ id: number, from: string, to: string, cc: string, subject: string, body: string, timestamp: Date }[]>
       (
         { id: 'id' }, { from: 'from' }, { to: 'to' }, { cc: 'cc' }, { subject: 'subject' }, { body: 'body' }, { timestamp: 'timestamp' }
@@ -371,9 +612,7 @@ export class DatabaseAccess {
   }
 
   public async deleteMail(id: number) {
-    const knex = knexConnect(this.knexconfig);
-
-    await knex('mailQueue').where('id', id).del();
+    await this.knex('mailQueue').where('id', id).del();
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -381,10 +620,9 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
 
   public async getSmtpServerInfo() {
-    const knex = knexConnect(this.knexconfig);
 
-    if (await knex.schema.hasTable('config')) {
-      const configValues = await knex
+    if (await this.knex.schema.hasTable('config')) {
+      const configValues = await this.knex
         .select<{ key: string, value: string }[]>
         ({ key: 'key' }, { value: 'value' })
         .from('config')
