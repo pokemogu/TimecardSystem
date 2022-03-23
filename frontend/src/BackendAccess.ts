@@ -93,6 +93,7 @@ export class TokenAccess {
     byDepartment?: string,
     registeredFrom?: Date,
     registeredTo?: Date,
+    isQrCodeIssued?: boolean,
     limit?: number,
     offset?: number
   }) {
@@ -109,6 +110,7 @@ export class TokenAccess {
             section: params.bySection,
             registeredFrom: params.registeredFrom?.toISOString(),
             registeredTo: params.registeredTo?.toISOString(),
+            isQrCodeIssued: params.isQrCodeIssued,
             limit: params.limit,
             offset: params.offset
           }
@@ -133,12 +135,10 @@ export class TokenAccess {
     }
   }
 
-  public async record(recordType: string, timestamp: Date) {
+  public async record(recordType: string, timestamp: Date, deviceName?: string, deviceRefreshToken?: string) {
     try {
-      return (await axios.post<{
-        message: string,
-      }>(`${urlPrefix}/api/record/${recordType}`,
-        { timestamp: timestamp.toISOString() },
+      return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/record/${recordType}`,
+        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), device: deviceName, deviceToken: deviceRefreshToken },
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (axiosError) {
@@ -202,6 +202,27 @@ export class TokenAccess {
     try {
       const filter = isUnapproved ? 'unapproved' : (isApproved ? 'approved' : (isRejected ? 'rejected' : undefined));
       return (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply` + (filter ? `?filter=${filter}` : ''),
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
+      )).data;
+    } catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async issueRefreshTokenForOtherUser(account: string) {
+    try {
+      return (await axios.post<apiif.IssueTokenResponseBody>(`${urlPrefix}/api/token/issue/${account}`,
+        {},
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (axiosError) {
@@ -287,6 +308,25 @@ export async function getApplyTypeOptions(applyType: string) {
         }[]
       }[]
     }>(`${urlPrefix}/api/options/apply/${applyType}`, { timeout: timeout })).data;
+  } catch (axiosError) {
+    if (axios.isAxiosError(axiosError)) {
+      const error = new Error();
+      if (axiosError.response) {
+        error.name = axiosError.response.status.toString();
+        error.message = (axiosError.response?.data as { message: string }).message;
+      }
+      throw error;
+    }
+    else {
+      throw axiosError;
+    }
+  }
+}
+
+
+export async function getUserAccountCandidates() {
+  try {
+    return (await axios.get<apiif.UserAccountCandidatesResponseBody>(`${urlPrefix}/api/user/account-candidates`, { timeout: timeout })).data.candidates;
   } catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {
       const error = new Error();

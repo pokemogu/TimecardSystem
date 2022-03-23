@@ -33,8 +33,13 @@ export const useSessionStore = defineStore({
           return false;
         }
       } catch (error) {
-        console.log(error);
-        return false;
+        const err = error as Error;
+        if (err.name === '401') {
+          return false;
+        }
+        else {
+          throw error;
+        }
       }
     },
     async getToken(refreshToken: string | null = null) {

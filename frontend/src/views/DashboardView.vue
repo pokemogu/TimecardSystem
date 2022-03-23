@@ -95,7 +95,11 @@ const store = useSessionStore();
         <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/issueqr" class="btn btn-warning btn-sm" role="button">従業員照会(QRコード)</RouterLink>
+        <RouterLink
+          :to="{ name: 'admin-users' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >従業員照会(QRコード)</RouterLink>
       </div>
     </div>
 

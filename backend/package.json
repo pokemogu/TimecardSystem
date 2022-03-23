@@ -19,7 +19,11 @@
     "test": "jest --passWithNoTests --forceExit"
   },
   "jest": {
-    "preset": "ts-jest"
+    "preset": "ts-jest",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/"
+    ]
   },
   "repository": {
     "type": "git",

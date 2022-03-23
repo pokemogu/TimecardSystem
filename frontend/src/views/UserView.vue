@@ -4,23 +4,17 @@ import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
-import ApplyForm from '@/components/ApplyForm.vue';
 
 import * as backendAccess from '@/BackendAccess';
-
-import cardImageUrl from '../static/cardframe.png';
 
 const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
 
-async function onSubmit() {
-  const response = await fetch(cardImageUrl);
-  const buffer = await response.arrayBuffer();
-  console.log("YES!!! " + buffer.byteLength);
+console.log();
 
-  router.push({ name: 'dashboard' });
-}
+const account = ref(route.params.account ? route.params.account as string : '');
+const isExistingAccount = ref(route.params.account ? true : false);
 
 const departmentList = ref<{
   name: string
@@ -38,6 +32,44 @@ backendAccess.getDepartments()
     }
   });
 
+let candidateCycle = 0;
+const receivedCandidates: string[] = [];
+
+async function onGenerateAccount() {
+
+  if (receivedCandidates.length < 1) {
+    const candidates = await backendAccess.getUserAccountCandidates();
+    if (candidates) {
+      Array.prototype.push.apply(receivedCandidates, candidates);
+    }
+  }
+
+  if (receivedCandidates.length > 0) {
+    account.value = receivedCandidates[candidateCycle];
+    candidateCycle = ((candidateCycle + 1) >= receivedCandidates.length) ? 0 : (candidateCycle + 1)
+  }
+}
+
+async function onSubmit() {
+  if (isExistingAccount.value === true) {
+    if (confirm('この内容で修正しますか？')) {
+    }
+  }
+  else {
+    if (confirm('この内容で登録しますか？')) {
+    }
+  }
+
+  router.push({ name: 'admin-users' });
+}
+
+async function onDeleteAccount() {
+  if (confirm('本当にこの従業員を削除しますか？')) {
+    alert('従業員の削除が完了しました。');
+    router.push({ name: 'admin-users' });
+  }
+}
+
 </script>
 
 <template>
@@ -46,7 +78,7 @@ backendAccess.getDepartments()
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="従業員登録画面"
+          :titleName="isExistingAccount ? '従業員照会画面' : '従業員登録画面'"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
           v-on:customButton1="router.push({ name: 'dashboard' })"
@@ -69,8 +101,18 @@ backendAccess.getDepartments()
                       class="form-control"
                       pattern="^[0-9A-Za-z]+$"
                       title="半角英数字のみ入力可能です"
+                      v-bind:disabled="isExistingAccount"
+                      v-model="account"
+                      required
                     />
-                    <button class="btn btn-outline-secondary" type="button" id="button-addon2">AUTO</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="onGenerateAccount"
+                      v-show="!isExistingAccount"
+                      title="英字で始まり数字で終わるパターンのIDを既存IDを元に自動生成します(例: USR00100)。該当するパターンの既存IDが存在しない場合は自動生成できませんので手動入力してください。"
+                    >AUTO</button>
                   </div>
                 </div>
               </div>
@@ -246,7 +288,19 @@ backendAccess.getDepartments()
           </div>
           <div class="row justify-content-center m-1">
             <div class="d-grid col-6 gap-2">
-              <input type="submit" class="btn btn-warning btn-lg" value="登録" />
+              <input
+                type="submit"
+                class="btn btn-warning btn-lg"
+                :value="isExistingAccount ? '修正' : '登録'"
+              />
+            </div>
+            <div class="d-grid col-2 gap-2" v-if="isExistingAccount">
+              <input
+                type="button"
+                class="btn btn-danger btn-lg"
+                value="従業員削除"
+                v-on:click="onDeleteAccount"
+              />
             </div>
           </div>
         </form>

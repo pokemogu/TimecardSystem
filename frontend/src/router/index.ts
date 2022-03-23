@@ -63,16 +63,22 @@ const router = createRouter({
       meta: { title: `${appName} - 承認一覧画面` }
     },
     {
-      path: '/admin/reguser',
+      path: '/admin/user/:account',
+      name: 'admin-user',
+      component: () => import('@/views/UserView.vue'),
+      meta: { title: `${appName} - 従業員照会` }
+    },
+    {
+      path: '/admin/user',
       name: 'admin-reguser',
-      component: () => import('@/views/RegisterUserView.vue'),
+      component: () => import('@/views/UserView.vue'),
       meta: { title: `${appName} - 従業員登録` }
     },
     {
-      path: '/admin/issueqr',
-      name: 'admin-issueqr',
+      path: '/admin/users',
+      name: 'admin-users',
       component: () => import('@/views/IssueQrCodeView.vue'),
-      meta: { title: `${appName} - QRコード発行` }
+      meta: { title: `${appName} - 従業員照会(QRコード)` }
     }
   ]
 });

@@ -35,6 +35,23 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
   const knex = knexConnect(knexconfig);
   DatabaseAccess.initCache(knex);
 
+  app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const users = await access.generateAvailableUserAccount();
+      const user = users[0];
+
+      res.send({
+        message: 'ok',
+        candidates: await access.generateAvailableUserAccount()
+      });
+    } catch (error) {
+      const err = error as Error;
+      res.status(400);
+      res.send({ message: error.message });
+    }
+  });
+
   app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -81,9 +98,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
       res.send({ message: error.message });
     }
   });
-  interface Foo {
-    foo: string;
-  }
+
   app.get<{}, apiif.UserInfosResponseBody, {}, apiif.UserInfoRequestQuery>('/api/user', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -104,35 +119,30 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         byDepartment: req.query.department,
         bySection: req.query.section,
         byPhonetic: req.query.phonetic,
+        registeredFrom: req.query.registeredFrom ? new Date(req.query.registeredFrom) : undefined,
+        registeredTo: req.query.registeredTo ? new Date(req.query.registeredTo) : undefined,
+        isQrCodeIssued: req.query.isQrCodeIssued,
         limit: req.query.limit,
         offset: req.query.offset
       });
 
-      if (users.length === 0) {
-        res.status(404);
-        res.send({
-          message: 'cannot find'
-        });
-      }
-      else {
-        res.send({
-          message: 'ok',
-          infos: users.map<apiif.UserInfoResponseData>((user) => {
-            return {
-              id: user.id,
-              available: user.isAvailable,
-              registeredAt: user.registeredAt.toISOString(),
-              account: user.account,
-              name: user.name,
-              phonetic: user.phonetic,
-              email: user.email,
-              section: user.section,
-              department: user.department,
-              qrCodeIssueNum: user.qrCodeIssuedNum
-            }
-          })
-        });
-      }
+      res.send({
+        message: 'ok',
+        infos: users.map<apiif.UserInfoResponseData>((user) => {
+          return {
+            id: user.id,
+            available: user.isAvailable,
+            registeredAt: user.registeredAt.toISOString(),
+            account: user.account,
+            name: user.name,
+            phonetic: user.phonetic,
+            email: user.email,
+            section: user.section,
+            department: user.department,
+            qrCodeIssueNum: user.qrCodeIssuedNum
+          }
+        })
+      });
     } catch (error) {
       const err = error as Error;
       res.status(400);
@@ -160,6 +170,43 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         res.send({ message: err.message });
       }
       else {
+        res.status(400);
+        res.send({ message: err.message });
+      }
+    }
+  });
+
+  app.post<{ account: string }, apiif.IssueTokenResponseBody>('/api/token/issue/:account', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const issuerToken = getUserFromTokenHeader(authHeader);
+      if (!issuerToken) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const token = await access.issueQrCodeRefreshToken(issuerToken, req.params.account);
+      res.send({
+        message: 'ok',
+        token: token
+      });
+    }
+    catch (error) {
+      const err = error as Error;
+      if (err.name === 'AuthenticationError') {
+        res.status(401);
+        res.send({ message: err.message });
+      }
+      else if (err.name === 'UserNotAvailableError') {
+        res.status(403);
+        res.send({ message: err.message });
+      }
+      else {
+        console.log(error);
         res.status(400);
         res.send({ message: err.message });
       }

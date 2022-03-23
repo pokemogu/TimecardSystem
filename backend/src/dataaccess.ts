@@ -45,6 +45,12 @@ export class DatabaseAccess {
       .where('user.account', account)
       .first();
 
+    if (!user) {
+      const error = new Error('password verification failed.');
+      error.name = 'AuthenticationError';
+      throw error;
+    }
+
     if (!verifyPassword(user.password, password)) {
       const error = new Error('password verification failed.');
       error.name = 'AuthenticationError';
@@ -83,13 +89,13 @@ export class DatabaseAccess {
 
     // 部門や部署に所属していない可能性があるのでLEFT JOINとする。
     const user = await this.knex.select<{
-      id: number, available: boolean, account: string, password: string, name: string, department: string, section: string
+      id: number, available: boolean, account: string, name: string, department: string, section: string
     }>({ id: 'user.id', available: 'user.available', account: 'user.account', name: 'user.name', department: 'department.name', section: 'section.name' })
       .from('user')
       .leftJoin('section', { 'user.section': 'section.id' })
       .leftJoin('department', { 'section.department': 'department.id' })
       .where('user.account', account)
-      .first();
+      .first()
 
     if (!user.available) {
       const error = new Error('user is not available.');
@@ -339,6 +345,7 @@ export class DatabaseAccess {
     byDepartment?: string,
     registeredFrom?: Date,
     registeredTo?: Date,
+    isQrCodeIssued?: boolean,
     limit?: number,
     offset?: number
   }) {
@@ -362,7 +369,7 @@ export class DatabaseAccess {
         { id: 'user.id' }, { isAvailable: 'user.available' }, { registeredAt: 'user.registeredAt' }, { account: 'user.account' }, { name: 'user.name' }, { email: 'user.email' },
         { phonetic: 'user.phonetic' }, { department: 'department.name' }, { section: 'section.name' }, { privilege: 'privilege.name' },
       )
-      .count('token.isQrToken', { as: 'qrCodeIssuedNum' })
+      .sum('token.isQrToken', { as: 'qrCodeIssuedNum' })
       .from('user')
       .leftJoin('section', { 'section.id': 'user.section' })
       .leftJoin('department', { 'department.id': 'section.department' })
@@ -396,13 +403,24 @@ export class DatabaseAccess {
           builder.where('department.name', 'like', `%${params.byDepartment}%`);
         }
         if (params.registeredFrom && params.registeredTo) {
-          builder.whereBetween('timestamp', [params.registeredFrom, params.registeredTo]);
+          builder.whereBetween('registeredAt', [params.registeredFrom, params.registeredTo]);
         }
         else if (params.registeredFrom) {
-          builder.where('timestamp', '>=', params.registeredFrom);
+          builder.where('registeredAt', '>=', params.registeredFrom);
         }
         else if (params.registeredTo) {
-          builder.where('timestamp', '<=', params.registeredTo);
+          builder.where('registeredAt', '<=', params.registeredTo);
+        }
+      })
+      .modify(function (builder) {
+        if (params.isQrCodeIssued !== undefined && params.isQrCodeIssued !== null) {
+          if (params.isQrCodeIssued.toString() === 'true') {
+            builder.having('qrCodeIssuedNum', '>', 0);
+          }
+          else if (params.isQrCodeIssued.toString() === 'false') {
+            builder.havingRaw('qrCodeIssuedNum is null');
+            builder.orHaving('qrCodeIssuedNum', '=', 0);
+          }
         }
       })
       .groupBy('user.id')
@@ -413,9 +431,48 @@ export class DatabaseAccess {
         if (params.offset) {
           builder.offset(params.offset);
         }
-      });
+      })
+      .orderBy('user.registeredAt', 'desc');
 
     return <RecordResult[]>result;
+  }
+
+  public async generateAvailableUserAccount() {
+    const result = await this.knex
+      .select<{ account: string }[]>
+      (
+        { account: 'account' }
+      )
+      .from('user');
+
+    const users = result as { account: string }[];
+
+    const candidates: { prefix: string, id: number, length: number }[] = [];
+    for (const user of users) {
+      const account = user.account;
+      const matches = account.match(/^(\D+)(\d+)$/);
+      if (matches && matches.length > 2) {
+        const prefix = matches[1];
+        const id = parseInt(matches[2]);
+        const length = matches[2].length;
+
+        const index = candidates.findIndex(candidate => candidate.prefix === prefix && candidate.length === length);
+        if (index < 0) {
+          candidates.push({
+            prefix: prefix,
+            id: id,
+            length: length
+          });
+        }
+        else {
+          if (id >= candidates[index].id) {
+            candidates[index].id = id + 1;
+          }
+        }
+      }
+    }
+
+    return candidates.map(candidate => candidate.prefix + candidate.id.toString().padStart(candidate.length, '0'));
   }
 
   public async registerUser(accessToken: string, userData: models.User, password: string, params?: {
@@ -475,7 +532,7 @@ export class DatabaseAccess {
   // 打刻情報関連
   ///////////////////////////////////////////////////////////////////////
 
-  public async putRecord(accessToken: string, type: string, timestamp: Date, device?: string) {
+  public async putRecord(accessToken: string, type: string, timestamp: Date, device?: string, deviceToken?: string) {
 
     // type はデータベースから取得済のキャッシュを利用する
     if (!(type in DatabaseAccess.recordTypeCache)) {

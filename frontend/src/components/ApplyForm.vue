@@ -123,7 +123,7 @@ function onSubmit() {
           <div class="card border-dark">
             <div class="card-header m-0 p-1 bg-dark text-white">申請</div>
             <div class="card-body m-0 p-1">
-              <p class="card-text fs-6 m-0">2022/03/05</p>
+              <p class="card-text fs-6 m-0">{{ new Date().toLocaleDateString() }}</p>
               <p class="card-title fs-6 m-0">{{ props.userName }}</p>
             </div>
           </div>
@@ -158,7 +158,9 @@ function onSubmit() {
         <div class="col-6">
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">申請日</div>
-            <div class="col-9 bg-white text-black border border-dark">2022/03/06</div>
+            <div
+              class="col-9 bg-white text-black border border-dark"
+            >{{ new Date().toLocaleDateString() }}</div>
           </div>
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">所属</div>

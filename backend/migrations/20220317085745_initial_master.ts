@@ -85,21 +85,16 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('workPattern', function (table) {
       table.increments('id');
       table.string('name').notNullable().unique();
-      table.integer('fixedMinutesOfDayFrom').unsigned();
-      table.integer('fixedMinutesOfDayTo').unsigned();
-      table.integer('overtimeMinutes').unsigned();
-      table.integer('holidayWorkWageRate').unsigned();
-      table.integer('extraOvertimeMinutesOfDayFrom').unsigned();
-      table.integer('extraOvertimeMinutesOfDayTo').unsigned();
-      table.integer('nightMinutesOfDayFrom').unsigned();
-      table.integer('nightMinutesOfDayTo').unsigned();
-      table.integer('nightWorkWageRate').unsigned();
-      table.integer('extraNightMinutesOfDayFrom').unsigned();
-      table.integer('extraNightMinutesOfDayTo').unsigned();
-      table.integer('maxAllowedLateHoursPerMonth').unsigned();
-      table.integer('maxAllowedLateNumPerMonth').unsigned();
-      table.integer('wageCalculationMinutes').unsigned();
-      table.integer('measureLeaveWageRate').unsigned();
+      table.time('onTimeStart').notNullable();
+      table.time('onTimeEnd').notNullable();
+      table.time('overtimeStart');
+      table.time('overtimeEnd');
+      table.time('extraOvertimeStart');
+      table.time('extraOvertimeEnd');
+      table.time('midnightWorkStart');
+      table.time('midnightWorkEnd');
+      table.time('maxAllowedLateHoursPerMonth');
+      table.time('maxAllowedLateNumberPerMonth');
     });
 
     await knex.schema.createTable('user', function (table) {
@@ -129,6 +124,16 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
       table.integer('workPattern').unsigned().notNullable();
+
+      table.foreign('user').references('id').inTable('user');
+      table.foreign('workPattern').references('id').inTable('workPattern');
+    });
+
+    await knex.schema.createTable('userWorkPatternCalendar', function (table) {
+      table.increments('id');
+      table.integer('user').unsigned().notNullable().index();
+      table.integer('workPattern').unsigned().notNullable();
+      table.date('date').notNullable();
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('workPattern').references('id').inTable('workPattern');
@@ -373,6 +378,7 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('recordType');
   await knex.schema.dropTableIfExists('token');
   await knex.schema.dropTableIfExists('userWorkPattern');
+  await knex.schema.dropTableIfExists('userWorkPatternCalendar');
   await knex.schema.dropTableIfExists('user');
   await knex.schema.dropTableIfExists('workPattern');
   await knex.schema.dropTableIfExists('privilege');

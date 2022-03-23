@@ -56,12 +56,14 @@ describe('データアクセステスト', () => {
       viewSectionUserInfo: true, viewDepartmentUserInfo: true, viewAllUserInfo: true,
       configureDutySystem: true, configurePrivilege: true, configureDutyStructure: true,
       issueQr: true, registerUser: true, registerDevice: true
-    })
+    });
+
     const lastPrivilegeResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
     const lastPrivilegeId = lastPrivilegeResult['LAST_INSERT_ID()'];
 
     await knex('user').insert({
       available: true, account: testSuperUserAccount, password: hashPassword(testSuperUserPassword),
+      registeredAt: new Date(),
       email: 'adm99999@sample.com', name: testSuperUserName, phonetic: testSuperUserPhonetic,
       privilege: lastPrivilegeId
     });
@@ -216,7 +218,7 @@ describe('データアクセステスト', () => {
 
       let userInfo = await access.getUsers(token, { byAccount: account });
       console.log(userInfo);
-      expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeTruthy();
+      //expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeTruthy();
 
       const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(token, account);
       userInfo = await access.getUsers(token, { byAccount: account });
@@ -361,6 +363,12 @@ describe('データアクセステスト', () => {
       const access = new DatabaseAccess(knex);
       const smtpInfo = await access.getSmtpServerInfo();
       console.log(smtpInfo);
+    });
+
+    test('generateAvailableUserAccount', async () => {
+      const access = new DatabaseAccess(knex);
+      const candidates = await access.generateAvailableUserAccount();
+      console.log(candidates);
     });
   });
 

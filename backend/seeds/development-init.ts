@@ -3,6 +3,23 @@ import { hashPassword } from '../src/auth';
 import { fakeNames } from '../../fakeNames';
 import * as models from '../../shared/models';
 
+function generateRandom(min = 0, max = 100) {
+
+  // find diff
+  let difference = max - min;
+
+  // generate random number 
+  let rand = Math.random();
+
+  // multiply with difference 
+  rand = Math.floor(rand * difference);
+
+  // add with min value 
+  rand = rand + min;
+
+  return rand;
+}
+
 export async function seed(knex: Knex): Promise<void> {
 
   await knex('device').del();
@@ -243,11 +260,15 @@ export async function seed(knex: Knex): Promise<void> {
       privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
     }
 
+    const randMillisec = generateRandom(0, 1000 * 60 * 60 * 24 * 365);
+    const registeredDate = new Date();
+    registeredDate.setTime(registeredDate.getTime() - randMillisec);
+
     const usrnum = i.toString().padStart(5, '0');
     fakeUsers.push({
       available: true,
       account: 'USR' + usrnum,
-      registeredAt: new Date(),
+      registeredAt: registeredDate,
       name: fakeNames[i].name,
       password: hashPassword('P@ss' + usrnum),
       email: 'usr' + usrnum + '@sample.co.jp',

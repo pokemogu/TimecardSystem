@@ -49,6 +49,7 @@ export interface UserInfoRequestQuery {
   section?: string,
   registeredFrom?: string,
   registeredTo?: string,
+  isQrCodeIssued?: boolean,
   limit?: number,
   offset?: number
 }
@@ -74,6 +75,11 @@ export interface UserInfoResponseData {
 export interface UserInfoResponseBody {
   message: string,
   info?: UserInfoResponseData
+}
+
+export interface UserAccountCandidatesResponseBody {
+  message: string,
+  candidates?: string[]
 }
 
 export interface RecordRequestBody {
