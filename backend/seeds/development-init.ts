@@ -27,17 +27,20 @@ export async function seed(knex: Knex): Promise<void> {
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
+  await knex('role').del();
 
   // 部署情報
   await knex('department').insert([
     { name: '名古屋事業所' },
     { name: '浜松工場' },
-    { name: '東名工場' }
+    { name: '東名工場' },
+    { name: '[所属なし]' }
   ]);
 
   const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
   const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
   const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
+  const departmentNone = (await knex.first<{ id: number }>('id').from('department').where('name', '[所属なし]')).id;
   await knex('section').insert([
     { department: departmentNagoya, name: '第一営業部' },
     { department: departmentNagoya, name: '第二営業部' },
@@ -50,9 +53,10 @@ export async function seed(knex: Knex): Promise<void> {
     { department: departmentHamamatsu, name: '総務部' },
     { department: departmentTomei, name: '製造部' },
     { department: departmentTomei, name: '品質保証部' },
-    { department: departmentNagoya, name: '' },
-    { department: departmentHamamatsu, name: '' },
-    { department: departmentTomei, name: '' },
+    { department: departmentNagoya, name: '[部署なし]' },
+    { department: departmentHamamatsu, name: '[部署なし]' },
+    { department: departmentTomei, name: '[部署なし]' },
+    { department: departmentNone, name: '[部署なし]' },
   ]);
 
   // 端末情報
@@ -105,6 +109,23 @@ export async function seed(knex: Knex): Promise<void> {
       registerUser: true, registerDevice: true,
       viewAllUserInfo: true
     },
+    {
+      name: '役員',
+      recordByLogin: true, configureDutySystem: true, configurePrivilege: true, configureDutyStructure: true, issueQr: true,
+      registerUser: true, registerDevice: true,
+      viewAllUserInfo: true
+    },
+  ]);
+
+  // 承認権限情報
+  await knex('role').insert([
+    { name: '承認者2(主)', level: 2 },
+    { name: '承認者3(主)', level: 3 },
+    { name: '承認者1(主)', level: 1 },
+    { name: '決済者', level: 10 },
+    { name: '承認者2(副)', level: 2 },
+    { name: '承認者1(副)', level: 1 },
+    { name: '承認者3(副)', level: 3 },
   ]);
 
   // ユーザー情報
@@ -119,10 +140,12 @@ export async function seed(knex: Knex): Promise<void> {
     .from('privilege');
 
   const fakeUsers: models.User[] = [];
-  for (let i = 0; i < fakeNames.length; i++) {
+  for (let i = 0; i < fakeNames.length + 1; i++) {
 
     let section = 0;
     let privilege = 0;
+    let name = i < fakeNames.length ? fakeNames[i].name : '';
+    let phonetic = i < fakeNames.length ? fakeNames[i].phonetic : '';
     if (i < 30) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '製造パート').id
@@ -240,15 +263,15 @@ export async function seed(knex: Knex): Promise<void> {
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
     }
     else if (i < 292) {
-      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '').section
+      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
     }
     else if (i < 293) {
-      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '').section
+      section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
     }
     else if (i < 295) {
-      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '').section
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
     }
     else if (i < 298) {
@@ -258,6 +281,12 @@ export async function seed(knex: Knex): Promise<void> {
     else if (i < 300) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
       privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
+    }
+    else if (i < 301) {
+      section = sections.find(section => section.departmentName === '[所属なし]' && section.sectionName === '[部署なし]').section
+      privilege = privileges.find(privilege => privilege.name === '役員').id
+      name = '後藤 秀幸';
+      phonetic = 'ゴトウ ヒデユキ';
     }
 
     const randMillisec = generateRandom(0, 1000 * 60 * 60 * 24 * 365);
@@ -269,10 +298,10 @@ export async function seed(knex: Knex): Promise<void> {
       available: true,
       account: 'USR' + usrnum,
       registeredAt: registeredDate,
-      name: fakeNames[i].name,
+      name: name,
       password: hashPassword('P@ss' + usrnum),
       email: 'usr' + usrnum + '@sample.co.jp',
-      phonetic: fakeNames[i].phonetic,
+      phonetic: phonetic,
       privilege: privilege,
       section: section,
     });

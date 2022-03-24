@@ -243,9 +243,10 @@ export class TokenAccess {
 
 export async function getToken(refreshToken: string) {
   try {
-    return (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
+    const data = (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
       refreshToken: refreshToken
     }, { timeout: timeout })).data;
+    return data;
   }
   catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {
@@ -273,6 +274,25 @@ export async function getDevices() {
   }
   else {
     return undefined;
+  }
+}
+
+export async function getApprovalRouteRoles() {
+  try {
+    return (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, { timeout: timeout })).data;
+  }
+  catch (axiosError) {
+    if (axios.isAxiosError(axiosError)) {
+      const error = new Error();
+      if (axiosError.response) {
+        error.name = axiosError.response.status.toString();
+        error.message = (axiosError.response?.data as { message: string }).message;
+      }
+      throw error;
+    }
+    else {
+      throw axiosError;
+    }
   }
 }
 

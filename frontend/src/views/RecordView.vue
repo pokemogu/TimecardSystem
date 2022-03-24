@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
-import Cookies from 'js-cookie';
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
 
 import Header from '@/components/Header.vue';
+import DeviceSelect from '@/components/DeviceSelect.vue';
 import { BeepSound } from '@/BeepSound';
 
-import { openRecordDB } from '@/RecordDBSchema';
+import { openRecordDB, openDeviceDB } from '@/RecordDBSchema';
 import RecordWorker from '@/RecordWorker?worker';
 
 const router = useRouter();
@@ -19,10 +19,6 @@ const isLoggedIn = store.isLoggedIn();
 let refreshToken = '';
 const timeStr = ref('00:00:00');
 const recordType = ref('clockin');
-const openDeviceModal = ref(false);
-const deviceNameList = ref<string[]>([]);
-const thisDeviceName = ref(Cookies.get('deviceName') ?? '');
-const selectedDeviceName = ref(thisDeviceName.value);
 const errorName = ref('');
 const cameraMode = ref('auto');
 const headerMessage = ref('');
@@ -140,24 +136,6 @@ setInterval(() => {
   timeStr.value = `${hourStr}:${minStr}:${secStr}`;
 }, 1000);
 
-function onSetDeviceNameButton() {
-  backendAccess.getDevices().then((devices) => {
-    if (devices) {
-      deviceNameList.value = devices.map(device => device.name);
-      selectedDeviceName.value = thisDeviceName.value;
-      openDeviceModal.value = true;
-    }
-  });
-}
-
-function onSaveDeviceNameButton() {
-  if (selectedDeviceName.value) {
-    thisDeviceName.value = selectedDeviceName.value;
-    Cookies.set('deviceName', selectedDeviceName.value);
-  }
-  openDeviceModal.value = false;
-}
-
 // QR打刻端末の場合はバックグラウンドでの打刻送信ワーカーを起動する
 if (!store.isLoggedIn()) {
   const worker = new RecordWorker();
@@ -179,6 +157,25 @@ if (!store.isLoggedIn()) {
   };
 }
 
+// 打刻端末名に関する設定
+const thisDeviceName = ref('');
+const isDeviceSelectOpened = ref(false);
+
+// 現在設定されている端末名があれば取得する
+openDeviceDB().then((db) => {
+  db.getAllKeys('timecard-device').then((keys) => {
+    if (keys.length > 0) {
+      thisDeviceName.value = keys[0];
+    }
+  });
+});
+
+// 端末名の設定変更がされていたら、それを反映する
+watch(thisDeviceName, async () => {
+  const db = await openDeviceDB();
+  await db.put('timecard-device', { timestamp: new Date() }, thisDeviceName.value);
+});
+
 </script>
 
 <template>
@@ -189,7 +186,7 @@ if (!store.isLoggedIn()) {
           v-bind:isAuthorized="store.isLoggedIn()"
           titleName="打刻画面"
           customButton1="端末名設定"
-          v-on:customButton1="onSetDeviceNameButton"
+          v-on:customButton1="isDeviceSelectOpened = true"
           v-bind:customButton2="isLoggedIn ? 'メニュー画面' : 'ログイン画面'"
           v-on:customButton2="isLoggedIn ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
           :customMessage="headerMessage"
@@ -198,40 +195,8 @@ if (!store.isLoggedIn()) {
       </div>
     </div>
 
-    <Teleport to="body">
-      <div v-show="openDeviceModal" class="modal-dialog vue-modal">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">端末名設定</h5>
-            <button
-              type="button"
-              class="btn-close"
-              aria-label="Close"
-              v-on:click="openDeviceModal = false"
-            ></button>
-          </div>
-          <div class="modal-body">
-            <p>この端末で使用する端末名を選択してください</p>
-            <select
-              v-model="selectedDeviceName"
-              class="form-select"
-              aria-label="Default select example"
-            >
-              <option value>端末名を選択してください</option>
-              <option v-for="deviceName in deviceNameList" :value="deviceName">{{ deviceName }}</option>
-            </select>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" v-on:click="openDeviceModal = false">取消</button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              v-bind:disabled="selectedDeviceName === ''"
-              v-on:click="onSaveDeviceNameButton"
-            >保存</button>
-          </div>
-        </div>
-      </div>
+    <Teleport to="body" v-if="isDeviceSelectOpened">
+      <DeviceSelect v-model:deviceName="thisDeviceName" v-model:isOpened="isDeviceSelectOpened"></DeviceSelect>
     </Teleport>
 
     <div class="row justify-content-center gy-5">
@@ -315,10 +280,6 @@ if (!store.isLoggedIn()) {
           >不明なエラーが発生しました: {{ errorName }}</div>
         </div>
 
-        <!--<span v-if="thisDeviceName === ''">端末名を設定してください。</span>
-          <span v-else-if="decodedQrString !== ''">QRコードが確認できました。打刻してください。</span>
-          <span v-else-if="errorName === ''">QRコードをカメラにかざしてスキャンしてください。</span>
-        <span v-else>{{ errorName }}</span>-->
         <div class="row">
           <button
             type="button"
@@ -401,49 +362,7 @@ if (!store.isLoggedIn()) {
         >取消</button>
       </div>
     </div>
-
-    <!--
-    <div class="row">
-      <div class="shadow-none p-3 rounded">
-        <h3 class="text-center">IDとPASSを入力してください</h3>
-      </div>
-    </div>
-    <div class="row mb-3 justify-content-center">
-      <div class="col-1">
-        <label for="exampleInputEmail1" class="form-label">ID</label>
-      </div>
-      <div class="col-5">
-        <input
-          type="email"
-          class="form-control"
-          id="exampleInputEmail1"
-          aria-describedby="emailHelp"
-        />
-      </div>
-    </div>
-    <div class="row mb-3 justify-content-center">
-      <div class="col-1">
-        <label for="exampleInputPassword1" class="form-label">PASS</label>
-      </div>
-      <div class="col-5">
-        <input type="password" class="form-control" id="exampleInputPassword1" />
-      </div>
-    </div>
-    <div class="row mb-3 justify-content-center">
-      <div class="col-2">
-        <button type="button" class="btn btn-primary btn-lg" @click="handleLogin">打刻画面</button>
-      </div>
-      <div class="col-2">
-        <button type="button" class="btn btn-primary btn-lg" @click="handleLogin">管理画面</button>
-      </div>
-    </div>
-    -->
   </div>
-  <!--
-<main>
-    <TheWelcome />
-  </main>
-  -->
 </template>
 
 <style>

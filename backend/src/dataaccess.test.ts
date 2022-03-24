@@ -112,6 +112,16 @@ describe('データアクセステスト', () => {
         })
       });
     });
+
+    // 承認ルート関連
+    test('getRoles', async () => {
+      const access = new DatabaseAccess(knex);
+      const roles = await access.getApprovalRouteRoles();
+
+      console.log(roles);
+      expect(roles).toBeDefined();
+    });
+
   });
 
   // アクセストークン取得・検証

@@ -180,3 +180,34 @@ export interface ApplyResponseBody {
   message: string,
   applies?: ApplyResponseData[]
 }
+
+export interface ApprovalRouteRoleData {
+  name: string,
+  level: number
+}
+
+export interface ApprovalRouteRoleBody {
+  message: string,
+  roles?: ApprovalRouteRoleData[]
+}
+
+export interface ApprovalRouteRequestData {
+  name: string,
+  roles: {
+    level: number,
+    users: {
+      role: string,
+      account: string
+    }[]
+  }[]
+}
+
+export interface ApprovalRouteRequestBody {
+  message: string,
+  route: ApprovalRouteRequestData
+}
+
+export interface ApprovalRouteResponseBody {
+  message: string,
+  routes?: ApprovalRouteRequestData[]
+}

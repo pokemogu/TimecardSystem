@@ -329,6 +329,22 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
   });
 
+  // 承認ルート役割
+  app.get<{}, apiif.ApprovalRouteRoleBody>('/api/apply/role', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const roles = await access.getApprovalRouteRoles();
+      res.send({
+        message: 'ok',
+        roles: roles
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
   // メール送信
   app.post<{}, apiif.MessageOnlyResponseBody, {
     from: string, to: string, cc?: string, subject: string, body: string

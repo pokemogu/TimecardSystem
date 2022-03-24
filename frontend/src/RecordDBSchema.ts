@@ -12,10 +12,10 @@ export interface RecordDB extends DBSchema {
   };
 
   'timecard-device': {
-    key: number;
+    key: string;
     value: {
-      refreshToken: string,
-      timestamp: Date
+      refreshToken?: string,
+      timestamp?: Date
     };
   };
 }
@@ -31,7 +31,7 @@ export async function openRecordDB() {
 export async function openDeviceDB() {
   return await openDB<RecordDB>('timecard-device', 1, {
     upgrade(db) {
-      db.createObjectStore('timecard-device', { autoIncrement: true });
+      db.createObjectStore('timecard-device');
     }
   });
 }

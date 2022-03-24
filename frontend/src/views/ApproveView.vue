@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, Suspense } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
-import ApplyForm from '@/components/ApplyForm.vue';
+import UserSelect from '@/components/UserSelect.vue';
+import ApprovalRoute from '@/components/ApprovalRoute.vue';
+import type { Route } from '@/components/ApprovalRoute.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
@@ -28,6 +30,20 @@ store.getToken()
     console.log(error);
   });
 
+const isUserSelectOpened = ref(false);
+const isApprovalRouteSelected = ref(false);
+const selectedAccount = ref('');
+
+watch(selectedAccount, () => {
+  console.log(selectedAccount.value);
+});
+
+const approvalRoute = ref<Route>({});
+
+watch(approvalRoute, () => {
+  console.log(approvalRoute.value);
+})
+
 </script>
 
 <template>
@@ -44,12 +60,36 @@ store.getToken()
       </div>
     </div>
 
+    <Teleport to="body" v-if="isUserSelectOpened">
+      <UserSelect v-model:account="selectedAccount" v-model:isOpened="isUserSelectOpened"></UserSelect>
+    </Teleport>
+
+    <div class="row">
+      <div class="col-12">
+        <Suspense>
+          <Teleport to="body" v-if="isApprovalRouteSelected">
+            <ApprovalRoute v-model:route="approvalRoute" v-model:isOpened="isApprovalRouteSelected"></ApprovalRoute>
+          </Teleport>
+        </Suspense>
+      </div>
+    </div>
+
     <div class="row m-1">
       <div class="d-grid gap-2 col-2">
-        <button type="button" class="btn btn-primary" id="export">エクスポート</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="export"
+          v-on:click="isUserSelectOpened = true"
+        >エクスポート</button>
       </div>
       <div class="d-grid gap-2 col-2">
-        <button type="button" class="btn btn-primary" id="select-layout">レイアウト選択</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="select-layout"
+          v-on:click="isApprovalRouteSelected = true"
+        >レイアウト選択</button>
       </div>
       <div class="d-grid gap-2 col-2">
         <button type="button" class="btn btn-primary" id="configure-layout">レイアウト設定</button>

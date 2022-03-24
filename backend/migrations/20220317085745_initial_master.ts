@@ -97,6 +97,19 @@ export async function up(knex: Knex): Promise<void> {
       table.time('maxAllowedLateNumberPerMonth');
     });
 
+    await knex.schema.createTable('wagePattern', function (table) {
+      table.increments('id');
+      table.integer('workPattern').unsigned().notNullable();
+      table.string('name').notNullable();
+      table.time('timeStart').notNullable();
+      table.time('timeEnd').notNullable();
+      table.integer('normalWagePercentage').unsigned().notNullable();
+      table.integer('mandatoryHolidayWagePercentage').unsigned();
+      table.integer('nonMandatoryHolidayWagePercentage').unsigned();
+
+      table.foreign('workPattern').references('id').inTable('workPattern');
+    });
+
     await knex.schema.createTable('user', function (table) {
       table.increments('id');
       table.boolean('available').notNullable().defaultTo(false);
@@ -110,7 +123,6 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('privilege').unsigned().notNullable();
       table.integer('hourlyWage');
       table.integer('commuteAllowance');
-      table.boolean('qrTokenIssued').index();
       table.boolean('printOutWageDetail');
 
       table.foreign('section').references('id').inTable('section');
@@ -380,6 +392,7 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('userWorkPattern');
   await knex.schema.dropTableIfExists('userWorkPatternCalendar');
   await knex.schema.dropTableIfExists('user');
+  await knex.schema.dropTableIfExists('wagePattern');
   await knex.schema.dropTableIfExists('workPattern');
   await knex.schema.dropTableIfExists('privilege');
   await knex.schema.dropTableIfExists('section');

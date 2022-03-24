@@ -1,19 +1,23 @@
-import { openRecordDB } from '@/RecordDBSchema';
+import { openRecordDB, openDeviceDB } from '@/RecordDBSchema';
 import * as backendAccess from '@/BackendAccess';
 
 async function recordSenderJob() {
   try {
-    const db = await openRecordDB();
-    const keys = await db.getAllKeys('timecard-record');
+    const recordDb = await openRecordDB();
+    const deviceDb = await openDeviceDB();
+    const recordKeys = await recordDb.getAllKeys('timecard-record');
+    const deviceKeys = await deviceDb.getAllKeys('timecard-device');
 
-    if (keys.length > 0) {
-      for (const key of keys) {
-        const recordData = await db.get('timecard-record', key);
+    if (recordKeys.length > 0) {
+      for (const key of recordKeys) {
+        const recordData = await recordDb.get('timecard-record', key);
         if (recordData) {
           const token = await backendAccess.getToken(recordData.refreshToken);
-          const access = new backendAccess.TokenAccess(token.accessToken);
-          await access.record(recordData.type, recordData.timestamp);
-          await db.delete('timecard-record', key);
+          if (token.token) {
+            const access = new backendAccess.TokenAccess(token.token?.accessToken);
+            await access.record(recordData.type, recordData.timestamp, deviceKeys.length > 0 ? deviceKeys[0] : undefined);
+            await recordDb.delete('timecard-record', key);
+          }
         }
       }
       postMessage({ type: 'info', message: 'records sent' });

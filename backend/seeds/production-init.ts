@@ -7,17 +7,20 @@ export async function seed(knex: Knex): Promise<void> {
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
+  await knex('role').del();
 
   // 部署情報
   await knex('department').insert([
     { name: '名古屋事業所' },
     { name: '浜松工場' },
-    { name: '東名工場' }
+    { name: '東名工場' },
+    { name: '[所属なし]' }
   ]);
 
   const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
   const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
   const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
+  const departmentNone = (await knex.first<{ id: number }>('id').from('department').where('name', '[所属なし]')).id;
   await knex('section').insert([
     { department: departmentNagoya, name: '第一営業部' },
     { department: departmentNagoya, name: '第二営業部' },
@@ -30,9 +33,10 @@ export async function seed(knex: Knex): Promise<void> {
     { department: departmentHamamatsu, name: '総務部' },
     { department: departmentTomei, name: '製造部' },
     { department: departmentTomei, name: '品質保証部' },
-    { department: departmentNagoya, name: '' },
-    { department: departmentHamamatsu, name: '' },
-    { department: departmentTomei, name: '' },
+    { department: departmentNagoya, name: '[部署なし]' },
+    { department: departmentHamamatsu, name: '[部署なし]' },
+    { department: departmentTomei, name: '[部署なし]' },
+    { department: departmentNone, name: '[部署なし]' },
   ]);
 
   // 端末情報
@@ -86,4 +90,16 @@ export async function seed(knex: Knex): Promise<void> {
       viewAllUserInfo: true
     },
   ]);
+
+  // 承認権限情報
+  await knex('role').insert([
+    { name: '承認者1(主)', level: 1 },
+    { name: '承認者1(副)', level: 1 },
+    { name: '承認者2(主)', level: 2 },
+    { name: '承認者2(副)', level: 2 },
+    { name: '承認者3(主)', level: 3 },
+    { name: '承認者3(副)', level: 3 },
+    { name: '決済者', level: 10 },
+  ]);
+
 };
