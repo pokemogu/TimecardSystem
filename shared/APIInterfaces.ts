@@ -182,8 +182,8 @@ export interface ApplyResponseBody {
 }
 
 export interface ApprovalRouteRoleData {
-  name: string,
-  level: number
+  level: number,
+  names: string[]
 }
 
 export interface ApprovalRouteRoleBody {
@@ -191,23 +191,27 @@ export interface ApprovalRouteRoleBody {
   roles?: ApprovalRouteRoleData[]
 }
 
-export interface ApprovalRouteRequestData {
+export interface ApprovalRouteResposeData {
+  id?: number,
   name: string,
   roles: {
     level: number,
     users: {
       role: string,
-      account: string
+      account: string,
+      name?: string
     }[]
   }[]
 }
 
+export type ApprovalRouteRequestData = ApprovalRouteResposeData;
+
 export interface ApprovalRouteRequestBody {
   message: string,
-  route: ApprovalRouteRequestData
+  route: ApprovalRouteResposeData
 }
 
 export interface ApprovalRouteResponseBody {
   message: string,
-  routes?: ApprovalRouteRequestData[]
+  routes?: ApprovalRouteResposeData[]
 }

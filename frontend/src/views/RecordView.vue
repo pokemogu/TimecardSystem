@@ -65,7 +65,7 @@ async function onRecord(event: Event) {
     if (!store.isLoggedIn()) {
       // QR打刻端末からの打刻の場合はキューイングで打刻する
       const db = await openRecordDB();
-      await db.put('timecard-record', { type: recordType.value, timestamp: dateNow, refreshToken: refreshToken });
+      await db.put('timecard-record', { type: recordType.value, account: '', timestamp: dateNow, refreshToken: refreshToken });
     }
     else {
       // PC端末からの打刻の場合は即時打刻する。

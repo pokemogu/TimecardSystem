@@ -89,7 +89,7 @@ const store = useSessionStore();
         <RouterLink to="/apply/makeup-leave" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/approve/route" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-routes' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>

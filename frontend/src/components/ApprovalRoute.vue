@@ -1,16 +1,5 @@
 <script setup lang="ts">
 
-export interface Route {
-  name?: string,
-  roles?: {
-    level: number,
-    users: {
-      role: string,
-      account: string
-    }[]
-  }[]
-};
-
 import { ref, watch, onMounted } from 'vue';
 
 import { useSessionStore } from '@/stores/session';
@@ -18,11 +7,13 @@ import * as backendAccess from '@/BackendAccess';
 
 import UserSelect from '@/components/UserSelect.vue';
 
+import type * as apiif from 'shared/APIInterfaces';
+
 const store = useSessionStore();
 
 const props = defineProps<{
   isOpened: boolean,
-  route?: Route
+  route?: apiif.ApprovalRouteResposeData
 }>();
 
 const routeName = ref(props.route?.name ? props.route.name : '');
@@ -37,55 +28,47 @@ const currentCol = ref(0);
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'update:route', value: Route): void
+  (event: 'update:route', value: apiif.ApprovalRouteResposeData): void,
+  (event: 'submit'): void,
 }>();
 
 function onClose(event: Event) {
   emits('update:isOpened', false);
 }
-
-const rolesByLevel = ref<{
-  level: number,
-  names: string[]
-}[]>([]);
+const roles = ref<apiif.ApprovalRouteRoleData[]>([]);
 
 function onSubmit(event: Event) {
-  const route: Route = { name: routeName.value, roles: [] };
-  for (let i = 0; i < rolesByLevel.value.length; i++) {
-    const users: { role: string, account: string }[] = [];
-    for (let j = 0; j < rolesByLevel.value[i].names.length; j++) {
-      users.push({ role: rolesByLevel.value[i].names[j], account: inputUserAccounts.value[i][j] });
+  const route: apiif.ApprovalRouteResposeData = { name: routeName.value, roles: [] };
+  for (let i = 0; i < roles.value.length; i++) {
+    const users: { role: string, account: string, name: string }[] = [];
+    for (let j = 0; j < roles.value[i].names.length; j++) {
+      if (inputUserAccounts.value[i][j] !== '') {
+        users.push({ role: roles.value[i].names[j], account: inputUserAccounts.value[i][j], name: inputUserNames.value[i][j] });
+      }
     }
     if (route.roles) {
-      route.roles.push({ level: rolesByLevel.value[i].level, users: users });
+      route.roles.push({ level: roles.value[i].level, users: users });
     }
+  }
+
+  if (props.route?.id) {
+    route.id = props.route.id;
   }
   emits('update:route', route);
   emits('update:isOpened', false);
+  emits('submit');
 }
 
 try {
-  const response = await backendAccess.getApprovalRouteRoles();
-  if (response.roles) {
-
-    // 取得した承認役割情報を承認レベルごとにまとめる
-    for (const role of response.roles) {
-      const index = rolesByLevel.value.findIndex(roleByLevel => roleByLevel.level === role.level);
-      if (index >= 0) {
-        rolesByLevel.value[index].names.push(role.name);
-      }
-      else {
-        rolesByLevel.value.push({ level: role.level, names: [role.name] });
-      }
-    }
-
-    // 承認レベルの低い順にソートする
-    rolesByLevel.value.sort((first, second) => first.level - second.level);
+  const result = await backendAccess.getApprovalRouteRoles();
+  if (result) {
+    roles.value.splice(0);
+    Array.prototype.push.apply(roles.value, result);
 
     // ユーザー名取得の為のアクセストークを取得する
     const token = props.route ? await store.getToken() : undefined;
 
-    for (const role of rolesByLevel.value) {
+    for (const role of roles.value) {
       inputUserAccounts.value.push([]);
       inputUserNames.value.push([]);
       for (const roleName of role.names) {
@@ -129,92 +112,116 @@ function isAllFilled() {
 
   for (const inputUserAccountCol of inputUserAccounts.value) {
     for (const inputUserAccountRow of inputUserAccountCol) {
-      if (inputUserAccountRow === '') {
-        return false;
+      if (inputUserAccountRow !== '') {
+        return true;
       }
     }
   }
 
-  return true;
+  return false;
 }
 
 </script>
 
 <template>
-  <div class="modal-dialog modal-xl vue-modal">
-    <Teleport to="body" v-if="isUserSelectOpened">
-      <UserSelect
-        v-model:account="selectedUserAccount"
-        v-model:name="selectedUserName"
-        v-model:isOpened="isUserSelectOpened"
-      ></UserSelect>
-    </Teleport>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">申請ルート設定</h5>
-        <button type="button" class="btn-close" v-on:click="onClose"></button>
-      </div>
-      <div class="modal-body">
-        <div class="input-group mb-3">
-          <span class="input-group-text" id="basic-addon3">ルート名</span>
-          <input type="text" class="form-control" id="route-name" v-model="routeName" />
+  <div class="overlay" id="approval-route-root">
+    <div class="modal-dialog modal-xl vue-modal">
+      <Teleport to="#approval-route-root" v-if="isUserSelectOpened">
+        <UserSelect
+          v-model:account="selectedUserAccount"
+          v-model:name="selectedUserName"
+          v-model:isOpened="isUserSelectOpened"
+        ></UserSelect>
+      </Teleport>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">申請ルート設定</h5>
+          <button type="button" class="btn-close" v-on:click="onClose"></button>
         </div>
-        <div class="row">
-          <div class="col-3" v-for="(level, indexCol) in rolesByLevel">
-            <div class="row p-1" v-for="(name, indexRow) in level.names">
-              <div class="col-12">
-                <label :for="'user' + indexCol + indexRow" class="form-label">{{ name }}</label>
-                <div class="input-group mb-3">
+        <div class="modal-body">
+          <div class="input-group mb-3">
+            <span class="input-group-text" id="basic-addon3">ルート名</span>
+            <input type="text" class="form-control" id="route-name" v-model="routeName" />
+          </div>
+          <div class="row">
+            <div class="col-3" v-for="(level, indexCol) in roles">
+              <div class="row p-1" v-for="(name, indexRow) in level.names">
+                <div class="col-12">
+                  <label :for="'user' + indexCol + indexRow" class="form-label">{{ name }}</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="search"
+                      class="form-control"
+                      :id="'user' + indexCol + indexRow"
+                      v-model="inputUserAccounts[indexCol][indexRow]"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="inputUserAccounts[indexCol][indexRow] = ''; inputUserNames[indexCol][indexRow] = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="isUserSelectOpened = true; currentCol = indexCol; currentRow = indexRow"
+                    >検索</button>
+                  </div>
                   <input
-                    type="text"
                     class="form-control"
-                    :id="'user' + indexCol + indexRow"
-                    v-model="inputUserAccounts[indexCol][indexRow]"
-                    placeholder="社員ID"
+                    type="text"
+                    v-model="inputUserNames[indexCol][indexRow]"
+                    placeholder="社員名"
                     disabled
                     readonly
                   />
-                  <button
-                    class="btn btn-outline-secondary"
-                    type="button"
-                    id="button-addon2"
-                    v-on:click="isUserSelectOpened = true; currentCol = indexCol; currentRow = indexRow"
-                  >検索</button>
                 </div>
-                <input
-                  class="form-control"
-                  type="text"
-                  v-model="inputUserNames[indexCol][indexRow]"
-                  placeholder="社員名"
-                  disabled
-                  readonly
-                />
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          v-bind:disabled="!isAllFilled()"
-          v-on:click="onSubmit"
-        >設定</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            v-bind:disabled="!isAllFilled()"
+            v-on:click="onSubmit"
+          >設定</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.overlay {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  left: 0;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
 .vue-modal {
   position: fixed;
-  z-index: 999;
+  z-index: 997;
   margin: 0 auto;
   top: 10%;
   bottom: 10%;
   left: 0%;
   right: 0%;
+}
+
+input[type="search"] {
+  -webkit-appearance: searchfield;
+}
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: searchfield-cancel-button;
 }
 </style>

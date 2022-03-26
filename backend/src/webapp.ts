@@ -345,6 +345,130 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
   });
 
+  // 承認ルート関連
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = getUserFromTokenHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.addApprovalRoute(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
+  app.get<{}, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = getUserFromTokenHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.getApprovalRoutes(token, req.query);
+      res.send({
+        message: 'ok',
+        routes: routes
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
+  app.get<{ id: number }, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route/:id', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = getUserFromTokenHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.getApprovalRoutes(token, req.query, req.params.id);
+      res.send({
+        message: 'ok',
+        routes: routes
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = getUserFromTokenHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.updateApprovalRoute(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+      console.log(error);
+    }
+  });
+
+  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/apply/route/:id', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = getUserFromTokenHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteApprovalRoute(token, req.params.id);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error });
+    }
+  });
+
   // メール送信
   app.post<{}, apiif.MessageOnlyResponseBody, {
     from: string, to: string, cc?: string, subject: string, body: string

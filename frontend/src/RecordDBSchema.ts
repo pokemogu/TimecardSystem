@@ -5,6 +5,7 @@ export interface RecordDB extends DBSchema {
   'timecard-record': {
     key: number;
     value: {
+      account: string,
       type: string,
       refreshToken: string,
       timestamp: Date

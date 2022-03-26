@@ -79,6 +79,12 @@ const router = createRouter({
       name: 'admin-users',
       component: () => import('@/views/IssueQrCodeView.vue'),
       meta: { title: `${appName} - 従業員照会(QRコード)` }
+    },
+    {
+      path: '/admin/route',
+      name: 'admin-routes',
+      component: () => import('@/views/ApprovalRouteView.vue'),
+      meta: { title: `${appName} - 従業員照会(QRコード)` }
     }
   ]
 });

@@ -2,6 +2,7 @@ import { Knex } from 'knex';
 import { hashPassword } from '../src/auth';
 import { fakeNames } from '../../fakeNames';
 import * as models from '../../shared/models';
+import * as apiif from '../../shared/APIInterfaces';
 
 function generateRandom(min = 0, max = 100) {
 
@@ -22,6 +23,8 @@ function generateRandom(min = 0, max = 100) {
 
 export async function seed(knex: Knex): Promise<void> {
 
+  await knex('approvalRouteMember').del();
+  await knex('approvalRoute').del();
   await knex('device').del();
   await knex("user").del();
   await knex("privilege").del();
@@ -119,13 +122,13 @@ export async function seed(knex: Knex): Promise<void> {
 
   // 承認権限情報
   await knex('role').insert([
-    { name: '承認者2(主)', level: 2 },
-    { name: '承認者3(主)', level: 3 },
     { name: '承認者1(主)', level: 1 },
-    { name: '決済者', level: 10 },
-    { name: '承認者2(副)', level: 2 },
     { name: '承認者1(副)', level: 1 },
+    { name: '承認者2(主)', level: 2 },
+    { name: '承認者2(副)', level: 2 },
+    { name: '承認者3(主)', level: 3 },
     { name: '承認者3(副)', level: 3 },
+    { name: '決済者', level: 10 },
   ]);
 
   // ユーザー情報
@@ -215,7 +218,7 @@ export async function seed(knex: Knex): Promise<void> {
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
     }
     else if (i < 280) {
-      section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
+      section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
     }
     else if (i < 281) {
@@ -308,6 +311,109 @@ export async function seed(knex: Knex): Promise<void> {
   }
 
   await knex('user').insert(fakeUsers);
+
+  // 申請ルート情報
+  const routes: apiif.ApprovalRouteRequestData[] = [
+    {
+      name: '総務社員',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00276' }, { role: '承認者1(副)', account: 'USR00277' }] },
+        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00290' }, { role: '承認者2(副)', account: 'USR00282' }] },
+        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00294' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '開発部社員',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00273' }, { role: '承認者1(副)', account: 'USR00274' }] },
+        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00289' }] },
+        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '開発部課長',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00289' }] },
+        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '開発部長',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '浜松製造部社員',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00226' }, { role: '承認者1(副)', account: 'USR00227' }] },
+        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00229' }, { role: '承認者2(副)', account: 'USR00228' }] },
+        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '製造部課長',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00229' }, { role: '承認者1(副)', account: 'USR00228' }] },
+        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+    {
+      name: '製造部長',
+      roles: [
+        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
+        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
+      ]
+    },
+  ]
+
+  for (const route of routes) {
+    await knex('approvalRoute').insert({ name: route.name });
+    const routeRow = await knex
+      .select<{ id: number }>({ id: 'id' })
+      .first()
+      .from('approvalRoute')
+      .where('name', route.name);
+    const routeId = routeRow.id;
+
+    for (const role of route.roles) {
+      for (const user of role.users) {
+
+        const userRow = await knex
+          .select<{ id: number }>({ id: 'id' })
+          .first()
+          .from('user')
+          .where('account', user.account);
+
+        const roleRow = await knex
+          .select<{ id: number }>({ id: 'id' })
+          .first()
+          .from('role')
+          .where('name', user.role);
+
+        //        const sql = await knex('approvalMember').insert<{ route: number, user: number, role: string }>
+        await knex('approvalRouteMember').insert({ route: routeId, user: userRow.id, role: roleRow.id });
+      }
+    }
+  }
+
+
+  const roleMembers = await knex
+    .select<{ routeName: string, roleName: string, level: number, userAccount: string, userName: string }[]>(
+      { routeName: 'approvalRoute.name', roleName: 'role.name', level: 'role.level', userAccount: 'user.account', userName: 'user.name' }
+    )
+    .from('approvalRouteMember')
+    .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
+    .join('user', { 'user.id': 'approvalRouteMember.user' })
+    .join('role', { 'role.id': 'approvalRouteMember.role' })
+
+  console.log(roleMembers);
 
   // その他情報
   await knex('config').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');

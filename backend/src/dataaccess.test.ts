@@ -1,3 +1,4 @@
+import util from 'util';
 import fs, { accessSync } from 'fs';
 import dotenv from 'dotenv';
 import { Knex } from 'knex';
@@ -122,6 +123,35 @@ describe('データアクセステスト', () => {
       expect(roles).toBeDefined();
     });
 
+    test('addApprovalRouteMembers', async () => {
+      /*
+            const access = new DatabaseAccess(knex);
+            const token = await access.issueAccessToken(refreshToken);
+      
+            const roleMembers = await access.getApprovalRoutes(token);
+            console.dir(roleMembers, { depth: null });
+            expect(roleMembers).toBeDefined();
+      
+            for (const roleMember of roleMembers) {
+              const roleMembersforSeizoSHain = await access.getApprovalRoutes(token, roleMember.id);
+              expect(roleMembersforSeizoSHain).toBeDefined();
+            }
+      */
+    });
+
+    test('getApprovalRoutes', async () => {
+      const access = new DatabaseAccess(knex);
+      const token = await access.issueAccessToken(refreshToken);
+
+      const roleMembers = await access.getApprovalRoutes(token);
+      console.dir(roleMembers, { depth: null });
+      expect(roleMembers).toBeDefined();
+
+      for (const roleMember of roleMembers) {
+        const roleMembersforSeizoSHain = await access.getApprovalRoutes(token, undefined, roleMember.id);
+        expect(roleMembersforSeizoSHain).toBeDefined();
+      }
+    });
   });
 
   // アクセストークン取得・検証

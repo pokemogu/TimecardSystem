@@ -108,58 +108,72 @@ watch(phoneticSearch, lodash.debounce(async () => {
 </script>
 
 <template>
-  <div class="modal-dialog vue-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">ユーザー選択</h5>
-        <button type="button" class="btn-close" v-on:click="onClose"></button>
-      </div>
-      <div class="modal-body">
-        <p>ユーザーを選択してください</p>
-        <div class="row">
-          <div class="col">
-            <p>所属</p>
-            <select class="form-select" size="8" v-model="selectedDepartmentName">
-              <option
-                v-for="departmentName in departmentNameList"
-                :value="departmentName"
-              >{{ departmentName }}</option>
-            </select>
-          </div>
-          <div class="col">
-            <p>部署</p>
-            <select class="form-select" size="8" v-model="selectedSectionName">
-              <option v-for="sectionName in sectionNameList" :value="sectionName">{{ sectionName }}</option>
-            </select>
-          </div>
-          <div class="col">
-            <p>氏名</p>
-            <input
-              class="form-control form-control-sm"
-              type="text"
-              placeholder="カナ検索"
-              v-model="phoneticSearch"
-            />
-            <select class="form-select" size="8" v-model="selectedUserAccount">
-              <option v-for="user in userList" :value="user.account">{{ user.name }}</option>
-            </select>
+  <div class="overlay" id="hogehogeuser">
+    <div class="modal-dialog vue-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">従業員選択</h5>
+          <button type="button" class="btn-close" v-on:click="onClose"></button>
+        </div>
+        <div class="modal-body">
+          <p>従業員を選択してください</p>
+          <div class="row">
+            <div class="col">
+              <p>所属</p>
+              <select class="form-select" size="8" v-model="selectedDepartmentName">
+                <option
+                  v-for="departmentName in departmentNameList"
+                  :value="departmentName"
+                >{{ departmentName }}</option>
+              </select>
+            </div>
+            <div class="col">
+              <p>部署</p>
+              <select class="form-select" size="8" v-model="selectedSectionName">
+                <option
+                  v-for="sectionName in sectionNameList"
+                  :value="sectionName"
+                >{{ sectionName }}</option>
+              </select>
+            </div>
+            <div class="col">
+              <p>氏名</p>
+              <input
+                class="form-control form-control-sm"
+                type="text"
+                placeholder="カナ検索"
+                v-model="phoneticSearch"
+              />
+              <select class="form-select" size="8" v-model="selectedUserAccount">
+                <option v-for="user in userList" :value="user.account">{{ user.name }}</option>
+              </select>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          v-bind:disabled="selectedUserAccount === ''"
-          v-on:click="onSubmit"
-        >選択</button>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            v-bind:disabled="selectedUserAccount === ''"
+            v-on:click="onSubmit"
+          >選択</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.overlay {
+  position: absolute;
+  z-index: 998;
+  top: 0;
+  height: 100%;
+  left: 0;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
 .vue-modal {
   position: fixed;
   z-index: 999;

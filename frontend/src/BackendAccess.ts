@@ -100,7 +100,7 @@ export class TokenAccess {
     try {
       const result = (await axios.get<apiif.UserInfosResponseBody>(`${urlPrefix}/api/user`,
         {
-          headers: { 'Authorization': `Bearer ${this.accessToken}`, timeout: timeout },
+          headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout,
           params: <apiif.UserInfoRequestQuery>{
             id: params.byId,
             account: params.byAccount,
@@ -239,6 +239,102 @@ export class TokenAccess {
       }
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 承認ルート関連
+  ///////////////////////////////////////////////////////////////////////
+
+  public async addApprovalRoutes(route: apiif.ApprovalRouteRequestData) {
+    try {
+      const data = (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route`, route, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout
+      })).data;
+    }
+    catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async getApprovalRoutes(params?: { limit?: number, offset?: number }) {
+    try {
+      const data = (await axios.get<apiif.ApprovalRouteResponseBody>(`${urlPrefix}/api/apply/route`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: {
+          limit: params ? params.limit : undefined,
+          offset: params ? params.offset : undefined
+        }
+      })).data;
+      console.log(data.routes);
+      return data.routes;
+    }
+    catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async updateApprovalRoutes(route: apiif.ApprovalRouteRequestData) {
+    try {
+      const data = (await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route`, route, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    }
+    catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
+
+  public async deleteApprovalRoute(id: number) {
+    try {
+      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route/${id}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    }
+    catch (axiosError) {
+      if (axios.isAxiosError(axiosError)) {
+        const error = new Error();
+        if (axiosError.response) {
+          error.name = axiosError.response.status.toString();
+          error.message = (axiosError.response?.data as { message: string }).message;
+        }
+        throw error;
+      }
+      else {
+        throw axiosError;
+      }
+    }
+  }
 }
 
 export async function getToken(refreshToken: string) {
@@ -279,7 +375,8 @@ export async function getDevices() {
 
 export async function getApprovalRouteRoles() {
   try {
-    return (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, { timeout: timeout })).data;
+    const data = (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, { timeout: timeout })).data;
+    return data.roles;
   }
   catch (axiosError) {
     if (axios.isAxiosError(axiosError)) {

@@ -64,15 +64,11 @@ watch(approvalRoute, () => {
       <UserSelect v-model:account="selectedAccount" v-model:isOpened="isUserSelectOpened"></UserSelect>
     </Teleport>
 
-    <div class="row">
-      <div class="col-12">
-        <Suspense>
-          <Teleport to="body" v-if="isApprovalRouteSelected">
-            <ApprovalRoute v-model:route="approvalRoute" v-model:isOpened="isApprovalRouteSelected"></ApprovalRoute>
-          </Teleport>
-        </Suspense>
-      </div>
-    </div>
+    <Suspense>
+      <Teleport to="body" v-if="isApprovalRouteSelected">
+        <ApprovalRoute v-model:route="approvalRoute" v-model:isOpened="isApprovalRouteSelected"></ApprovalRoute>
+      </Teleport>
+    </Suspense>
 
     <div class="row m-1">
       <div class="d-grid gap-2 col-2">
