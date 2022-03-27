@@ -108,7 +108,7 @@ watch(phoneticSearch, lodash.debounce(async () => {
 </script>
 
 <template>
-  <div class="overlay" id="hogehogeuser">
+  <div class="overlay">
     <div class="modal-dialog vue-modal">
       <div class="modal-content">
         <div class="modal-header">

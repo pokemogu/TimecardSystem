@@ -87,23 +87,29 @@ export async function up(knex: Knex): Promise<void> {
       table.string('name').notNullable().unique();
       table.time('onTimeStart').notNullable();
       table.time('onTimeEnd').notNullable();
+      /*
       table.time('overtimeStart');
       table.time('overtimeEnd');
+      table.integer('overTimeWage')
       table.time('extraOvertimeStart');
       table.time('extraOvertimeEnd');
       table.time('midnightWorkStart');
       table.time('midnightWorkEnd');
+      table.time('extraMidnightWorkStart');
+      table.time('extraMidnightWorkEnd');
       table.time('maxAllowedLateHoursPerMonth');
       table.time('maxAllowedLateNumberPerMonth');
+      */
     });
 
     await knex.schema.createTable('wagePattern', function (table) {
       table.increments('id');
       table.integer('workPattern').unsigned().notNullable();
-      table.string('name').notNullable();
+      table.string('name').notNullable().unique();
       table.time('timeStart').notNullable();
       table.time('timeEnd').notNullable();
       table.integer('normalWagePercentage').unsigned().notNullable();
+      table.integer('holidayWagePercentage').unsigned();
       table.integer('mandatoryHolidayWagePercentage').unsigned();
       table.integer('nonMandatoryHolidayWagePercentage').unsigned();
 
@@ -124,22 +130,31 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('hourlyWage');
       table.integer('commuteAllowance');
       table.boolean('printOutWageDetail');
+      table.integer('defaultWorkPattern').unsigned().notNullable();
+      table.integer('optional1WorkPattern').unsigned();
+      table.integer('optional2WorkPattern').unsigned();
 
       table.foreign('section').references('id').inTable('section');
       table.foreign('privilege').references('id').inTable('privilege');
+      table.foreign('defaultWorkPattern').references('id').inTable('workPattern');
+      table.foreign('optional1WorkPattern').references('id').inTable('workPattern');
+      table.foreign('optional2WorkPattern').references('id').inTable('workPattern');
     });
 
     await knex.schema.raw('ALTER TABLE user MODIFY account VARCHAR(255) CHARACTER SET ascii;');
     await knex.schema.raw('ALTER TABLE user MODIFY password VARCHAR(255) CHARACTER SET ascii;');
 
+    /*
     await knex.schema.createTable('userWorkPattern', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
       table.integer('workPattern').unsigned().notNullable();
+      table.boolean('isDefault').defaultTo(false);
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('workPattern').references('id').inTable('workPattern');
     });
+    */
 
     await knex.schema.createTable('userWorkPatternCalendar', function (table) {
       table.increments('id');
@@ -289,6 +304,7 @@ export async function up(knex: Knex): Promise<void> {
       table.string('reason').comment('申請理由');
       table.string('contact').comment('申請における連絡先(休暇取得時の連絡先)');
       table.boolean('isApproved').index().comment('TRUEの場合は承認済、FALSEの場合は否認済、NULLの場合は未承認');
+      table.integer('route').unsigned().notNullable().index().comment('申請承認ルート');
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('appliedUser').references('id').inTable('user');
@@ -311,6 +327,11 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.string('name').notNullable();
       table.integer('level').unsigned().notNullable();
+    });
+
+    await knex.schema.createTable('roleLevel', function (table) {
+      table.integer('level').unsigned().primary();
+      table.string('name').notNullable();
     });
 
     await knex.schema.createTable('approval', function (table) {
@@ -366,6 +387,23 @@ export async function up(knex: Knex): Promise<void> {
       table.string('body', 1023);
       table.datetime('timestamp');
     });
+
+    await knex.schema.createView('approvalRouteMemberInfo', function (view) {
+      view.as(
+        knex.select({
+          routeId: 'approvalRoute.id', routeName: 'approvalRoute.name', roleLevel: 'role.level',
+          roleLevelName: 'roleLevel.name', roleName: 'role.name', userId: 'user.id',
+          userAccount: 'user.account', userName: 'user.name'
+        })
+          .from('approvalRouteMember')
+          .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
+          .join('role', { 'role.id': 'approvalRouteMember.role' })
+          .join('roleLevel', { 'roleLevel.level': 'role.level' })
+          .join('user', { 'user.id': 'approvalRouteMember.user' })
+          .orderBy('approvalRoute.id')
+          .orderBy('role.level')
+      );
+    });
   }
   catch (error) {
     await down(knex);
@@ -374,11 +412,14 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
+  await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
+
   await knex.schema.dropTableIfExists('mailQueue');
   await knex.schema.dropTableIfExists('config');
   await knex.schema.dropTableIfExists('approvalRouteMember');
   await knex.schema.dropTableIfExists('approvalRoute');
   await knex.schema.dropTableIfExists('approval');
+  await knex.schema.dropTableIfExists('roleLevel');
   await knex.schema.dropTableIfExists('role');
   await knex.schema.dropTableIfExists('applyOption');
   await knex.schema.dropTableIfExists('apply');

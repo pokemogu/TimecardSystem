@@ -23,10 +23,17 @@ function generateRandom(min = 0, max = 100) {
 
 export async function seed(knex: Knex): Promise<void> {
 
+  await knex('record').del();
+  await knex('applyOption').del();
+  await knex('apply').del();
+  await knex('roleLevel').del();
   await knex('approvalRouteMember').del();
+  await knex('role').del();
   await knex('approvalRoute').del();
   await knex('device').del();
   await knex("user").del();
+  await knex('wagePattern').del();
+  await knex('workPattern').del();
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
@@ -131,6 +138,64 @@ export async function seed(knex: Knex): Promise<void> {
     { name: '決済者', level: 10 },
   ]);
 
+  // 承認権限レベル名称
+  await knex('roleLevel').insert([
+    { name: '承認1', level: 1 },
+    { name: '承認2', level: 2 },
+    { name: '承認3', level: 3 },
+    { name: '決済', level: 10 },
+  ]);
+
+
+  // 勤務形態関連
+  await knex('workPattern').insert([
+    { name: '浜松工場社員(日勤)', onTimeStart: '8:30', onTimeEnd: '17:30' },
+    { name: '浜松工場社員(準夜勤)', onTimeStart: '16:30', onTimeEnd: '25:30' },
+    { name: '浜松工場社員(夜勤)', onTimeStart: '0:30', onTimeEnd: '9:30' },
+    { name: '東名工場社員(日勤)', onTimeStart: '8:45', onTimeEnd: '17:45' },
+    { name: '東名工場社員(準夜勤)', onTimeStart: '16:45', onTimeEnd: '25:45' },
+    { name: '東名工場社員(夜勤)', onTimeStart: '0:45', onTimeEnd: '9:45' },
+    { name: '名古屋事業所社員', onTimeStart: '9:00', onTimeEnd: '18:00' }
+  ]);
+
+  const workHamamatsuDayId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(日勤)')).id;
+  const workHamamatsuDawnId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(準夜勤)')).id;
+  const workHamamatsuNightId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(夜勤)')).id;
+  const workTomeiDayId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(日勤)')).id;
+  const workTomeiDawnId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(準夜勤)')).id;
+  const workTomeiNightId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(夜勤)')).id;
+  const workNagoyaId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '名古屋事業所社員')).id;
+
+  await knex('wagePattern').insert([
+    { workPattern: workHamamatsuDayId, name: '通常勤務', timeStart: '8:30', timeEnd: '17:30', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workHamamatsuDayId, name: '割増残業', timeStart: '17:30', timeEnd: '22:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workHamamatsuDayId, name: '深夜残業', timeStart: '22:00', timeEnd: '27:00', normalWagePercentage: 150, holidayWagePercentage: 150 },
+
+    { workPattern: workHamamatsuDawnId, name: '通常勤務', timeStart: '16:30', timeEnd: '22:00', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workHamamatsuDawnId, name: '深夜割増', timeStart: '22:00', timeEnd: '25:30', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workHamamatsuDawnId, name: '深夜残業', timeStart: '25:30', timeEnd: '27:00', normalWagePercentage: 150, holidayWagePercentage: 150 },
+
+    { workPattern: workHamamatsuNightId, name: '深夜割増', timeStart: '24:30', timeEnd: '27:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workHamamatsuNightId, name: '通常勤務', timeStart: '27:00', timeEnd: '33:30', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workHamamatsuNightId, name: '割増残業', timeStart: '33:30', timeEnd: '38:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+
+    { workPattern: workTomeiDayId, name: '通常勤務', timeStart: '8:45', timeEnd: '17:45', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workTomeiDayId, name: '割増残業', timeStart: '17:45', timeEnd: '22:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workTomeiDayId, name: '深夜残業', timeStart: '22:00', timeEnd: '27:00', normalWagePercentage: 150, holidayWagePercentage: 150 },
+
+    { workPattern: workTomeiDawnId, name: '通常勤務', timeStart: '16:45', timeEnd: '22:00', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workTomeiDawnId, name: '深夜割増', timeStart: '22:00', timeEnd: '25:45', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workTomeiDawnId, name: '深夜残業', timeStart: '25:45', timeEnd: '27:00', normalWagePercentage: 150, holidayWagePercentage: 150 },
+
+    { workPattern: workTomeiNightId, name: '深夜割増', timeStart: '24:45', timeEnd: '27:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workTomeiNightId, name: '通常勤務', timeStart: '27:00', timeEnd: '33:45', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workTomeiNightId, name: '割増残業', timeStart: '33:45', timeEnd: '38:15', normalWagePercentage: 125, holidayWagePercentage: 125 },
+
+    { workPattern: workNagoyaId, name: '通常勤務', timeStart: '9:00', timeEnd: '18:00', normalWagePercentage: 100, holidayWagePercentage: 115 },
+    { workPattern: workNagoyaId, name: '割増残業', timeStart: '18:00', timeEnd: '22:00', normalWagePercentage: 125, holidayWagePercentage: 125 },
+    { workPattern: workNagoyaId, name: '深夜残業', timeStart: '22:00', timeEnd: '27:00', normalWagePercentage: 150, holidayWagePercentage: 150 },
+  ]);
+
   // ユーザー情報
   const sections = await knex
     .select<{ department: number, section: number, departmentName: string, sectionName: string }[]>
@@ -147,147 +212,191 @@ export async function seed(knex: Knex): Promise<void> {
 
     let section = 0;
     let privilege = 0;
+    let defaultWorkPattern = -1;
+    let optional1WorkPattern = -1;
+    let optional2WorkPattern = -1;
     let name = i < fakeNames.length ? fakeNames[i].name : '';
     let phonetic = i < fakeNames.length ? fakeNames[i].phonetic : '';
     if (i < 30) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '製造パート').id
+      defaultWorkPattern = workHamamatsuDayId;
+      optional1WorkPattern = workHamamatsuDawnId;
+      optional2WorkPattern = workHamamatsuNightId;
     }
     else if (i < 50) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '製造パート').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 60) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
       privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 65) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 70) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 75) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 80) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務派遣').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 170) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '製造社員').id
+      defaultWorkPattern = workHamamatsuDayId;
+      optional1WorkPattern = workHamamatsuDawnId;
+      optional2WorkPattern = workHamamatsuNightId;
     }
     else if (i < 230) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '製造社員').id
+      defaultWorkPattern = workTomeiDayId;
+      optional1WorkPattern = workTomeiDawnId;
+      optional2WorkPattern = workTomeiNightId;
     }
     else if (i < 240) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 245) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 250) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 255) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '品質保証部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 260) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '品質保証部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workTomeiDayId;
     }
     else if (i < 265) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 275) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '技術部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 277) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 280) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
       privilege = privileges.find(privilege => privilege.name === '事務社員').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 281) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 282) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '製造部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workTomeiDayId;
     }
     else if (i < 283) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 284) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第一営業部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 285) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第二営業部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 286) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '第三営業部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 287) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '営業部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 288) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '品質保証部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 289) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '品質保証部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workTomeiDayId;
     }
     else if (i < 290) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '技術部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 291) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
       privilege = privileges.find(privilege => privilege.name === '部署管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 292) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 293) {
       section = sections.find(section => section.departmentName === '東名工場' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+      defaultWorkPattern = workTomeiDayId;
     }
     else if (i < 295) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '部門管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 298) {
       section = sections.find(section => section.departmentName === '名古屋事業所' && section.sectionName === '経理・総務部').section
       privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
+      defaultWorkPattern = workNagoyaId;
     }
     else if (i < 300) {
       section = sections.find(section => section.departmentName === '浜松工場' && section.sectionName === '総務部').section
       privilege = privileges.find(privilege => privilege.name === 'システム管理者').id
+      defaultWorkPattern = workHamamatsuDayId;
     }
     else if (i < 301) {
       section = sections.find(section => section.departmentName === '[所属なし]' && section.sectionName === '[部署なし]').section
       privilege = privileges.find(privilege => privilege.name === '役員').id
+      defaultWorkPattern = workHamamatsuDayId;
       name = '後藤 秀幸';
       phonetic = 'ゴトウ ヒデユキ';
     }
@@ -307,6 +416,9 @@ export async function seed(knex: Knex): Promise<void> {
       phonetic: phonetic,
       privilege: privilege,
       section: section,
+      defaultWorkPattern: defaultWorkPattern,
+      optional1WorkPattern: optional1WorkPattern >= 0 ? optional1WorkPattern : undefined,
+      optional2WorkPattern: optional2WorkPattern >= 0 ? optional2WorkPattern : undefined,
     });
   }
 
@@ -412,8 +524,6 @@ export async function seed(knex: Knex): Promise<void> {
     .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
     .join('user', { 'user.id': 'approvalRouteMember.user' })
     .join('role', { 'role.id': 'approvalRouteMember.role' })
-
-  console.log(roleMembers);
 
   // その他情報
   await knex('config').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');

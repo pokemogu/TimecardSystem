@@ -5,30 +5,12 @@ import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
 import UserSelect from '@/components/UserSelect.vue';
-import ApprovalRoute from '@/components/ApprovalRoute.vue';
-import type { Route } from '@/components/ApprovalRoute.vue';
+import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
 const router = useRouter();
 const store = useSessionStore();
-
-store.getToken()
-  .then((token) => {
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      tokenAccess.getApplies(false, false, false)
-        .then((applies) => {
-          console.log(applies);
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    }
-  })
-  .catch((error) => {
-    console.log(error);
-  });
 
 const isUserSelectOpened = ref(false);
 const isApprovalRouteSelected = ref(false);
@@ -37,12 +19,6 @@ const selectedAccount = ref('');
 watch(selectedAccount, () => {
   console.log(selectedAccount.value);
 });
-
-const approvalRoute = ref<Route>({});
-
-watch(approvalRoute, () => {
-  console.log(approvalRoute.value);
-})
 
 </script>
 
@@ -63,12 +39,6 @@ watch(approvalRoute, () => {
     <Teleport to="body" v-if="isUserSelectOpened">
       <UserSelect v-model:account="selectedAccount" v-model:isOpened="isUserSelectOpened"></UserSelect>
     </Teleport>
-
-    <Suspense>
-      <Teleport to="body" v-if="isApprovalRouteSelected">
-        <ApprovalRoute v-model:route="approvalRoute" v-model:isOpened="isApprovalRouteSelected"></ApprovalRoute>
-      </Teleport>
-    </Suspense>
 
     <div class="row m-1">
       <div class="d-grid gap-2 col-2">

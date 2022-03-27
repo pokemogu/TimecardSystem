@@ -1,94 +1,64 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
 import ApplyForm from '@/components/ApplyForm.vue';
+import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
 const router = useRouter();
 const store = useSessionStore();
 
-const userDepartment = ref('');
-const userSection = ref('');
-
 const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
 const applyTypeValue1 = ref('');
-const applyTypeOptions2 = ref<{ name: string, description: string }[]>([]);
-const applyTypeValue2 = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
 const reason = ref('');
 const contact = ref('');
 
-backendAccess.getApplyTypeOptions('leave')
-  .then((applyTypeOptions) => {
+onMounted(async () => {
+  try {
+    const applyTypeOptions = await backendAccess.getApplyTypeOptions('leave');
     if (applyTypeOptions?.optionTypes) {
       applyTypeOptions1.value = applyTypeOptions?.optionTypes
         .find(optionType => optionType.name === 'leaveType')?.options || [];
       applyTypeValue1.value = applyTypeOptions1.value.length > 0 ? applyTypeOptions1.value[0].name : '';
     }
-    console.log(applyTypeOptions)
-  })
-  .catch((error) => {
-    console.log(error);
-  });
-
-store.getToken()
-  .then((token) => {
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      tokenAccess.getUserInfo(store.userAccount)
-        .then((userInfo) => {
-          if (userInfo) {
-            if (userInfo.department) {
-              userDepartment.value = userInfo.department;
-            }
-            if (userInfo.section) {
-              userSection.value = userInfo.section;
-            }
-          }
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    }
-  })
-  .catch((error) => {
-    console.log(error);
-  });
-
-watch(applyTypeValue1, (value) => {
-  console.log(value);
+  } catch (error) {
+    alert(error);
+  }
 });
 
-watch(applyTypeValue2, (value) => {
-  console.log(value);
-});
+const routeName = ref('');
+const isApprovalRouteSelectOpened = ref(false);
 
-function onSubmit() {
-  store.getToken()
-    .then((token) => {
+async function onFormSubmit() {
+  isApprovalRouteSelectOpened.value = true;
+}
+
+async function onRouteSubmit() {
+  try {
+    if (store.isLoggedIn()) {
+      const token = await store.getToken();
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        tokenAccess.apply('leave', {
-          dateFrom: new Date(`${dateFrom.value}T00:00:00`),
-          dateTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`) : undefined,
-          timestamp: new Date(),
-          options: [
-            { name: 'leaveType', value: applyTypeValue1.value }
-          ],
-          reason: reason.value
+        const access = new backendAccess.TokenAccess(token);
+        await access.apply('leave', {
+          dateFrom: new Date(`${dateFrom.value}T00:00:00`).toISOString(),
+          dateTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`).toISOString() : undefined,
+          timestamp: new Date().toISOString(),
+          reason: reason.value,
+          route: routeName.value
         });
 
         router.push({ name: 'dashboard' });
       }
-    })
-    .catch((error) => {
-      alert(error);
-    });
+    }
+  } catch (error) {
+    alert(error);
+  }
 }
 
 </script>
@@ -107,14 +77,19 @@ function onSubmit() {
       </div>
     </div>
 
+    <Teleport to="body" v-if="isApprovalRouteSelectOpened">
+      <ApprovalRouteSelect
+        v-model:routeName="routeName"
+        v-model:isOpened="isApprovalRouteSelectOpened"
+        v-on:submit="onRouteSubmit"
+      ></ApprovalRouteSelect>
+    </Teleport>
+
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <ApplyForm
           applyName="休暇"
           applyType="leave"
-          v-bind:userName="store.userName"
-          v-bind:userDepartment="userDepartment"
-          v-bind:userSection="userSection"
           v-model:applyTypeValue1="applyTypeValue1"
           v-bind:applyTypeOptions1="applyTypeOptions1"
           v-model:dateFrom="dateFrom"
@@ -122,7 +97,7 @@ function onSubmit() {
           v-bind:isDateToOptional="true"
           v-model:reason="reason"
           v-model:contact="contact"
-          v-on:submit="onSubmit"
+          v-on:submit="onFormSubmit"
         ></ApplyForm>
       </div>
       <div class="col-2">

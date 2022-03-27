@@ -132,7 +132,8 @@ export interface ApplyRequestBody {
     value: string
   }[],
   reason?: string,
-  contact?: string
+  contact?: string,
+  route: string
 }
 
 export interface DepartmentResponseData {
@@ -214,4 +215,73 @@ export interface ApprovalRouteRequestBody {
 export interface ApprovalRouteResponseBody {
   message: string,
   routes?: ApprovalRouteResposeData[]
+}
+
+export interface WorkPatternResponseData {
+  id?: number,
+  name: string,
+  onTimeStart: string,
+  onTimeEnd: string,
+  wagePatterns: {
+    id?: number,
+    name: string,
+    timeStart: string,
+    timeEnd: string,
+    normalWagePercentage: number,
+    holidayWagePercentage: number
+  }[]
+}
+
+export type WorkPatternRequestData = WorkPatternResponseData;
+
+export interface WorkPatternResponseBody {
+  message: string,
+  workPattern?: WorkPatternResponseData
+}
+
+export interface WorkPatternsResponseData {
+  id: number,
+  name: string,
+  onTimeStart: string,
+  onTimeEnd: string
+}
+
+export interface WorkPatternsResponseBody {
+  message: string,
+  workPatterns?: WorkPatternsResponseData[]
+}
+
+export interface PrivilegeResponseData {
+  id: number,
+  name: string,
+  recordByLogin: boolean,
+  applyRecord: boolean,
+  applyVacation: boolean,
+  applyHalfDayVacation: boolean,
+  applyMakeupVacation: boolean,
+  applyMourningLeave: boolean,
+  applyMeasureLeave: boolean,
+  applyOvertime: boolean,
+  applyLate: boolean,
+  maxApplyLateNum?: number,
+  maxApplyLateHours?: number,
+  applyEarly: boolean,
+  maxApplyEarlyNum?: number,
+  maxApplyEarlyHours?: number,
+  approve: boolean,
+  viewDuty: boolean,
+  configureDutySystem: boolean,
+  configurePrivilege: boolean,
+  configureDutyStructure: boolean,
+  issueQr: boolean,
+  registerUser: boolean,
+  registerDevice: boolean,
+  viewAllUserInfo: boolean,
+  viewDepartmentUserInfo: boolean,
+  viewSectionUserInfo: boolean
+}
+
+export interface PrivilegeResponseBody {
+  message: string,
+  privileges?: PrivilegeResponseData
 }

@@ -12,7 +12,10 @@ export interface User {
   hourlyWage?: number,
   commuteAllowance?: number,
   qrTokenIssued?: boolean,
-  printOutWageDetail?: boolean
+  printOutWageDetail?: boolean,
+  defaultWorkPattern: number,
+  optional1WorkPattern?: number,
+  optional2WorkPattern?: number
 }
 
 export interface PaidLeave {

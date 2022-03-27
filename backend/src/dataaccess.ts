@@ -164,7 +164,7 @@ export class DatabaseAccess {
     }
 
     if (!verifyAccessToken(token, { account: userData.account })) {
-      throw new Error('refresh token verification failed.');
+      throw new Error('access token verification failed.');
     }
 
     return userData;
@@ -286,7 +286,7 @@ export class DatabaseAccess {
     await this.knex('approvalRouteMember').insert(members);
   }
 
-  public async getApprovalRoutes(accessToken: string, params?: { limit: number, offset: number }, routeId?: number) {
+  public async getApprovalRoutes(accessToken: string, params?: { limit: number, offset: number }, routeIdOrName?: number | string) {
     const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
     const roleMembers = await this.knex
@@ -298,8 +298,13 @@ export class DatabaseAccess {
       .join('user', { 'user.id': 'approvalRouteMember.user' })
       .join('role', { 'role.id': 'approvalRouteMember.role' })
       .where(function (builder) {
-        if (routeId) {
-          builder.where('approvalRoute.id', routeId);
+        if (routeIdOrName) {
+          if (typeof routeIdOrName === 'string') {
+            builder.where('approvalRoute.name', routeIdOrName);
+          }
+          else {
+            builder.where('approvalRoute.id', routeIdOrName);
+          }
         }
       })
       .orderBy('approvalRoute.name', 'desc');
@@ -346,7 +351,6 @@ export class DatabaseAccess {
       .first();
 
     if (routeInfo.name !== route.name) {
-      console.log(routeInfo.name + '->' + route.name)
       await this.knex('approvalRoute')
         .where('id', routeInfo.id)
         .update({ name: route.name })
@@ -373,6 +377,66 @@ export class DatabaseAccess {
 
     await this.knex('approvalRouteMember').del().where('route', id);
     await this.knex('approvalRoute').del().where('id', id);
+  }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 申請関連
+  ///////////////////////////////////////////////////////////////////////
+  public async submitApply(accessToken: string, applyType: string, apply: apiif.ApplyRequestBody) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+    if (!authUserInfo) {
+      const error = new Error('invalid access token');
+      error.name = 'AuthenticationError';
+      throw error;
+    }
+
+    const applyTypeInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('applyType').where('name', applyType).first();
+    let userId = authUserInfo.id;
+    if (apply.targetUserAccount) {
+      const targetUserInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', apply.targetUserAccount).first();
+      if (targetUserInfo) {
+        userId = targetUserInfo.id;
+      }
+    }
+
+    const routeInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', apply.route).first();
+    if (!routeInfo) {
+      throw new Error(`invalid route name ${apply.route} specified`);
+    }
+
+    await this.knex('apply').insert({
+      type: applyTypeInfo.id,
+      user: userId,
+      appliedUser: authUserInfo.id,
+      timestamp: new Date(apply.timestamp),
+      dateFrom: new Date(apply.dateFrom),
+      dateTo: apply.dateTo ? new Date(apply.dateTo) : undefined,
+      dateRelated: apply.dateRelated ? new Date(apply.dateRelated) : undefined,
+      reason: apply.reason ? apply.reason : undefined,
+      contact: apply.contact ? apply.contact : undefined,
+      route: routeInfo.id
+    });
+
+    const lastApplyResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+    const lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    // オプション指定があれば合わせて保存する
+    if (apply.options) {
+      const applyOptionTypeInfo = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionType')
+      const applyOptionValueInfo = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionValue')
+
+      const applyOptions: { apply: number, optionType: number, optionValue: number }[] = [];
+      for (const option of apply.options) {
+        applyOptions.push({
+          apply: lastApplyId,
+          optionType: applyOptionTypeInfo.find(info => info.name === option.name).id,
+          optionValue: applyOptionValueInfo.find(info => info.name === option.value).id
+        });
+      }
+      await this.knex('applyOption').insert(applyOptions);
+    }
+
+    return lastApplyId;
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -460,6 +524,10 @@ export class DatabaseAccess {
         .join('user', { 'user.privilege': 'privilege.id' })
         .where('user.id', idOrAccount);
     }
+  }
+
+  public async getPrivileges() {
+    return await this.knex.table<apiif.PrivilegeResponseData>('privilege');
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -626,10 +694,20 @@ export class DatabaseAccess {
   public async deleteUser(idOrAccount: number | string) {
 
     if (typeof idOrAccount === 'string') {
-      return await this.knex('user').del().where('account', idOrAccount);
+      await this.knex('user').del().where('account', idOrAccount);
     }
     else {
-      return await this.knex('user').del().where('id', idOrAccount);
+      await this.knex('user').del().where('id', idOrAccount);
+    }
+  }
+
+  public async disableUser(idOrAccount: number | string) {
+
+    if (typeof idOrAccount === 'string') {
+      await this.knex('user').update({ available: false }).where('account', idOrAccount);
+    }
+    else {
+      await this.knex('user').update({ available: false }).where('id', idOrAccount);
     }
   }
 
@@ -767,6 +845,147 @@ export class DatabaseAccess {
       });
 
     return result;
+  }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 勤務体系
+  ///////////////////////////////////////////////////////////////////////
+
+  public async addWorkPattern(accessToken: string, workPattern: apiif.WorkPatternRequestData) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    await this.knex('workPattern').insert({
+      name: workPattern.name,
+      onTimeStart: workPattern.onTimeStart,
+      onTimeEnd: workPattern.onTimeEnd
+    });
+
+    const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first()).id;
+
+    // 勤務時間帯情報を追加する
+    const wagePatterns: {
+      workPattern: number, name: string, timeStart: string, timeEnd: string,
+      normalWagePercentage: number, holidayWagePercentage: number
+    }[] = [];
+    for (const pattern of workPattern.wagePatterns) {
+      wagePatterns.push({
+        workPattern: workPatternId, name: pattern.name, timeStart: pattern.timeStart, timeEnd: pattern.timeEnd,
+        normalWagePercentage: pattern.normalWagePercentage, holidayWagePercentage: pattern.holidayWagePercentage
+      });
+    }
+
+    if (wagePatterns.length > 0) {
+      await this.knex('wagePattern').insert(wagePatterns);
+    }
+  }
+
+  public async getWorkPatterns(accessToken: string, params?: { limit: number, offset: number }) {
+    const userInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    return await this.knex
+      .select<apiif.WorkPatternsResponseData[]>
+      (
+        { id: 'workPattern.id' }, { name: 'workPattern.name' }, { onTimeStart: 'onTimeStart' }, { onTimeEnd: 'onTimeEnd' }
+      )
+      .from('workPattern')
+      .modify(function (builder) {
+        if (params.limit) {
+          builder.limit(params.limit);
+        }
+        if (params.offset) {
+          builder.offset(params.offset);
+        }
+      }) as apiif.WorkPatternsResponseData[];
+  }
+
+  public async getWorkPattern(accessToken: string, idOrName: number | string, params?: { limit: number, offset: number }) {
+    const userInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    const workPatternResult = await this.knex
+      .select<{
+        id: number, name: string, onTimeStart: string, onTimeEnd: string,
+      }[]>
+      (
+        { id: 'id' }, { name: 'name' }, { onTimeStart: 'onTimeStart' }, { onTimeEnd: 'onTimeEnd' }
+      )
+      .from('workPattern')
+      .where(function (builder) {
+        if (typeof idOrName === 'string') {
+          builder.where('workPattern.name', idOrName);
+        }
+        else {
+          builder.where('workPattern.id', idOrName);
+        }
+      })
+      .modify(function (builder) {
+        if (params.limit) {
+          builder.limit(params.limit);
+        }
+        if (params.offset) {
+          builder.offset(params.offset);
+        }
+      })
+      .first();
+
+    const wagePatternResult = await this.knex
+      .select<{
+        id: number, name: string, timeStart: string, timeEnd: string,
+        normalWagePercentage: number, holidayWagePercentage: number
+      }[]>
+      (
+        { id: 'id' }, { name: 'name' }, { timeStart: 'timeStart' }, { timeEnd: 'timeEnd' },
+        { normalWagePercentage: 'normalWagePercentage' }, { holidayWagePercentage: 'holidayWagePercentage' }
+      )
+      .from('wagePattern')
+      .where('workPattern', workPatternResult.id);
+
+    return <apiif.WorkPatternResponseData>{
+      id: workPatternResult.id,
+      name: workPatternResult.name,
+      onTimeStart: workPatternResult.onTimeStart,
+      onTimeEnd: workPatternResult.onTimeEnd,
+      wagePatterns: wagePatternResult
+    };
+  }
+
+  public async updateWorkPattern(accessToken: string, workPattern: apiif.WorkPatternRequestData) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    await this.knex('workPattern')
+      .where('id', workPattern.id)
+      .update({
+        name: workPattern.name,
+        onTimeStart: workPattern.onTimeStart,
+        onTimeEnd: workPattern.onTimeEnd
+      });
+
+    const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first()).id;
+
+    // 一旦、対象勤務体系の既存勤務時間帯情報は全て消す
+    await this.knex('wagePattern').del().where('workPattern', workPattern.id);
+
+    // 勤務時間帯情報を追加する
+    const wagePatterns: {
+      workPattern: number, name: string, timeStart: string, timeEnd: string,
+      normalWagePercentage: number, holidayWagePercentage: number
+    }[] = [];
+    for (const pattern of workPattern.wagePatterns) {
+      wagePatterns.push({
+        workPattern: workPatternId, name: pattern.name, timeStart: pattern.timeStart, timeEnd: pattern.timeEnd,
+        normalWagePercentage: pattern.normalWagePercentage, holidayWagePercentage: pattern.holidayWagePercentage
+      });
+    }
+
+    if (wagePatterns.length > 0) {
+      await this.knex('wagePattern').insert(wagePatterns);
+    }
+  }
+
+  public async deleteWorkPattern(accessToken: string, id: number) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    await this.knex('wagePattern').del().where('workPattern', id);
+    await this.knex('workPattern').del().where('id', id);
   }
 
   ///////////////////////////////////////////////////////////////////////

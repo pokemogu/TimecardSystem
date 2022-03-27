@@ -72,7 +72,11 @@ const store = useSessionStore();
         <RouterLink to="/admin/vacation" class="btn btn-warning btn-sm" role="button">有給取得状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/duty" class="btn btn-warning btn-sm" role="button">勤務体系設定</RouterLink>
+        <RouterLink
+          :to="{ name: 'admin-workpattern' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >勤務体系設定</RouterLink>
       </div>
     </div>
 
@@ -89,14 +93,14 @@ const store = useSessionStore();
         <RouterLink to="/apply/makeup-leave" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-routes' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-route' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          :to="{ name: 'admin-users' }"
+          :to="{ name: 'admin-user' }"
           class="btn btn-warning btn-sm"
           role="button"
         >従業員照会(QRコード)</RouterLink>

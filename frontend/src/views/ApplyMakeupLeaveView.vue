@@ -5,6 +5,7 @@ import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
 import ApplyForm from '@/components/ApplyForm.vue';
+import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
@@ -23,53 +24,34 @@ const timeFrom = ref('');
 const timeTo = ref('');
 const reason = ref('');
 
-store.getToken()
-  .then((token) => {
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      tokenAccess.getUserInfo(store.userAccount)
-        .then((userInfo) => {
-          if (userInfo) {
-            if (userInfo.department) {
-              userDepartment.value = userInfo.department;
-            }
-            if (userInfo.section) {
-              userSection.value = userInfo.section;
-            }
-          }
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    }
-  })
-  .catch((error) => {
-    console.log(error);
-  });
+const routeName = ref('');
+const isApprovalRouteSelectOpened = ref(false);
 
-function onSubmit() {
-  store.getToken()
-    .then((token) => {
+async function onFormSubmit() {
+  isApprovalRouteSelectOpened.value = true;
+}
+
+async function onRouteSubmit() {
+  try {
+    if (store.isLoggedIn()) {
+      const token = await store.getToken();
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        tokenAccess.apply('makeup-leave', {
-          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-          dateTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
-          dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`),
-          timestamp: new Date(),
-          reason: reason.value
-        })
-          .then(() => {
-            router.push({ name: 'dashboard' });
-          })
-          .catch((error) => {
-            alert(error);
-          });
+        const access = new backendAccess.TokenAccess(token);
+        await access.apply('makeup-leave', {
+          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
+          dateTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
+          dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`).toISOString(),
+          timestamp: new Date().toISOString(),
+          reason: reason.value,
+          route: routeName.value
+        });
+
+        router.push({ name: 'dashboard' });
       }
-    })
-    .catch((error) => {
-      alert(error);
-    });
+    }
+  } catch (error) {
+    alert(error);
+  }
 }
 
 </script>
@@ -88,22 +70,27 @@ function onSubmit() {
       </div>
     </div>
 
+    <Teleport to="body" v-if="isApprovalRouteSelectOpened">
+      <ApprovalRouteSelect
+        v-model:routeName="routeName"
+        v-model:isOpened="isApprovalRouteSelectOpened"
+        v-on:submit="onRouteSubmit"
+      ></ApprovalRouteSelect>
+    </Teleport>
+
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
           <ApplyForm
             applyName="代休"
             applyType="leave-proxy"
-            v-bind:userName="store.userName"
-            v-bind:userDepartment="userDepartment"
-            v-bind:userSection="userSection"
             v-model:dateOptional="dateHolidayWork"
             dateOptionalType="休出日"
             v-model:dateFrom="dateFrom"
             v-model:timeFrom="timeFrom"
             v-model:timeTo="timeTo"
             v-model:reason="reason"
-            v-on:submit="onSubmit"
+            v-on:submit="onFormSubmit"
           ></ApplyForm>
         </div>
       </div>

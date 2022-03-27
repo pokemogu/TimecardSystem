@@ -4,6 +4,20 @@ import type * as apiif from 'shared/APIInterfaces';
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
 const timeout = import.meta.env.VITE_API_TIMEOUT ?? 5000;
 
+function handleAxiosError(axiosError: unknown) {
+  if (axios.isAxiosError(axiosError)) {
+    const error = new Error();
+    if (axiosError.response) {
+      error.name = axiosError.response.status.toString();
+      error.message = (axiosError.response?.data as { message: string }).message;
+    }
+    throw error;
+  }
+  else {
+    throw axiosError;
+  }
+}
+
 export async function login(account: string, password: string) {
   try {
     const data = (await axios.post<apiif.IssueTokenResponseBody>(`${urlPrefix}/api/token/issue`, <apiif.IssueTokenRequestBody>{
@@ -17,18 +31,8 @@ export async function login(account: string, password: string) {
     else {
       return data.token;
     }
-  } catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
-    }
-    else {
-      throw axiosError;
-    }
+  } catch (error) {
+    handleAxiosError(error);
   }
 }
 
@@ -38,18 +42,19 @@ export async function logout(account: string, refreshToken: string) {
       account: account,
       refreshToken: refreshToken
     }, { timeout: timeout });
-  } catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
-    }
-    else {
-      throw axiosError;
-    }
+  } catch (error) {
+    handleAxiosError(error);
+  }
+}
+
+export async function getToken(refreshToken: string) {
+  try {
+    const data = (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
+      refreshToken: refreshToken
+    }, { timeout: timeout })).data;
+    return data;
+  } catch (error) {
+    handleAxiosError(error);
   }
 }
 
@@ -68,18 +73,8 @@ export class TokenAccess {
       } else {
         return result.info;
       }
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -120,18 +115,8 @@ export class TokenAccess {
       } else {
         return result.infos;
       }
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -141,81 +126,40 @@ export class TokenAccess {
         <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), device: deviceName, deviceToken: deviceRefreshToken },
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
-  public async apply(applyType: string, params: {
-    targetUserId?: string,
-    timestamp: Date,
-    dateFrom: Date,
-    dateTo?: Date,
-    dateRelated?: Date,
-    options?: {
-      name: string,
-      value: string
-    }[],
-    reason?: string,
-    contact?: string
-  }) {
+  public async apply(applyType: string, params: apiif.ApplyRequestBody) {
     try {
-      return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/${applyType}`,
-        <apiif.ApplyRequestBody>{
-          targetUserAccount: params.targetUserId,
-          timestamp: params.timestamp.toISOString(),
-          dateFrom: params.dateFrom.toISOString(),
-          dateTo: params.dateTo ? params.dateTo.toISOString() : undefined,
-          dateRelated: params.dateRelated ? params.dateRelated.toISOString() : undefined,
-          options: params.options,
-          reason: params.reason,
-          contact: params.contact
-        },
+      const data = (await axios.post<{ message: string, id: number }>(`${urlPrefix}/api/apply/${applyType}`, params,
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
+      if (data.id) {
+        return data.id;
       }
       else {
-        throw axiosError;
+        throw new Error('invalid response: did not return applyId');
       }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
-  public async getApplies(isUnapproved: boolean, isApproved: boolean, isRejected: boolean) {
+  public async getMyApplies(params?: {
+    isUnapproved?: boolean,
+    isApproved?: boolean,
+    isRejected?: boolean
+  }
+  ) {
     try {
-      const filter = isUnapproved ? 'unapproved' : (isApproved ? 'approved' : (isRejected ? 'rejected' : undefined));
+      const filter = params?.isUnapproved ? 'unapproved' : (params?.isApproved ? 'approved' : (params?.isRejected ? 'rejected' : undefined));
       return (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply` + (filter ? `?filter=${filter}` : ''),
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -225,18 +169,8 @@ export class TokenAccess {
         {},
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
-    } catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -250,19 +184,25 @@ export class TokenAccess {
         headers: { 'Authorization': `Bearer ${this.accessToken}` },
         timeout: timeout
       })).data;
+    } catch (error) {
+      handleAxiosError(error);
     }
-    catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
+  }
+
+  public async getApprovalRoute(routeName: string) {
+    try {
+      const data = (await axios.get<apiif.ApprovalRouteResponseBody>(`${urlPrefix}/api/apply/route/${routeName}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout
+      })).data;
+
+      if (data.routes?.length === 1) {
+        return data.routes[0];
       }
-      else {
-        throw axiosError;
-      }
+
+      throw new Error('invalid null or more than one response');
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -276,21 +216,9 @@ export class TokenAccess {
           offset: params ? params.offset : undefined
         }
       })).data;
-      console.log(data.routes);
       return data.routes;
-    }
-    catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -299,19 +227,8 @@ export class TokenAccess {
       const data = (await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route`, route, {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
       })).data;
-    }
-    catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 
@@ -320,41 +237,74 @@ export class TokenAccess {
       const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route/${id}`, {
         headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
       })).data;
-    }
-    catch (axiosError) {
-      if (axios.isAxiosError(axiosError)) {
-        const error = new Error();
-        if (axiosError.response) {
-          error.name = axiosError.response.status.toString();
-          error.message = (axiosError.response?.data as { message: string }).message;
-        }
-        throw error;
-      }
-      else {
-        throw axiosError;
-      }
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
-}
 
-export async function getToken(refreshToken: string) {
-  try {
-    const data = (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
-      refreshToken: refreshToken
-    }, { timeout: timeout })).data;
-    return data;
-  }
-  catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
+  ///////////////////////////////////////////////////////////////////////
+  // 勤務体系関連
+  ///////////////////////////////////////////////////////////////////////
+
+  public async addWorkPattern(workPattern: apiif.WorkPatternRequestData) {
+    try {
+      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern`, workPattern, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
     }
-    else {
-      throw axiosError;
+  }
+
+  public async getWorkPatterns(params?: { limit?: number, offset?: number }) {
+    try {
+      const data = (await axios.get<apiif.WorkPatternsResponseBody>(`${urlPrefix}/api/work-pattern`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: {
+          limit: params ? params.limit : undefined,
+          offset: params ? params.offset : undefined
+        }
+      })).data;
+      return data.workPatterns;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getWorkPattern(name: string, params?: { limit?: number, offset?: number }) {
+    try {
+      const data = (await axios.get<apiif.WorkPatternResponseBody>(`${urlPrefix}/api/work-pattern/${name}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: {
+          limit: params ? params.limit : undefined,
+          offset: params ? params.offset : undefined
+        }
+      })).data;
+      return data.workPattern;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async updateWorkPattern(workPattern: apiif.WorkPatternRequestData) {
+    try {
+      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern`, workPattern, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteWorkPattern(id: number) {
+    try {
+      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern/${id}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
     }
   }
 }
@@ -377,37 +327,25 @@ export async function getApprovalRouteRoles() {
   try {
     const data = (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, { timeout: timeout })).data;
     return data.roles;
-  }
-  catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
-    }
-    else {
-      throw axiosError;
-    }
+  } catch (error) {
+    handleAxiosError(error);
   }
 }
 
 export async function getDepartments() {
-  const response = await axios.get<{
-    departments: {
-      name: string
-      sections?: {
+  try {
+    const response = await axios.get<{
+      departments: {
         name: string
+        sections?: {
+          name: string
+        }[]
       }[]
-    }[]
-  }>(`${urlPrefix}/api/department`, { timeout: timeout });
+    }>(`${urlPrefix}/api/department`, { timeout: timeout });
 
-  if (response.status === 200) {
     return response.data.departments;
-  }
-  else {
-    return undefined;
+  } catch (error) {
+    handleAxiosError(error);
   }
 }
 
@@ -425,18 +363,8 @@ export async function getApplyTypeOptions(applyType: string) {
         }[]
       }[]
     }>(`${urlPrefix}/api/options/apply/${applyType}`, { timeout: timeout })).data;
-  } catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
-    }
-    else {
-      throw axiosError;
-    }
+  } catch (error) {
+    handleAxiosError(error);
   }
 }
 
@@ -444,17 +372,7 @@ export async function getApplyTypeOptions(applyType: string) {
 export async function getUserAccountCandidates() {
   try {
     return (await axios.get<apiif.UserAccountCandidatesResponseBody>(`${urlPrefix}/api/user/account-candidates`, { timeout: timeout })).data.candidates;
-  } catch (axiosError) {
-    if (axios.isAxiosError(axiosError)) {
-      const error = new Error();
-      if (axiosError.response) {
-        error.name = axiosError.response.status.toString();
-        error.message = (axiosError.response?.data as { message: string }).message;
-      }
-      throw error;
-    }
-    else {
-      throw axiosError;
-    }
+  } catch (error) {
+    handleAxiosError(error);
   }
 }

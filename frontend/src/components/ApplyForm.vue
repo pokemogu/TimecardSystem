@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { time } from 'console';
-import { ref, computed, inject } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+
+import { useSessionStore } from '@/stores/session';
+import * as backendAccess from '@/BackendAccess';
 
 const timeStrToMinutes = function (time: string) {
   const elems = time.split(':', 2);
@@ -14,15 +16,16 @@ const timeStrToMinutes = function (time: string) {
 }
 
 const route = useRoute();
+const store = useSessionStore();
 
 const dateType = ref('apply-date-spot');
+const userName = ref('');
+const userDepartment = ref('');
+const userSection = ref('');
 
 interface ApplyFormProps {
   applyName: string,
   applyType: string,
-  userName: string,
-  userDepartment?: string,
-  userSection?: string,
   applyTypeValue1?: string,
   applyTypeOptions1?: { name: string, description: string }[],
   applyTypeValue2?: string,
@@ -52,6 +55,33 @@ const emits = defineEmits<{
   (event: 'update:contact', value: string): void,
   (event: 'submit'): void
 }>();
+
+onMounted(async () => {
+  try {
+    if (store.isLoggedIn()) {
+
+      const token = await store.getToken();
+      if (token) {
+        const tokenAccess = new backendAccess.TokenAccess(token);
+        const userInfo = await tokenAccess.getUserInfo(store.userAccount);
+        if (userInfo) {
+          if (userInfo.name) {
+            userName.value = userInfo.name;
+          }
+          if (userInfo.department) {
+            userDepartment.value = userInfo.department;
+          }
+          if (userInfo.section) {
+            userSection.value = userInfo.section;
+          }
+        }
+      }
+    }
+  }
+  catch (error) {
+    alert(error);
+  }
+});
 
 function onChangeApplyType1(event: Event) {
   const value = (<HTMLInputElement>event.target).value;
@@ -124,7 +154,7 @@ function onSubmit() {
             <div class="card-header m-0 p-1 bg-dark text-white">申請</div>
             <div class="card-body m-0 p-1">
               <p class="card-text fs-6 m-0">{{ new Date().toLocaleDateString() }}</p>
-              <p class="card-title fs-6 m-0">{{ props.userName }}</p>
+              <p class="card-title fs-6 m-0">{{ userName }}</p>
             </div>
           </div>
           <div class="card border-dark">
@@ -163,14 +193,14 @@ function onSubmit() {
             >{{ new Date().toLocaleDateString() }}</div>
           </div>
           <div class="row">
-            <div class="col-3 bg-dark text-white border border-dark">所属</div>
+            <div class="col-3 bg-dark text-white border border-dark">所属部署</div>
             <div
               class="col-9 bg-white text-black border border-dark"
-            >{{ props.userDepartment }} {{ props.userSection }}</div>
+            >{{ userDepartment }} {{ userSection }}</div>
           </div>
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">氏名</div>
-            <div class="col-9 bg-white text-black border border-dark">{{ props.userName }}</div>
+            <div class="col-9 bg-white text-black border border-dark">{{ userName }}</div>
           </div>
         </div>
         <div class="col-2"></div>

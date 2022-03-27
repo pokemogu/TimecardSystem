@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
@@ -25,15 +25,21 @@ const departmentList = ref<{
 const department = ref('');
 const section = ref('');
 
-backendAccess.getDepartments()
-  .then((result) => {
+let candidateCycle = 0;
+const receivedCandidates: string[] = [];
+
+onMounted(async () => {
+
+  try {
+    const result = await backendAccess.getDepartments();
     if (result) {
       Array.prototype.push.apply(departmentList.value, result);
     }
-  });
-
-let candidateCycle = 0;
-const receivedCandidates: string[] = [];
+  }
+  catch (error) {
+    alert(error);
+  }
+});
 
 async function onGenerateAccount() {
 
@@ -64,7 +70,7 @@ async function onSubmit() {
 }
 
 async function onDeleteAccount() {
-  if (confirm('本当にこの従業員を削除しますか？')) {
+  if (confirm('本当にこの従業員を削除しますか? ※従業員を削除してもシステム上の理由により社員No IDは再利用できません')) {
     alert('従業員の削除が完了しました。');
     router.push({ name: 'admin-users' });
   }

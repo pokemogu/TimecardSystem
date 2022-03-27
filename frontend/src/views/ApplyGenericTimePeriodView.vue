@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
 import ApplyForm from '@/components/ApplyForm.vue';
+import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
 
@@ -29,8 +30,6 @@ else {
   applyType.value = applyTypeStr;
 }
 
-const userDepartment = ref('');
-const userSection = ref('');
 const doApplyMakeupLeave = ref(true);
 
 const dateFrom = ref('');
@@ -38,57 +37,33 @@ const timeFrom = ref('');
 const timeTo = ref('');
 const reason = ref('');
 
-store.getToken()
-  .then((token) => {
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      tokenAccess.getUserInfo(store.userAccount)
-        .then((userInfo) => {
-          if (userInfo) {
-            if (userInfo.department) {
-              userDepartment.value = userInfo.department;
-            }
-            if (userInfo.section) {
-              userSection.value = userInfo.section;
-            }
-          }
-        })
-        .catch((error) => {
-          console.log(error);
-        });
-    }
-  })
-  .catch((error) => {
-    console.log(error);
-  });
+const routeName = ref('');
+const isApprovalRouteSelectOpened = ref(false);
 
-function onSubmit() {
-  store.getToken()
-    .then((token) => {
+async function onFormSubmit() {
+  isApprovalRouteSelectOpened.value = true;
+}
+
+async function onRouteSubmit() {
+  try {
+    if (store.isLoggedIn()) {
+      const token = await store.getToken();
       if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        tokenAccess.apply(applyType.value, {
-          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-          dateTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
-          timestamp: new Date(),
-          reason: reason.value
-        })
-          .then(() => {
-            if (doApplyMakeupLeave.value === true) {
-              router.push('/apply/makeup-leave?relatedDate=' + dateFrom.value);
-            }
-            else {
-              router.push({ name: 'dashboard' });
-            }
-          })
-          .catch((error) => {
-            alert(error);
-          });
+        console.log(routeName.value);
+        const access = new backendAccess.TokenAccess(token);
+        await access.apply('record', {
+          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
+          timestamp: new Date().toISOString(),
+          reason: reason.value,
+          route: routeName.value
+        });
+
+        router.push({ name: 'dashboard' });
       }
-    })
-    .catch((error) => {
-      alert(error);
-    });
+    }
+  } catch (error) {
+    alert(error);
+  }
 }
 
 </script>
@@ -107,20 +82,25 @@ function onSubmit() {
       </div>
     </div>
 
+    <Teleport to="body" v-if="isApprovalRouteSelectOpened">
+      <ApprovalRouteSelect
+        v-model:routeName="routeName"
+        v-model:isOpened="isApprovalRouteSelectOpened"
+        v-on:submit="onRouteSubmit"
+      ></ApprovalRouteSelect>
+    </Teleport>
+
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
           <ApplyForm
             v-bind:applyName="applyType ? applyTypeAndName[applyType] : ''"
             v-bind:applyType="applyType || ''"
-            v-bind:userName="store.userName"
-            v-bind:userDepartment="userDepartment"
-            v-bind:userSection="userSection"
             v-model:dateFrom="dateFrom"
             v-model:timeFrom="timeFrom"
             v-model:timeTo="timeTo"
             v-model:reason="reason"
-            v-on:submit="onSubmit"
+            v-on:submit="onFormSubmit"
           ></ApplyForm>
         </div>
         <div v-if="applyType === 'holiday-work'" class="row">

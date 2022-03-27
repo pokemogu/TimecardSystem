@@ -90,7 +90,9 @@ try {
         if (token && account !== '') {
           const access = new backendAccess.TokenAccess(token);
           const info = await access.getUserInfo(account);
-          userName = info.name;
+          if (info) {
+            userName = info.name;
+          }
         }
         inputUserNames.value[inputUserAccounts.value.length - 1].push(userName);
       }
@@ -141,7 +143,7 @@ function isAllFilled() {
         <div class="modal-body">
           <div class="input-group mb-3">
             <span class="input-group-text" id="basic-addon3">ルート名</span>
-            <input type="text" class="form-control" id="route-name" v-model="routeName" />
+            <input type="text" class="form-control" id="route-name" v-model="routeName" required />
           </div>
           <div class="row">
             <div class="col-3" v-for="(level, indexCol) in roles">

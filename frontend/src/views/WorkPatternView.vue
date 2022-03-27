@@ -1,23 +1,31 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
-import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
+import WorkPatternEdit from '@/components/WorkPatternEdit.vue';
+
+function formatTimeString(time: string) {
+  const hourMinSec = time.split(':');
+  if (hourMinSec.length < 2) {
+    return '';
+  }
+
+  const hour = parseInt(hourMinSec[0]);
+  return ((hour > 24) ? ('翌' + (hour - 24)) : hour) + ':' + hourMinSec[1];
+}
+
 const router = useRouter();
 const store = useSessionStore();
 
-const isApprovalRouteSelected = ref(false);
-const selectedRoute = ref<apiif.ApprovalRouteResposeData>({ name: '', roles: [] });
-
-const roleNamesLinear = ref<string[]>([]);
-const roleMembersLinear = ref<Record<string, string[]>>({});
-const routeInfos = ref<apiif.ApprovalRouteResposeData[]>([]);
-const checks = ref<Record<string, boolean>>({});
+const isModalOpened = ref(false);
+const selectedWorkPattern = ref<apiif.WorkPatternResponseData>({ name: '', onTimeStart: '', onTimeEnd: '', wagePatterns: [] });
+const workPatternInfos = ref<apiif.WorkPatternsResponseData[]>([]);
+const checks = ref<Record<number, boolean>>({});
 
 const limit = ref(10);
 const offset = ref(0);
@@ -28,30 +36,10 @@ async function updateTable() {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getApprovalRoutes({ limit: limit.value + 1, offset: offset.value });
+      const infos = await tokenAccess.getWorkPatterns({ limit: limit.value + 1, offset: offset.value });
       if (infos) {
-        routeInfos.value.splice(0);
-        Array.prototype.push.apply(routeInfos.value, infos);
-
-        roleMembersLinear.value = {};
-        for (const route of routeInfos.value) {
-          roleMembersLinear.value[route.name] = [];
-          for (let i = 0; i < roleNamesLinear.value.length; i++) {
-
-            let foundUser = false;
-            for (const role of route.roles) {
-              for (const user of role.users) {
-                if (user.role === roleNamesLinear.value[i]) {
-                  roleMembersLinear.value[route.name].push(user.name ? user.name : '');
-                  foundUser = true;
-                }
-              }
-            }
-            if (!foundUser) {
-              roleMembersLinear.value[route.name].push('');
-            }
-          }
-        }
+        workPatternInfos.value.splice(0);
+        Array.prototype.push.apply(workPatternInfos.value, infos);
       }
     }
   }
@@ -62,15 +50,7 @@ async function updateTable() {
 }
 
 onMounted(async () => {
-  const result = await backendAccess.getApprovalRouteRoles();
-  if (result) {
-    roleNamesLinear.value.splice(0);
-    for (const role of result) {
-      Array.prototype.push.apply(roleNamesLinear.value, role.names);
-    }
-
-    updateTable();
-  }
+  updateTable();
 });
 
 async function onPageBack() {
@@ -85,33 +65,61 @@ async function onPageForward() {
   updateTable();
 }
 
-function onRouteClick(routeName?: string) {
-  // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
-  const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
-  if (targetRouteInfo) {
-    selectedRoute.value = {
-      id: targetRouteInfo?.id ? targetRouteInfo?.id : undefined,
-      name: targetRouteInfo?.name ? targetRouteInfo?.name : '',
-      roles: targetRouteInfo?.roles ? targetRouteInfo?.roles : []
-    };
+async function onWorkPatternClick(workPatternName?: string) {
+
+  if (workPatternName) {
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const tokenAccess = new backendAccess.TokenAccess(token);
+        const workPattern = await tokenAccess.getWorkPattern(workPatternName);
+        if (workPattern) {
+          selectedWorkPattern.value = workPattern;
+        }
+      }
+    }
+    catch (error) {
+      alert(error);
+      return;
+    }
   }
   else {
-    selectedRoute.value = { name: '', roles: [] };
+    selectedWorkPattern.value.name = '';
+    selectedWorkPattern.value.onTimeStart = '';
+    selectedWorkPattern.value.onTimeEnd = '';
   }
-  isApprovalRouteSelected.value = true;
+
+
+  isModalOpened.value = true;
+
+  // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
+  /*
+  const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
+    if (targetRouteInfo) {
+      selectedWorkPattern.value = {
+        id: targetRouteInfo?.id ? targetRouteInfo?.id : undefined,
+        name: targetRouteInfo?.name ? targetRouteInfo?.name : '',
+        roles: targetRouteInfo?.roles ? targetRouteInfo?.roles : []
+      };
+    }
+    else {
+      selectedWorkPattern.value = { name: '', roles: [] };
+    }
+    isApprovalRouteSelected.value = true;
+  */
 }
 
-async function onRouteDelete() {
-  if (!confirm('チェックされた承認ルートを削除しますか?')) {
+async function onWorkPatternDelete() {
+  if (!confirm('チェックされた勤務体系を削除しますか? (※従業員が1人でも使用している勤務体系は削除できず、サーバーエラーが発生します)')) {
     return;
   }
   try {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
-      for (const routeInfo of routeInfos.value) {
-        if (checks.value[routeInfo.name] && routeInfo.id) {
-          await tokenAccess.deleteApprovalRoute(routeInfo.id);
+      for (const workPattern of workPatternInfos.value) {
+        if (checks.value[workPattern.id]) {
+          await tokenAccess.deleteWorkPattern(workPattern.id);
         }
       }
     }
@@ -124,21 +132,24 @@ async function onRouteDelete() {
   for (const key in checks.value) {
     checks.value[key] = false;
   }
+
   updateTable();
 }
 
-async function onSubmit() {
+async function onWorkPatternSubmit() {
+  console.log(selectedWorkPattern.value);
+
   try {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
 
       // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
-      if (selectedRoute.value.id) {
-        await tokenAccess.updateApprovalRoutes(selectedRoute.value);
+      if (selectedWorkPattern.value.id) {
+        await tokenAccess.updateWorkPattern(selectedWorkPattern.value);
       }
       else {
-        await tokenAccess.addApprovalRoutes(selectedRoute.value);
+        await tokenAccess.addWorkPattern(selectedWorkPattern.value);
       }
     }
   }
@@ -168,7 +179,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="承認ルート設定"
+          titleName="勤務体系設定"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
           v-on:customButton1="router.push({ name: 'dashboard' })"
@@ -176,15 +187,13 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
       </div>
     </div>
 
-    <Suspense>
-      <Teleport to="body" v-if="isApprovalRouteSelected">
-        <ApprovalRoute
-          v-model:route="selectedRoute"
-          v-model:isOpened="isApprovalRouteSelected"
-          v-on:submit="onSubmit"
-        ></ApprovalRoute>
-      </Teleport>
-    </Suspense>
+    <Teleport to="body" v-if="isModalOpened">
+      <WorkPatternEdit
+        v-model:isOpened="isModalOpened"
+        v-model:workPattern="selectedWorkPattern"
+        v-on:submit="onWorkPatternSubmit"
+      ></WorkPatternEdit>
+    </Teleport>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
@@ -192,8 +201,8 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           type="button"
           class="btn btn-primary"
           id="new-route"
-          v-on:click="onRouteClick()"
-        >新規承認ルート作成</button>
+          v-on:click="onWorkPatternClick()"
+        >新規勤務体系作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
         <button
@@ -201,8 +210,8 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           class="btn btn-primary"
           id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onRouteDelete()"
-        >チェックした承認ルートを削除</button>
+          v-on:click="onWorkPatternDelete()"
+        >チェックした勤務体系を削除</button>
       </div>
     </div>
 
@@ -212,28 +221,31 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           <thead>
             <tr>
               <th scope="col"></th>
-              <th scope="col">ルート名</th>
-              <th v-for="roleName in roleNamesLinear">{{ roleName }}</th>
+              <th scope="col">勤務体系名</th>
+              <th scope="col">定時開始時刻</th>
+              <th scope="col">定時終了時刻</th>
+              <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(roleMembers, routeName) in sliceDictionary(roleMembersLinear, limit)">
+            <tr v-for="(workPattern, index) in workPatternInfos">
               <th scope="row">
                 <input
                   class="form-check-input"
                   type="checkbox"
-                  :id="'checkbox' + routeName"
-                  v-model="checks[routeName]"
+                  :id="'checkbox' + index"
+                  v-model="checks[workPattern.id]"
                 />
               </th>
               <td>
                 <button
                   type="button"
                   class="btn btn-link"
-                  v-on:click="onRouteClick(routeName as string)"
-                >{{ routeName }}</button>
+                  v-on:click="onWorkPatternClick(workPattern.name)"
+                >{{ workPattern.name }}</button>
               </td>
-              <td v-for="memberName in roleMembers">{{ memberName }}</td>
+              <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>
+              <td>{{ formatTimeString(workPattern.onTimeEnd) }}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -246,7 +258,10 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
                         <span>&laquo;</span>
                       </button>
                     </li>
-                    <li class="page-item" v-bind:class="{ disabled: routeInfos.length <= limit }">
+                    <li
+                      class="page-item"
+                      v-bind:class="{ disabled: workPatternInfos.length <= limit }"
+                    >
                       <button class="page-link" v-on:click="onPageForward">
                         <span>&raquo;</span>
                       </button>
@@ -275,28 +290,7 @@ body {
   border-bottom-color: orange !important;
   color: black !important;
 }
-/*
-.nav-item {
-  background: navajowhite !important;
-}
 
-.nav-item:active {
-  background: navajowhite !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-}
-
-.nav-pills .nav-link:active {
-  background-color: orange !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-  color: black !important;
-}
-*/
 .nav-tabs .nav-item .nav-link {
   background-color: navajowhite !important;
   border-left-color: orange !important;

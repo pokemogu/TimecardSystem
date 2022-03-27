@@ -76,15 +76,21 @@ const router = createRouter({
     },
     {
       path: '/admin/users',
-      name: 'admin-users',
+      name: 'admin-user',
       component: () => import('@/views/IssueQrCodeView.vue'),
       meta: { title: `${appName} - 従業員照会(QRコード)` }
     },
     {
       path: '/admin/route',
-      name: 'admin-routes',
+      name: 'admin-route',
       component: () => import('@/views/ApprovalRouteView.vue'),
-      meta: { title: `${appName} - 従業員照会(QRコード)` }
+      meta: { title: `${appName} - 承認ルート設定` }
+    },
+    {
+      path: '/admin/workpattern',
+      name: 'admin-workpattern',
+      component: () => import('@/views/WorkPatternView.vue'),
+      meta: { title: `${appName} - 勤務体系設定` }
     }
   ]
 });

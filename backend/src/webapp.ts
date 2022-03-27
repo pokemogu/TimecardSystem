@@ -6,23 +6,7 @@ import { DatabaseAccess } from './dataaccess';
 
 import type { Logger } from './logger';
 
-type User = {
-  id: number
-  name: string
-  email: string
-};
-
-const users: User[] = [
-  { id: 1, name: "User1", email: "user1@test.local" },
-  { id: 2, name: "User2", email: "user2@test.local" },
-  { id: 3, name: "User3", email: "user3@test.local" }
-];
-
-type UserParams = {
-  name: string
-};
-
-const getUserFromTokenHeader = (header: string) => {
+function extractTokenFromHeader(header: string) {
   const matches = header.match(/^Bearer ([\w\-]+\.[\w\-]+\.[\w\-]+)$/);
   if (!matches || matches.length < 1) {
     return undefined;
@@ -52,6 +36,10 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
+  // ユーザー情報関連
+  ///////////////////////////////////////////////////////////////////////
+
   app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -60,7 +48,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -107,7 +95,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -150,6 +138,10 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
+  // 認証関連
+  ///////////////////////////////////////////////////////////////////////
+
   app.post<{}, apiif.IssueTokenResponseBody, apiif.IssueTokenRequestBody>('/api/token/issue', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -184,7 +176,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const issuerToken = getUserFromTokenHeader(authHeader);
+      const issuerToken = extractTokenFromHeader(authHeader);
       if (!issuerToken) {
         throw new Error('invalid Authorization header');
       }
@@ -254,6 +246,10 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
+  // 打刻関連
+  ///////////////////////////////////////////////////////////////////////
+
   app.post<{ type: string }, apiif.MessageOnlyResponseBody, apiif.RecordRequestBody>('/api/record/:type', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -262,7 +258,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -290,7 +286,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
@@ -305,7 +301,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
@@ -325,7 +321,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
@@ -341,11 +337,14 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
   // 承認ルート関連
+  ///////////////////////////////////////////////////////////////////////
+
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
@@ -354,7 +353,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -366,7 +365,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
@@ -378,7 +377,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -391,11 +390,11 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
-  app.get<{ id: number }, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route/:id', async (req, res) => {
+  app.get<{ name: string }, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route/:name', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
       const authHeader = req.get('Authorization');
@@ -403,12 +402,12 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
 
-      const routes = await access.getApprovalRoutes(token, req.query, req.params.id);
+      const routes = await access.getApprovalRoutes(token, undefined, req.params.name);
       res.send({
         message: 'ok',
         routes: routes
@@ -416,7 +415,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
@@ -428,7 +427,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -440,7 +439,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
       console.log(error);
     }
   });
@@ -453,7 +452,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('Authorization header not found');
       }
 
-      const token = getUserFromTokenHeader(authHeader);
+      const token = extractTokenFromHeader(authHeader);
       if (!token) {
         throw new Error('invalid Authorization header');
       }
@@ -465,11 +464,171 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
+  // 申請関連
+  ///////////////////////////////////////////////////////////////////////
+
+  app.post<{ applyType: string }, { message: string, id?: number }, apiif.ApplyRequestBody>('/api/apply/:applyType', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const id = await access.submitApply(token, req.params.applyType, req.body);
+      console.log(id);
+      res.send({
+        message: 'ok',
+        id: id
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  ///////////////////////////////////////////////////////////////////////
+  // 勤務体系関連
+  ///////////////////////////////////////////////////////////////////////
+
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.addWorkPattern(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{}, apiif.WorkPatternsResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const workPatterns = await access.getWorkPatterns(token, req.query);
+      res.send({
+        message: 'ok',
+        workPatterns: workPatterns
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{ name: string }, apiif.WorkPatternResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern/:name', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const workPattern = await access.getWorkPattern(token, req.params.name, req.query);
+      res.send({
+        message: 'ok',
+        workPattern: workPattern
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const id = await access.updateWorkPattern(token, req.body);
+      console.log(id);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/work-pattern/:id', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteWorkPattern(token, req.params.id);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  ///////////////////////////////////////////////////////////////////////
   // メール送信
+  ///////////////////////////////////////////////////////////////////////
+
   app.post<{}, apiif.MessageOnlyResponseBody, {
     from: string, to: string, cc?: string, subject: string, body: string
   }>('/api/mail', async (req, res) => {
@@ -488,7 +647,7 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
     }
     catch (error) {
       res.status(400);
-      res.send({ message: error });
+      res.send({ message: error.toString() });
     }
   });
 

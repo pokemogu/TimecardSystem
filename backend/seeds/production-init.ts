@@ -102,4 +102,11 @@ export async function seed(knex: Knex): Promise<void> {
     { name: '決済者', level: 10 },
   ]);
 
+  // 承認権限レベル名称
+  await knex('roleLevel').insert([
+    { name: '承認1', level: 1 },
+    { name: '承認2', level: 2 },
+    { name: '承認3', level: 3 },
+    { name: '決済', level: 10 },
+  ]);
 };

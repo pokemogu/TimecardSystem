@@ -60,8 +60,10 @@ const updateUserList = async () => {
         offset: offset.value
       });
 
-      userInfos.value = [];
-      Array.prototype.push.apply(userInfos.value, infos);
+      if (infos) {
+        userInfos.value.splice(0);
+        Array.prototype.push.apply(userInfos.value, infos);
+      }
       checks.value = Array.from({ length: userInfos.value.length }, () => false);
     }
   }
@@ -87,7 +89,7 @@ async function onIssueQrCode() {
         if (token) {
           const tokenAccess = new backendAccess.TokenAccess(token);
           const issuedToken = await tokenAccess.issueRefreshTokenForOtherUser(userInfos.value[i].account);
-          if (issuedToken.token) {
+          if (issuedToken?.token) {
             userInfoforQrCode.push({
               name: userInfos.value[i].name,
               account: userInfos.value[i].account,
@@ -233,7 +235,7 @@ function onPageForward() {
               <td>{{ new Date(user.registeredAt).toLocaleDateString() }}</td>
               <td>
                 <RouterLink
-                  :to="{ name: 'admin-user', params: { account: user.account } }"
+                  :to="{ name: 'admin-reguser', params: { account: user.account } }"
                 >{{ user.account }}</RouterLink>
               </td>
               <td>{{ user.name }}</td>
