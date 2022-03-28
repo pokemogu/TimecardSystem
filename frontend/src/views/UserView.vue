@@ -11,7 +11,8 @@ const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
 
-console.log();
+const privilegeNames = ref<string[]>([]);
+const workPatternNames = ref<string[]>([]);
 
 const account = ref(route.params.account ? route.params.account as string : '');
 const isExistingAccount = ref(route.params.account ? true : false);
@@ -34,6 +35,26 @@ onMounted(async () => {
     const result = await backendAccess.getDepartments();
     if (result) {
       Array.prototype.push.apply(departmentList.value, result);
+    }
+
+
+    if (store.isLoggedIn()) {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        const privileges = await access.getPrivileges();
+
+        if (privileges) {
+          privilegeNames.value.splice(0);
+          Array.prototype.push.apply(privilegeNames.value, privileges.map(privilege => privilege.name));
+        }
+
+        const workPatterns = await access.getWorkPatterns();
+        if (workPatterns) {
+          workPatternNames.value.splice(0);
+          Array.prototype.push.apply(workPatternNames.value, workPatterns.map(workPattern => workPattern.name));
+        }
+      }
     }
   }
   catch (error) {
@@ -219,20 +240,22 @@ async function onDeleteAccount() {
                 <div class="col-9">
                   <select class="form-select" id="user-privilege">
                     <option selected disabled>権限を選択してください</option>
-                    <option value="1">パート</option>
-                    <option value="2">工場社員</option>
-                    <option value="3">事務社員</option>
+                    <option
+                      v-for="privilegeName in privilegeNames"
+                      :value="privilegeName"
+                    >{{ privilegeName }}</option>
                   </select>
                 </div>
               </div>
               <div class="row m-1">
                 <label for="user-privilege" class="col-3 col-form-label">勤務体系1</label>
                 <div class="col-9">
-                  <select class="form-select" id="user-privilege">
+                  <select class="form-select" id="user-privilege" required>
                     <option selected disabled>勤務体系を選択してください</option>
-                    <option value="1">パート</option>
-                    <option value="2">工場社員</option>
-                    <option value="3">事務社員</option>
+                    <option
+                      v-for="workPatternName in workPatternNames"
+                      :value="workPatternName"
+                    >{{ workPatternName }}</option>
                   </select>
                 </div>
               </div>
@@ -240,10 +263,11 @@ async function onDeleteAccount() {
                 <label for="user-privilege" class="col-3 col-form-label">勤務体系2</label>
                 <div class="col-9">
                   <select class="form-select" id="user-privilege">
-                    <option selected disabled>勤務体系を選択してください</option>
-                    <option value="1">パート</option>
-                    <option value="2">工場社員</option>
-                    <option value="3">事務社員</option>
+                    <option selected></option>
+                    <option
+                      v-for="workPatternName in workPatternNames"
+                      :value="workPatternName"
+                    >{{ workPatternName }}</option>
                   </select>
                 </div>
               </div>
@@ -251,10 +275,11 @@ async function onDeleteAccount() {
                 <label for="user-privilege" class="col-3 col-form-label">勤務体系3</label>
                 <div class="col-9">
                   <select class="form-select" id="user-privilege">
-                    <option selected disabled>勤務体系を選択してください</option>
-                    <option value="1">パート</option>
-                    <option value="2">工場社員</option>
-                    <option value="3">事務社員</option>
+                    <option selected></option>
+                    <option
+                      v-for="workPatternName in workPatternNames"
+                      :value="workPatternName"
+                    >{{ workPatternName }}</option>
                   </select>
                 </div>
               </div>
@@ -273,23 +298,6 @@ async function onDeleteAccount() {
                   </div>
                 </div>
               </div>
-              <!--
-              <div class="row m-1">
-                <label for="user-paid-leave-hours" class="col-6 col-form-label">時間有給</label>
-                <div class="col-6">
-                  <div class="input-group">
-                    <input
-                      type="number"
-                      id="user-paid-leave-hours"
-                      class="form-control"
-                      value="0"
-                      min="0"
-                    />
-                    <span class="input-group-text">時間</span>
-                  </div>
-                </div>
-              </div>
-              -->
             </div>
           </div>
           <div class="row justify-content-center m-1">

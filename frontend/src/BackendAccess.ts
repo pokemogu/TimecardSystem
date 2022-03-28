@@ -175,6 +175,69 @@ export class TokenAccess {
   }
 
   ///////////////////////////////////////////////////////////////////////
+  // 権限関連
+  ///////////////////////////////////////////////////////////////////////
+
+  public async addPrivilege(privilege: apiif.PrivilageRequestData) {
+    try {
+      const data = (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage`, privilege, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getPrivilege(privilegeName: string) {
+    try {
+      return (await axios.get<apiif.PrivilegeResponseBody>(`${urlPrefix}/api/privilage/${privilegeName}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getPrivileges(params?: { limit?: number, offset?: number }) {
+    try {
+      const data = (await axios.get<apiif.PrivilegeResponseBody>(`${urlPrefix}/api/privilage`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: {
+          limit: params ? params.limit : undefined,
+          offset: params ? params.offset : undefined
+        }
+      })).data;
+
+      return data.privileges;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async updatePrivilege(privilege: apiif.PrivilageRequestData) {
+    try {
+      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage`, privilege, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deletePrivilege(id: number) {
+    try {
+      await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage/${id}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////
   // 承認ルート関連
   ///////////////////////////////////////////////////////////////////////
 

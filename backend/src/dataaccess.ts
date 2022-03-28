@@ -501,16 +501,6 @@ export class DatabaseAccess {
     await this.knex('privilege').insert(privilege);
   }
 
-  public async deletePrivilege(idOrName: string | number) {
-
-    if (typeof idOrName === 'string') {
-      return await this.knex('privilege').del().where('name', idOrName);
-    }
-    else {
-      return await this.knex('privilege').del().where('id', idOrName);
-    }
-  }
-
   public async getUserPrivilege(idOrAccount: string | number): Promise<models.Privilege> {
     if (typeof idOrAccount === 'string') {
       return await this.knex.table<models.Privilege>('privilege')
@@ -526,8 +516,36 @@ export class DatabaseAccess {
     }
   }
 
+  public async addPrivilege(accessToken: string, privilege: apiif.PrivilageRequestData) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+    lodash.omit(privilege, ['id']);
+    await this.knex('privilege').insert(privilege);
+  }
+
   public async getPrivileges() {
     return await this.knex.table<apiif.PrivilegeResponseData>('privilege');
+  }
+
+  public async updatePrivilege(accessToken: string, privilege: apiif.PrivilageRequestData) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    const id = privilege.id;
+    lodash.omit(privilege, ['id']);
+
+    await this.knex('privilege')
+      .where('id', id)
+      .update(privilege);
+  }
+
+  public async deletePrivilege(accessToken: string, idOrName: string | number) {
+    const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+    if (typeof idOrName === 'string') {
+      return await this.knex('privilege').del().where('name', idOrName);
+    }
+    else {
+      return await this.knex('privilege').del().where('id', idOrName);
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////

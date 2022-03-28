@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import express from 'express';
-import { Knex } from 'knex';
+import knex, { Knex } from 'knex';
 
 import { Worker } from 'worker_threads';
 import dotenv from 'dotenv';
@@ -58,6 +58,13 @@ function execWorker() {
 };
 
 execWorker();
+
+(knexconfig.connection as any).typeCast = function (field: any, next: any) {
+  if (field.type === 'TINY' && field.length === 1) {
+    return (field.string() === '1'); // 1 = true, 0 = false
+  }
+  return next();
+};
 
 const app = express();
 app.use(express.json());

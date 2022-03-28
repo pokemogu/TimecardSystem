@@ -85,24 +85,24 @@ export async function seed(knex: Knex): Promise<void> {
   await knex('privilege').insert([
     {
       name: '部署管理者',
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewDuty: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
+      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewRecord: true,
       viewSectionUserInfo: true
     },
     {
       name: '部門管理者',
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewDuty: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
+      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewRecord: true,
       viewSectionUserInfo: true, viewDepartmentUserInfo: true
     },
     {
       name: '製造社員',
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
       applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
     },
     {
       name: '事務社員',
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
       applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
     },
     {
@@ -110,18 +110,18 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '事務派遣',
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
       applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
     },
     {
       name: 'システム管理者',
-      recordByLogin: true, configureDutySystem: true, configurePrivilege: true, configureDutyStructure: true, issueQr: true,
+      recordByLogin: true, configureWorkPattern: true, configurePrivilege: true, viewRecordPerDevice: true, issueQr: true,
       registerUser: true, registerDevice: true,
       viewAllUserInfo: true
     },
     {
       name: '役員',
-      recordByLogin: true, configureDutySystem: true, configurePrivilege: true, configureDutyStructure: true, issueQr: true,
+      recordByLogin: true, configureWorkPattern: true, configurePrivilege: true, viewRecordPerDevice: true, issueQr: true,
       registerUser: true, registerDevice: true,
       viewAllUserInfo: true
     },

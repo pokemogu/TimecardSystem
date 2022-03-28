@@ -91,6 +91,12 @@ const router = createRouter({
       name: 'admin-workpattern',
       component: () => import('@/views/WorkPatternView.vue'),
       meta: { title: `${appName} - 勤務体系設定` }
+    },
+    {
+      path: '/admin/privilege',
+      name: 'admin-privilege',
+      component: () => import('@/views/PrivilegeView.vue'),
+      meta: { title: `${appName} - 権限設定` }
     }
   ]
 });

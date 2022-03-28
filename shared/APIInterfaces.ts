@@ -252,36 +252,38 @@ export interface WorkPatternsResponseBody {
 }
 
 export interface PrivilegeResponseData {
-  id: number,
+  id?: number,
   name: string,
-  recordByLogin: boolean,
-  applyRecord: boolean,
-  applyVacation: boolean,
-  applyHalfDayVacation: boolean,
-  applyMakeupVacation: boolean,
-  applyMourningLeave: boolean,
-  applyMeasureLeave: boolean,
-  applyOvertime: boolean,
-  applyLate: boolean,
+  recordByLogin?: boolean,
+  applyRecord?: boolean,
+  applyLeave?: boolean,
+  applyHalfDayLeave?: boolean,
+  applyMakeupLeave?: boolean,
+  applyMourningLeave?: boolean,
+  applyMeasureLeave?: boolean,
+  applyOvertime?: boolean,
+  applyLate?: boolean,
   maxApplyLateNum?: number,
   maxApplyLateHours?: number,
-  applyEarly: boolean,
+  applyEarly?: boolean,
   maxApplyEarlyNum?: number,
   maxApplyEarlyHours?: number,
-  approve: boolean,
-  viewDuty: boolean,
-  configureDutySystem: boolean,
-  configurePrivilege: boolean,
-  configureDutyStructure: boolean,
-  issueQr: boolean,
-  registerUser: boolean,
-  registerDevice: boolean,
-  viewAllUserInfo: boolean,
-  viewDepartmentUserInfo: boolean,
-  viewSectionUserInfo: boolean
+  approve?: boolean,
+  viewRecord?: boolean,
+  viewRecordPerDevice?: boolean,
+  configurePrivilege?: boolean,
+  configureWorkPattern?: boolean,
+  issueQr?: boolean,
+  registerUser?: boolean,
+  registerDevice?: boolean,
+  viewAllUserInfo?: boolean,
+  viewDepartmentUserInfo?: boolean,
+  viewSectionUserInfo?: boolean
 }
+
+export type PrivilageRequestData = PrivilegeResponseData;
 
 export interface PrivilegeResponseBody {
   message: string,
-  privileges?: PrivilegeResponseData
+  privileges?: PrivilegeResponseData[]
 }

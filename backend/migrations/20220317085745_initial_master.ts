@@ -57,9 +57,9 @@ export async function up(knex: Knex): Promise<void> {
       table.string('name').notNullable().unique();
       table.boolean('recordByLogin').notNullable().defaultTo(false);
       table.boolean('applyRecord').notNullable().defaultTo(false);
-      table.boolean('applyVacation').notNullable().defaultTo(false);
-      table.boolean('applyHalfDayVacation').notNullable().defaultTo(false);
-      table.boolean('applyMakeupVacation').notNullable().defaultTo(false);
+      table.boolean('applyLeave').notNullable().defaultTo(false);
+      table.boolean('applyHalfDayLeave').notNullable().defaultTo(false);
+      table.boolean('applyMakeupLeave').notNullable().defaultTo(false);
       table.boolean('applyMourningLeave').notNullable().defaultTo(false);
       table.boolean('applyMeasureLeave').notNullable().defaultTo(false);
       table.boolean('applyOvertime').notNullable().defaultTo(false);
@@ -70,10 +70,10 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('maxApplyEarlyNum').unsigned();
       table.integer('maxApplyEarlyHours').unsigned();
       table.boolean('approve').notNullable().defaultTo(false);
-      table.boolean('viewDuty').notNullable().defaultTo(false);
-      table.boolean('configureDutySystem').notNullable().defaultTo(false);
+      table.boolean('viewRecord').notNullable().defaultTo(false);
+      table.boolean('viewRecordPerDevice').notNullable().defaultTo(false);
       table.boolean('configurePrivilege').notNullable().defaultTo(false);
-      table.boolean('configureDutyStructure').notNullable().defaultTo(false);
+      table.boolean('configureWorkPattern').notNullable().defaultTo(false);
       table.boolean('issueQr').notNullable().defaultTo(false);
       table.boolean('registerUser').notNullable().defaultTo(false);
       table.boolean('registerDevice').notNullable().defaultTo(false);
@@ -87,25 +87,12 @@ export async function up(knex: Knex): Promise<void> {
       table.string('name').notNullable().unique();
       table.time('onTimeStart').notNullable();
       table.time('onTimeEnd').notNullable();
-      /*
-      table.time('overtimeStart');
-      table.time('overtimeEnd');
-      table.integer('overTimeWage')
-      table.time('extraOvertimeStart');
-      table.time('extraOvertimeEnd');
-      table.time('midnightWorkStart');
-      table.time('midnightWorkEnd');
-      table.time('extraMidnightWorkStart');
-      table.time('extraMidnightWorkEnd');
-      table.time('maxAllowedLateHoursPerMonth');
-      table.time('maxAllowedLateNumberPerMonth');
-      */
     });
 
     await knex.schema.createTable('wagePattern', function (table) {
       table.increments('id');
       table.integer('workPattern').unsigned().notNullable();
-      table.string('name').notNullable().unique();
+      table.string('name').notNullable();
       table.time('timeStart').notNullable();
       table.time('timeEnd').notNullable();
       table.integer('normalWagePercentage').unsigned().notNullable();
@@ -113,6 +100,7 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('mandatoryHolidayWagePercentage').unsigned();
       table.integer('nonMandatoryHolidayWagePercentage').unsigned();
 
+      table.unique(['workPattern', 'name']);
       table.foreign('workPattern').references('id').inTable('workPattern');
     });
 
@@ -181,21 +169,6 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.raw('ALTER TABLE token MODIFY refreshToken VARCHAR(255) CHARACTER SET ascii;');
     await knex.schema.raw('ALTER TABLE token MODIFY accessToken VARCHAR(255) CHARACTER SET ascii;');
 
-    await knex.schema.createTable('recordType', function (table) {
-      table.increments('id');
-      table.string('name', 15).notNullable().unique();
-      table.string('description').notNullable();
-    });
-
-    await knex.schema.raw('ALTER TABLE recordType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
-
-    await knex('recordType').insert([
-      { name: 'clockin', description: '出勤' },
-      { name: 'clockout', description: '退勤' },
-      { name: 'break', description: '外出' },
-      { name: 'reenter', description: '再入' },
-    ]);
-
     await knex.schema.createTable('device', function (table) {
       table.increments('id');
       table.string('name').notNullable().unique();
@@ -203,17 +176,9 @@ export async function up(knex: Knex): Promise<void> {
       table.datetime('tokenExpiration');
     });
 
-    await knex.schema.createTable('record', function (table) {
-      table.increments('id');
-      table.integer('user').unsigned().notNullable();
-      table.integer('type').unsigned().notNullable();
-      table.integer('device').unsigned();
-      table.datetime('timestamp').notNullable().index().comment('打刻が行なわれた日時');
-
-      table.foreign('user').references('id').inTable('user');
-      table.foreign('type').references('id').inTable('recordType');
-      table.foreign('device').references('id').inTable('device');
-    });
+    ///////////////////////////////////////////////////////////////////////
+    // 申請関連
+    ///////////////////////////////////////////////////////////////////////
 
     await knex.schema.createTable('applyType', function (table) {
       table.increments('id');
@@ -280,14 +245,14 @@ export async function up(knex: Knex): Promise<void> {
       { optionType: optionTypeRecordSituation[0].id, name: 'notyet', isSystemType: true, description: '未打刻' },
       { optionType: optionTypeRecordSituation[0].id, name: 'athome', isSystemType: true, description: '在宅' },
       { optionType: optionTypeRecordSituation[0].id, name: 'trip', isSystemType: true, description: '出張' },
-      { optionType: optionTypeRecordSituation[0].id, name: 'withdrawal', isSystemType: true, description: '外出' },
+      { optionType: optionTypeRecordSituation[0].id, name: 'break', isSystemType: true, description: '外出' },
       { optionType: optionTypeRecordType[0].id, name: 'clockin', isSystemType: true, description: '出勤' },
       { optionType: optionTypeRecordType[0].id, name: 'clockout', isSystemType: true, description: '退勤' },
       { optionType: optionTypeRecordType[0].id, name: 'break', isSystemType: true, description: '外出' },
       { optionType: optionTypeRecordType[0].id, name: 'reenter', isSystemType: true, description: '再入' },
-      { optionType: optionTypeLeaveType[0].id, name: 'paid', isSystemType: true, description: '有給' },
-      { optionType: optionTypeLeaveType[0].id, name: 'half', isSystemType: true, description: '半休' },
-      { optionType: optionTypeLeaveType[0].id, name: 'compensation', isSystemType: true, description: '代休' },
+      { optionType: optionTypeLeaveType[0].id, name: 'normal', isSystemType: true, description: '有給' },
+      { optionType: optionTypeLeaveType[0].id, name: 'halfday', isSystemType: true, description: '半休' },
+      { optionType: optionTypeLeaveType[0].id, name: 'makeup', isSystemType: true, description: '代休' },
       { optionType: optionTypeLeaveType[0].id, name: 'mourning', isSystemType: true, description: '慶弔休' },
       { optionType: optionTypeLeaveType[0].id, name: 'measure', isSystemType: true, description: '措置休暇' },
     ]);
@@ -322,6 +287,43 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('optionType').references('id').inTable('applyOptionType');
       table.foreign('optionValue').references('id').inTable('applyOptionValue');
     });
+
+    ///////////////////////////////////////////////////////////////////////
+    // 打刻関連
+    ///////////////////////////////////////////////////////////////////////
+
+    await knex.schema.createTable('recordType', function (table) {
+      table.increments('id');
+      table.string('name', 15).notNullable().unique();
+      table.string('description').notNullable();
+    });
+
+    await knex.schema.raw('ALTER TABLE recordType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
+
+    await knex('recordType').insert([
+      { name: 'clockin', description: '出勤' },
+      { name: 'clockout', description: '退勤' },
+      { name: 'break', description: '外出' },
+      { name: 'reenter', description: '再入' },
+    ]);
+
+    await knex.schema.createTable('record', function (table) {
+      table.increments('id');
+      table.integer('user').unsigned().notNullable();
+      table.integer('type').unsigned().notNullable();
+      table.integer('device').unsigned();
+      table.datetime('timestamp').notNullable().index().comment('打刻が行なわれた日時');
+      table.integer('apply').unsigned().comment('申請によって打刻が行なわれた場合の申請番号');
+
+      table.foreign('user').references('id').inTable('user');
+      table.foreign('type').references('id').inTable('recordType');
+      table.foreign('device').references('id').inTable('device');
+      table.foreign('apply').references('id').inTable('apply');
+    });
+
+    ///////////////////////////////////////////////////////////////////////
+    // 承認関連
+    ///////////////////////////////////////////////////////////////////////
 
     await knex.schema.createTable('role', function (table) {
       table.increments('id');
@@ -364,6 +366,27 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('role').references('id').inTable('role');
     });
 
+    await knex.schema.createView('approvalRouteMemberInfo', function (view) {
+      view.as(
+        knex.select({
+          routeId: 'approvalRoute.id', routeName: 'approvalRoute.name', roleLevel: 'role.level',
+          roleLevelName: 'roleLevel.name', roleName: 'role.name', userId: 'user.id',
+          userAccount: 'user.account', userName: 'user.name'
+        })
+          .from('approvalRouteMember')
+          .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
+          .join('role', { 'role.id': 'approvalRouteMember.role' })
+          .join('roleLevel', { 'roleLevel.level': 'role.level' })
+          .join('user', { 'user.id': 'approvalRouteMember.user' })
+          .orderBy('approvalRoute.id')
+          .orderBy('role.level')
+      );
+    });
+
+    ///////////////////////////////////////////////////////////////////////
+    // その他
+    ///////////////////////////////////////////////////////////////////////
+
     await knex.schema.createTable('config', function (table) {
       table.string('key').notNullable().unique().primary().comment('設定データID');
       table.string('value').comment('設定データ値');
@@ -386,23 +409,6 @@ export async function up(knex: Knex): Promise<void> {
       table.string('subject', 63);
       table.string('body', 1023);
       table.datetime('timestamp');
-    });
-
-    await knex.schema.createView('approvalRouteMemberInfo', function (view) {
-      view.as(
-        knex.select({
-          routeId: 'approvalRoute.id', routeName: 'approvalRoute.name', roleLevel: 'role.level',
-          roleLevelName: 'roleLevel.name', roleName: 'role.name', userId: 'user.id',
-          userAccount: 'user.account', userName: 'user.name'
-        })
-          .from('approvalRouteMember')
-          .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
-          .join('role', { 'role.id': 'approvalRouteMember.role' })
-          .join('roleLevel', { 'roleLevel.level': 'role.level' })
-          .join('user', { 'user.id': 'approvalRouteMember.user' })
-          .orderBy('approvalRoute.id')
-          .orderBy('role.level')
-      );
     });
   }
   catch (error) {

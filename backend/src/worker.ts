@@ -58,6 +58,13 @@ export async function sendQueuedMails(knex: Knex) {
 
 export function worker(knexconfig: Knex.Config) {
 
+  (knexconfig.connection as any).typeCast = function (field: any, next: any) {
+    if (field.type === 'TINY' && field.length === 1) {
+      return (field.string() === '1'); // 1 = true, 0 = false
+    }
+    return next();
+  };
+
   const knex = knexConnect(knexconfig);
   const interval = setInterval(async function () {
     try {
