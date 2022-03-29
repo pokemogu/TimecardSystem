@@ -23,7 +23,7 @@ function generateRandom(min = 0, max = 100) {
 
 export async function seed(knex: Knex): Promise<void> {
 
-  await knex('record').del();
+  await knex('recordLog').del();
   await knex('applyOption').del();
   await knex('apply').del();
   await knex('roleLevel').del();
@@ -525,9 +525,13 @@ export async function seed(knex: Knex): Promise<void> {
     .join('user', { 'user.id': 'approvalRouteMember.user' })
     .join('role', { 'role.id': 'approvalRouteMember.role' })
 
+
+  // テスト打刻
+
+
   // その他情報
-  await knex('config').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');
-  await knex('config').update({ value: '2525' }).where('key', 'smtpPort');
-  await knex('config').update({ value: 'f4d144bc16e53b' }).where('key', 'smtpUsername');
-  await knex('config').update({ value: '6ae992dd9335f9' }).where('key', 'smtpPassword');
+  await knex('systemConfig').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');
+  await knex('systemConfig').update({ value: '2525' }).where('key', 'smtpPort');
+  await knex('systemConfig').update({ value: 'f4d144bc16e53b' }).where('key', 'smtpUsername');
+  await knex('systemConfig').update({ value: '6ae992dd9335f9' }).where('key', 'smtpPassword');
 };

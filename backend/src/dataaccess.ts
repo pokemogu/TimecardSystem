@@ -5,11 +5,19 @@ import { hashPassword, verifyPassword, issueRefreshToken, verifyRefreshToken, is
 import type * as models from 'shared/models';
 import type * as apiif from 'shared/APIInterfaces';
 
+function dateToLocalString(date: Date) {
+  return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
+}
+
 export class DatabaseAccess {
   private knex: Knex;
 
   constructor(knex: Knex) {
     this.knex = knex;
+  }
+
+  protected getKnexInstance() {
+    return this.knex;
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -759,23 +767,76 @@ export class DatabaseAccess {
   // 打刻情報関連
   ///////////////////////////////////////////////////////////////////////
 
-  public async putRecord(accessToken: string, type: string, timestamp: Date, device?: string, deviceToken?: string) {
+  public async putRecord(accessToken: string, params: {
+    account?: string, type: string, timestamp: Date, device?: string, deviceToken?: string
+  }) {
 
     // type はデータベースから取得済のキャッシュを利用する
-    if (!(type in DatabaseAccess.recordTypeCache)) {
+    if (!(params.type in DatabaseAccess.recordTypeCache)) {
       throw new Error('invalid type');
     }
 
     const userInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-    await this.knex('record').insert([
+    let userId = -1;
+    if (params.account) {
+      userId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', params.account).first()).id;
+    }
+    else {
+      userId = userInfo.id;
+    }
+
+    await this.knex('recordLog').insert([
       {
-        user: userInfo.id,
-        type: DatabaseAccess.recordTypeCache[type].id,
-        device: device,
-        timestamp: timestamp
+        user: userId,
+        type: DatabaseAccess.recordTypeCache[params.type].id,
+        device: params.device,
+        timestamp: params.timestamp
       }
     ]);
+
+    const lastRecordLogResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+    const lastRecordLogId = lastRecordLogResult['LAST_INSERT_ID()'];
+
+    // 出勤(clockin)以外の打刻は前日からの日跨ぎ勤務である可能性があるので、
+    // (なお労働基準法の規定上、出勤時の日付は必ず勤務日となるので、出勤打刻の場合は前日チェックはしない)
+    // 当日の出勤打刻が無い、かつ前日の出勤打刻がある、場合は前日の打刻として記録する
+    const currentDayString = dateToLocalString(params.timestamp);
+    const beforeDay = new Date(params.timestamp);
+    beforeDay.setDate(beforeDay.getDate() - 1);
+    const beforeDayString = dateToLocalString(beforeDay);
+
+    let recordDateString = currentDayString;
+    if (params.type !== 'clockin') {
+      const records = await this.knex.select<{ id: number, date: Date }[]>({ id: 'id', date: 'date' })
+        .from('record')
+        .where('user', userId)
+        .andWhere('clockin', 'is not', null)
+        .andWhereBetween('date', [beforeDayString, currentDayString]);
+
+      for (const record of records) {
+        console.log(dateToLocalString(record.date));
+      }
+
+      if (!records.some(record => dateToLocalString(record.date) === currentDayString)) {
+        console.log('record: currentDay not found')
+        if (records.some(record => dateToLocalString(record.date) === beforeDayString)) {
+          console.log('record: beforeDay found')
+          recordDateString = beforeDayString;
+        }
+      }
+    }
+
+    await this.knex('record').insert({
+      user: userId,
+      date: recordDateString,
+      clockin: params.type === 'clockin' ? lastRecordLogId : undefined,
+      clockout: params.type === 'clockout' ? lastRecordLogId : undefined,
+      break: params.type === 'break' ? lastRecordLogId : undefined,
+      reenter: params.type === 'reenter' ? lastRecordLogId : undefined,
+    })
+      .onConflict(['user', 'date'])
+      .merge([params.type]); // ON DUPLICATE KEY UPDATE
   }
 
   public async getRecords(params: {
@@ -809,7 +870,7 @@ export class DatabaseAccess {
         { id: 'record.id' }, { type: 'recordType.name' }, { typeDescription: 'recordType.description' },
         { timestamp: 'record.timestamp' }, { userAccount: 'user.account' }, { userName: 'user.name' }, { department: 'department.name' }, { section: 'section.name' }
       )
-      .from('record')
+      .from('recordLog')
       .join('recordType', { 'recordType.id': 'record.type' })
       .join('user', { 'user.id': 'record.user' })
       .join('device', { 'device.id': 'record.device' })
@@ -1046,11 +1107,11 @@ export class DatabaseAccess {
 
   public async getSmtpServerInfo() {
 
-    if (await this.knex.schema.hasTable('config')) {
+    if (await this.knex.schema.hasTable('systemConfig')) {
       const configValues = await this.knex
         .select<{ key: string, value: string }[]>
         ({ key: 'key' }, { value: 'value' })
-        .from('config')
+        .from('systemConfig')
         .where('key', 'like', 'smtp%');
 
       if (!configValues) {

@@ -2,7 +2,7 @@ import axios from 'axios';
 import type * as apiif from 'shared/APIInterfaces';
 
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
-const timeout = import.meta.env.VITE_API_TIMEOUT ?? 5000;
+const timeout = import.meta.env.VITE_API_TIMEOUT ?? 60000;
 
 function handleAxiosError(axiosError: unknown) {
   if (axios.isAxiosError(axiosError)) {

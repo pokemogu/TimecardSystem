@@ -83,6 +83,7 @@ export interface UserAccountCandidatesResponseBody {
 }
 
 export interface RecordRequestBody {
+  account?: string,
   timestamp: string,
   device?: string,
   deviceToken?: string
@@ -281,6 +282,37 @@ export interface PrivilegeResponseData {
   viewSectionUserInfo?: boolean
 }
 
+export interface PrivilegeResponseData2 {
+  id?: number,
+  name: string,
+  recordByLogin?: boolean,
+
+  applyRecord?: boolean,
+  applyLeave?: boolean,
+  applyOvertime?: boolean,
+  applyLateness?: boolean,
+  applyLeaveEarly?: boolean,
+  applyHalfDayLeave?: boolean,
+  applyMakeupLeave?: boolean,
+  applyMourningLeave?: boolean,
+  applyMeasureLeave?: boolean,
+
+  maxApplyLateNum?: number,
+  maxApplyLateHours?: number,
+  maxApplyEarlyNum?: number,
+  maxApplyEarlyHours?: number,
+  approve?: boolean,
+  viewRecord?: boolean,
+  viewRecordPerDevice?: boolean,
+  configurePrivilege?: boolean,
+  configureWorkPattern?: boolean,
+  issueQr?: boolean,
+  registerUser?: boolean,
+  registerDevice?: boolean,
+  viewAllUserInfo?: boolean,
+  viewDepartmentUserInfo?: boolean,
+  viewSectionUserInfo?: boolean
+}
 export type PrivilageRequestData = PrivilegeResponseData;
 
 export interface PrivilegeResponseBody {

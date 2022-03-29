@@ -365,7 +365,12 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
         throw new Error('invalid Authorization header');
       }
 
-      await access.putRecord(token, req.params.type, new Date(req.body.timestamp), req.body.device);
+      await access.putRecord(token, {
+        account: req.body.account,
+        type: req.params.type,
+        timestamp: new Date(req.body.timestamp),
+        device: req.body.device
+      });
       res.send({
         message: 'ok'
       });
