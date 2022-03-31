@@ -51,7 +51,8 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         const applyId = await access.apply('record', {
-          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
+          date: dateFrom.value,
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
           timestamp: new Date().toISOString(),
           options: [
             { name: 'situation', value: applyTypeValue1.value },
@@ -126,6 +127,7 @@ ${window.location.origin}/approve/${applyId}`
           v-model:applyTypeValue2="applyTypeValue2"
           v-bind:applyTypeOptions2="applyTypeOptions2"
           v-model:dateFrom="dateFrom"
+          :isDateFromSpanningDay="true"
           v-model:timeFrom="timeFrom"
           v-model:reason="reason"
           v-on:submit="onFormSubmit"

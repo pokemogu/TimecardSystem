@@ -191,12 +191,15 @@ export async function up(knex: Knex): Promise<void> {
 
     await knex('applyType').insert([
       { name: 'record', isSystemType: true, description: '打刻' },
-      { name: 'leave', isSystemType: true, description: '休暇' },
+      { name: 'leave', isSystemType: true, description: '有休' },
+      { name: 'halfday-leave', isSystemType: true, description: '半休' },
+      { name: 'mourning-leave', isSystemType: true, description: '慶弔休' },
+      { name: 'measure-leave', isSystemType: true, description: '措置休' },
       { name: 'overtime', isSystemType: true, description: '早出・残業' },
       { name: 'lateness', isSystemType: true, description: '遅刻' },
       { name: 'leave-early', isSystemType: true, description: '早退' },
       { name: 'break', isSystemType: true, description: '外出' },
-      { name: 'holiday-work', isSystemType: true, description: '休日出勤' },
+      { name: 'holiday-work', isSystemType: true, description: '休出' },
       { name: 'makeup-leave', isSystemType: true, description: '代休' },
     ]);
 
@@ -252,7 +255,7 @@ export async function up(knex: Knex): Promise<void> {
       { optionType: optionTypeRecordType[0].id, name: 'reenter', isSystemType: true, description: '再入' },
       { optionType: optionTypeLeaveType[0].id, name: 'normal', isSystemType: true, description: '有給' },
       { optionType: optionTypeLeaveType[0].id, name: 'halfday', isSystemType: true, description: '半休' },
-      { optionType: optionTypeLeaveType[0].id, name: 'makeup', isSystemType: true, description: '代休' },
+      //{ optionType: optionTypeLeaveType[0].id, name: 'makeup', isSystemType: true, description: '代休' },
       { optionType: optionTypeLeaveType[0].id, name: 'mourning', isSystemType: true, description: '慶弔休' },
       { optionType: optionTypeLeaveType[0].id, name: 'measure', isSystemType: true, description: '措置休暇' },
     ]);
@@ -263,8 +266,9 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('user').unsigned().notNullable().index().comment('申請対象ユーザー');
       table.integer('appliedUser').unsigned().comment('申請を実施したユーザー()');
       table.datetime('timestamp').notNullable().index().comment('申請が行なわれた日時');
-      table.datetime('dateFrom').notNullable().comment('申請内容の開始日時');
-      table.datetime('dateTo').comment('申請内容の終了日時');
+      table.date('date').notNullable().comment('申請内容の基準日');
+      table.datetime('dateTimeFrom').notNullable().comment('申請内容の開始日時');
+      table.datetime('dateTimeTo').comment('申請内容の終了日時');
       table.datetime('dateRelated').comment('申請内容に関連する日時(例: 代休申請での休日出勤日)');
       table.string('reason').comment('申請理由');
       table.string('contact').comment('申請における連絡先(休暇取得時の連絡先)');
@@ -288,6 +292,24 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('optionValue').references('id').inTable('applyOptionValue');
     });
 
+    await knex.schema.createTable('applyPermission', function (table) {
+      table.integer('apply').unsigned().notNullable();
+      table.integer('privilege').unsigned().notNullable();
+      table.boolean('permitted').notNullable().defaultTo(false);
+
+      table.foreign('apply').references('id').inTable('apply');
+      table.foreign('privilege').references('id').inTable('privilege');
+    });
+
+    await knex.schema.createTable('schedule', function (table) {
+      table.increments('id');
+      table.date('date').notNullable().comment('申請対象の基準日(労働日)');
+      table.integer('apply').unsigned().notNullable().comment('スケジュールの元となる申請');
+      table.boolean('isWorking').notNullable().defaultTo(false).comment('この予定が勤務時間扱いかそうでないか');
+
+      table.foreign('apply').references('id').inTable('apply');
+    });
+
     ///////////////////////////////////////////////////////////////////////
     // 打刻関連
     ///////////////////////////////////////////////////////////////////////
@@ -307,12 +329,13 @@ export async function up(knex: Knex): Promise<void> {
       { name: 'reenter', description: '再入' },
     ]);
 
+    /*
     await knex.schema.createTable('recordLog', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable();
       table.integer('type').unsigned().notNullable();
       table.integer('device').unsigned();
-      table.datetime('timestamp').notNullable().index().comment('打刻が行なわれた日時(GMT)');
+      table.datetime('timestamp').notNullable().comment('打刻が行なわれた日時');
       table.integer('apply').unsigned().comment('申請によって打刻が行なわれた場合の申請番号');
 
       table.foreign('user').references('id').inTable('user');
@@ -320,25 +343,53 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('device').references('id').inTable('device');
       table.foreign('apply').references('id').inTable('apply');
     });
+    */
+
+    /*
+    await knex.raw(`create table recordLogTemp(
+      id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+      user INT UNSIGNED NOT NULL,
+      type INT UNSIGNED NOT NULL,
+      device INT,
+      timestamp DATETIME NOT NULL,
+      apply INT UNSIGNED
+    ) ENGINE=MEMORY`);
+    */
 
     await knex.schema.createTable('record', function (table) {
       table.increments('id');
-      table.integer('user').unsigned().notNullable();
-      table.date('date').notNullable().comment('打刻基準日(労働日)(JST)');
-      table.integer('clockin').unsigned().comment('使用する出勤打刻ログ');
-      table.integer('clockout').unsigned().comment('使用する退勤打刻ログ');
-      table.integer('break').unsigned().comment('使用する外出打刻ログ');
-      table.integer('reenter').unsigned().comment('使用する再入打刻ログ');
+      table.integer('user').unsigned().index().notNullable();
+      table.date('date').notNullable().index().comment('打刻基準日(労働日)');
+      //table.integer('clockin').unsigned().comment('使用する出勤打刻ログ');
+      //table.integer('clockout').unsigned().comment('使用する退勤打刻ログ');
+      //table.integer('break').unsigned().comment('使用する外出打刻ログ');
+      //table.integer('reenter').unsigned().comment('使用する再入打刻ログ');
+
+      table.datetime('clockin').comment('出勤打刻時刻');
+      table.integer('clockinDevice').unsigned().comment('出勤打刻機器');
+      table.integer('clockinApply').unsigned().comment('出勤打刻申請');
+
+      table.datetime('break').comment('外出打刻時刻');
+      table.integer('breakDevice').unsigned().comment('外出打刻機器');
+      table.integer('breakApply').unsigned().comment('外出打刻申請');
+
+      table.datetime('reenter').comment('再入打刻時刻');
+      table.integer('reenterDevice').unsigned().comment('再入打刻機器');
+      table.integer('reenterApply').unsigned().comment('再入打刻申請');
+
+      table.datetime('clockout').comment('退勤打刻時刻');
+      table.integer('clockoutDevice').unsigned().comment('退勤打刻機器');
+      table.integer('clockoutApply').unsigned().comment('退勤打刻申請');
 
       table.unique(['user', 'date']);
-
       table.foreign('user').references('id').inTable('user');
-      table.foreign('clockin').references('id').inTable('recordLog');
-      table.foreign('clockout').references('id').inTable('recordLog');
-      table.foreign('break').references('id').inTable('recordLog');
-      table.foreign('reenter').references('id').inTable('recordLog');
+      //table.foreign('clockin').references('id').inTable('recordLog');
+      //table.foreign('clockout').references('id').inTable('recordLog');
+      //table.foreign('break').references('id').inTable('recordLog');
+      //table.foreign('reenter').references('id').inTable('recordLog');
     });
 
+    /*
     await knex.schema.createView('recordTime', function (view) {
       view.as(
         knex.select({
@@ -355,24 +406,27 @@ export async function up(knex: Knex): Promise<void> {
           .orderBy('record.user')
       );
     });
+    */
 
     await knex.schema.createView('recordTimeWithOnTime', function (view) {
       view.as(
         knex.select({
-          userId: 'recordTime.userId', userAccount: 'recordTime.userAccount', userName: 'recordTime.userName', date: 'recordTime.date',
-          clockin: 'recordTime.clockin', break: 'recordTime.break', reenter: 'recordTime.reenter', clockout: 'recordTime.clockout',
+          userId: 'user.id', userAccount: 'user.account', userName: 'user.name', date: 'record.date',
+          clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
           workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
-          onTimeStart: knex.raw('ADDTIME(recordTime.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(recordTime.date, workPattern.onTimeEnd)')
+          workTime: knex.raw('TIMEDIFF(clockout, clockin)'),
+          onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
+          earlyOverTime: knex.raw('TIMEDIFF(ADDTIME(record.date, workPattern.onTimeStart), clockin)'), lateOverTime: knex.raw('TIMEDIFF(clockout, ADDTIME(record.date, workPattern.onTimeEnd))')
         })
-          .from('recordTime')
-          .join('user', { 'user.id': 'recordTime.userId' })
+          .from('record')
+          .join('user', { 'user.id': 'record.user' })
           .leftJoin('userWorkPatternCalendar', function () {
-            this.on('userWorkPatternCalendar.user', 'recordTime.userId');
-            this.andOn('userWorkPatternCalendar.date', 'recordTime.date');
+            this.on('userWorkPatternCalendar.user', 'record.user');
+            this.andOn('userWorkPatternCalendar.date', 'record.date');
           })
           .joinRaw('join `workPattern` on if(isnull(`userWorkPatternCalendar`.`workPattern`), `user`.`defaultWorkPattern`, `userWorkPatternCalendar`.`workPattern`) = `workPattern`.`id`')
-          .orderBy('recordTime.date')
-          .orderBy('recordTime.userId')
+          .orderBy('record.date')
+          .orderBy('record.user')
       );
     });
 
@@ -475,6 +529,11 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       { key: 'smtpPassword', value: '', description: 'メール送信(SMTP)サーバーログインパスワード' },
     ]);
 
+    await knex('systemConfig').insert([
+      { key: 'privateKey', value: '', description: 'QRコード認証に必要となる秘密鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)' },
+      { key: 'publicKey', value: '', description: 'QRコード認証に必要となる公開鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)' }
+    ])
+
     await knex.schema.createTable('mailQueue', function (table) {
       table.increments('id');
       table.string('to').notNullable();
@@ -485,6 +544,30 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       table.string('body', 1023);
       table.datetime('timestamp');
     });
+
+    // 指定された月の全ての日を生成するストアドプロシージャgenerateAllDays
+    // 生成結果は一時テーブルalldaysに書き込まれる
+    //
+    // 例)
+    // CALL generateAllDays('2022-01-01', '2022-03-01'); SELECT date FROM alldays;
+    //
+    await knex.schema.raw(`
+    CREATE PROCEDURE generateAllDays( IN fromDate DATE, IN toDate DATE )
+    BEGIN
+    
+    create temporary table alldays(date date);
+    
+    insert into alldays select a.date 
+    from (
+        select last_day(toDate) - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as date
+        from (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as a
+        cross join (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as b
+        cross join (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as c
+    ) a 
+    where a.date between fromDate and last_day(toDate) order by a.date;
+    
+    END
+    `);
   }
   catch (error) {
     await down(knex);
@@ -493,6 +576,8 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
 }
 
 export async function down(knex: Knex): Promise<void> {
+  await knex.schema.raw('drop procedure if exists generateAllDays');
+
   await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
   await knex.schema.dropViewIfExists('recordTimeWithOnTime');
   await knex.schema.dropViewIfExists('recordTime');
@@ -507,7 +592,10 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('roleLevel');
   await knex.schema.dropTableIfExists('role');
   await knex.schema.dropTableIfExists('record');
-  await knex.schema.dropTableIfExists('recordLog');
+  //await knex.schema.dropTableIfExists('recordLogTemp');
+  //await knex.schema.dropTableIfExists('recordLog');
+  await knex.schema.dropTableIfExists('schedule');
+  await knex.schema.dropTableIfExists('applyPermission');
   await knex.schema.dropTableIfExists('applyOption');
   await knex.schema.dropTableIfExists('apply');
   await knex.schema.dropTableIfExists('applyOptionValue');

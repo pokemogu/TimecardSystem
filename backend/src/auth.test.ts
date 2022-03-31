@@ -1,4 +1,4 @@
-import * as auth from './auth';
+import * as auth from './verify';
 import lodash from 'lodash';
 
 describe('auth', () => {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -10,7 +10,10 @@ import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 import * as backendAccess from '@/BackendAccess';
 
 const router = useRouter();
+const route = useRoute();
 const store = useSessionStore();
+
+console.log(route.params.id);
 
 const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
 const applyTypeValue1 = ref('');
@@ -46,8 +49,8 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         await access.apply('leave', {
-          dateFrom: new Date(`${dateFrom.value}T00:00:00`).toISOString(),
-          dateTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`).toISOString() : undefined,
+          dateTimeFrom: new Date(`${dateFrom.value}T00:00:00`).toISOString(),
+          dateTimeTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`).toISOString() : undefined,
           timestamp: new Date().toISOString(),
           reason: reason.value,
           route: routeName.value

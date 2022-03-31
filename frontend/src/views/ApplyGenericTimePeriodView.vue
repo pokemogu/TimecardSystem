@@ -51,8 +51,9 @@ async function onRouteSubmit() {
       if (token) {
         console.log(routeName.value);
         const access = new backendAccess.TokenAccess(token);
-        await access.apply('record', {
-          dateFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
+        await access.apply(applyType.value, {
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
+          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
           timestamp: new Date().toISOString(),
           reason: reason.value,
           route: routeName.value

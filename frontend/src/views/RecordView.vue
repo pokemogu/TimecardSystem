@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
+import { nextTick, ref, watch, onMounted } from 'vue';
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
 
 import { useSessionStore } from '@/stores/session';
@@ -58,6 +58,19 @@ const recordTokenCatch = (error: Error) => {
   timeout = setTimeout(initStatus, 5000);
 };
 
+let qrCodeString = '';
+onMounted(async () => {
+  window.addEventListener('keypress', function (event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      console.log(qrCodeString);
+      qrCodeString = '';
+    }
+    else {
+      qrCodeString = qrCodeString + event.key;
+    }
+  })
+});
+
 async function onRecord(event: Event) {
   try {
     const dateNow = new Date();
@@ -90,7 +103,7 @@ function onDecode(decodedQrcode: string) {
   status.value = 'waitForRecord';
   backendAccess.getToken(decodedQrcode)
     .then((token) => {
-      if (token.token) {
+      if (token?.token) {
         refreshToken = decodedQrcode;
         const access = new backendAccess.TokenAccess(token.token.accessToken);
         access.getUserInfo(token.token.account).then((userInfo) => {
@@ -175,6 +188,14 @@ watch(thisDeviceName, async () => {
   const db = await openDeviceDB();
   await db.put('timecard-device', { timestamp: new Date() }, thisDeviceName.value);
 });
+
+function onKeyPress(event: Event) {
+  console.log(event);
+}
+
+function onKeyDown(event: Event) {
+  console.log(event);
+}
 
 </script>
 

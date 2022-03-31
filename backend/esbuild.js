@@ -8,6 +8,7 @@ build({
   outdir: './dist',
   platform: 'node',
   bundle: true,
+  minify: true,
   external: [
     './node_modules/*',
     '../node_modules/*'

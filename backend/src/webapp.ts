@@ -14,10 +14,11 @@ function extractTokenFromHeader(header: string) {
   return matches[1];
 }
 
-export default function registerHandlers(app: Express, knexconfig: Knex.Config, logger: Logger) {
+export default async function registerHandlers(app: Express, knexconfig: Knex.Config, logger: Logger) {
 
   const knex = knexConnect(knexconfig);
   DatabaseAccess.initCache(knex);
+  await DatabaseAccess.initPrivatePublicKeys(knex);
 
   app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', async (req, res) => {
     try {
@@ -243,6 +244,38 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
       const err = error as Error;
       res.status(400);
       res.send({ message: err.message });
+    }
+  });
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ChangePasswordRequestBody>('/api/token/password', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      await access.changeUserPassword(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      const err = error as Error;
+      if (err.name === 'AuthenticationError') {
+        res.status(401);
+        res.send({ message: err.message });
+      }
+      else {
+        res.status(400);
+        res.send({ message: error.toString() });
+        console.log(error);
+      }
     }
   });
 
@@ -722,6 +755,72 @@ export default function registerHandlers(app: Express, knexconfig: Knex.Config, 
       }
 
       const routes = await access.deleteWorkPattern(token, req.params.id);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  ///////////////////////////////////////////////////////////////////////
+  // 休日登録
+  ///////////////////////////////////////////////////////////////////////
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.HolidayRequestData>('/api/holiday', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.setHoliday(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{}, apiif.HolidaysResponseBody, {}, apiif.HolidayRequestQuery>('/api/holiday', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const holidays = await access.getHolidays(req.query);
+      res.send({
+        message: 'ok',
+        holidays: holidays
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/holiday/:date', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteHoliday(token, req.params.date);
       res.send({
         message: 'ok'
       });

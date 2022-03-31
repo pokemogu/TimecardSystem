@@ -3,7 +3,7 @@ import fs, { accessSync } from 'fs';
 import dotenv from 'dotenv';
 import { Knex } from 'knex';
 import knexConnect from 'knex';
-import { hashPassword } from './auth';
+import { hashPassword } from './verify';
 import { DatabaseAccess } from "./dataaccess";
 
 const testSuperUserAccount = '____TEST_SUPER_USER_NAME___';
@@ -173,18 +173,18 @@ describe('データアクセステスト', () => {
 
       try {
         const newPassword = testSuperUserPassword + 'hogehogehogehoge'
-        await access.changeUserPassword(token, null, testSuperUserPassword + 'hogehoge', newPassword);
+        await access.changeUserPassword(token, { oldPassword: testSuperUserPassword + 'hogehoge', newPassword: newPassword });
         expect(true).toBeFalsy();
       }
       catch (error) {
       }
 
       const newPassword1 = testSuperUserPassword + 'hogehogehogehoge'
-      await access.changeUserPassword(token, null, testSuperUserPassword, newPassword1);
+      await access.changeUserPassword(token, { oldPassword: testSuperUserPassword, newPassword: newPassword1 });
       testSuperUserPassword = newPassword1;
 
       const newPassword2 = testSuperUserPassword + 'hogehogehogehoge'
-      await access.changeUserPassword(token, null, testSuperUserPassword, newPassword2);
+      await access.changeUserPassword(token, { oldPassword: testSuperUserPassword, newPassword: newPassword2 });
       testSuperUserPassword = newPassword2;
     });
   });

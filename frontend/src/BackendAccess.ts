@@ -64,6 +64,17 @@ export class TokenAccess {
   constructor(accessToken: string) {
     this.accessToken = accessToken;
   }
+
+  public async changePassword(params: apiif.ChangePasswordRequestBody) {
+    try {
+      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/token/password`, params, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async getUserInfo(account: string) {
     try {
       const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${account}`,
@@ -370,6 +381,29 @@ export class TokenAccess {
       handleAxiosError(error);
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 休日情報関連
+  ///////////////////////////////////////////////////////////////////////
+  public async setHoliday(holiday: apiif.HolidayRequestData) {
+    try {
+      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/holiday`, holiday, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteHoliday(date: string) {
+    try {
+      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/holiday/${date}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
 }
 
 export async function getDevices() {
@@ -431,10 +465,29 @@ export async function getApplyTypeOptions(applyType: string) {
   }
 }
 
-
 export async function getUserAccountCandidates() {
   try {
     return (await axios.get<apiif.UserAccountCandidatesResponseBody>(`${urlPrefix}/api/user/account-candidates`, { timeout: timeout })).data.candidates;
+  } catch (error) {
+    handleAxiosError(error);
+  }
+}
+
+export async function getHolidays(params: apiif.HolidayRequestQuery) {
+  try {
+    const result = await (await axios.get<apiif.HolidaysResponseBody>(`${urlPrefix}/api/holiday`, { timeout: timeout, params: params })).data;
+    if (result?.holidays) {
+      return result.holidays.map((holiday) => {
+        const date = new Date(holiday.date);
+        const year = date.getFullYear().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        return {
+          date: `${year}/${month}/${day}`,
+          name: holiday.name
+        };
+      });
+    }
   } catch (error) {
     handleAxiosError(error);
   }

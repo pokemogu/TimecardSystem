@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, inject } from 'vue';
-import { RouterLink, useRoute } from 'vue-router';
-import type { TimecardSession } from '../timecard-session-interface';
+import { ref } from 'vue';
+import { RouterLink } from 'vue-router';
+import PasswordChange from './PasswordChange.vue';
 
 interface HeaderProps {
   isAuthorized: boolean,
@@ -21,9 +21,15 @@ const emits = defineEmits<{
   (event: 'customButton3'): void
 }>();
 
+const isPasswordChangeOpened = ref(false);
+
 </script>
 
 <template>
+  <Teleport to="body" v-if="isPasswordChangeOpened">
+    <PasswordChange v-model:isOpened="isPasswordChangeOpened"></PasswordChange>
+  </Teleport>
+
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
       <span class="navbar-text">{{ props.titleName }}</span>
@@ -63,6 +69,12 @@ const emits = defineEmits<{
         class="ms-2 btn btn-warning btn-sm"
         role="button"
       >{{ props.customButton3 }}</button>
+      <button
+        v-if="props.isAuthorized"
+        v-on:click="isPasswordChangeOpened = true"
+        class="ms-2 btn btn-warning btn-sm"
+        role="button"
+      >パスワード変更</button>
       <RouterLink
         v-if="props.isAuthorized"
         :to="{ name: 'logout' }"

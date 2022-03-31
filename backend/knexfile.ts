@@ -27,6 +27,7 @@ const config: { [key: string]: Knex.Config } = {
       database: process.env.DB_NAME || "my_db",
       user: process.env.DB_APP_USER || "my_user",
       password: process.env.DB_APP_PASSWORD || "password$001",
+      multipleStatements: true
       //filename: process.env.DB_TYPE === "sqlite3" ? process.env.DB_NAME + ".sqlite" : undefined
     },
     pool: {

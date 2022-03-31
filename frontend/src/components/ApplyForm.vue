@@ -34,6 +34,7 @@ interface ApplyFormProps {
   dateOptional?: string,
   dateOptionalType?: string,
   dateFrom: string,
+  isDateFromSpanningDay?: boolean,
   dateTo?: string,
   isDateToOptional?: boolean,
   timeFrom?: string,
@@ -252,9 +253,10 @@ function onSubmit() {
           class="row"
         >
           <div class="col-2 bg-dark text-white border border-dark">{{ props.dateOptionalType }}</div>
-          <div class="col-9 bg-white text-black border border-dark">
+          <div class="col-9 bg-white text-black border border-dark p-2">
             <input
               type="date"
+              class="form-control"
               v-bind:value="props.dateOptional"
               v-on:change="onChangeDateOptional"
               required
@@ -263,78 +265,102 @@ function onSubmit() {
         </div>
         <div class="row">
           <div class="col-2 bg-dark text-white border border-dark">日付</div>
-          <div class="col-9 bg-white text-black border border-dark">
-            <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+          <div class="col-9 bg-white text-black border border-dark p-2">
+            <div class="input-group">
+              <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  v-model="dateType"
+                  id="apply-date-spot"
+                  value="apply-date-spot"
+                />
+                <label class="form-check-label" for="apply-date-spot">日付</label>
+              </div>
+              <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  v-model="dateType"
+                  name="apply-date-type"
+                  id="apply-date-period"
+                  value="apply-date-period"
+                />
+                <label class="form-check-label" for="apply-date-period">期間</label>
+              </div>
+              <select class="form-select" v-if="isDateFromSpanningDay === true">
+                <option>当日</option>
+                <option>翌日</option>
+              </select>
               <input
-                class="form-check-input"
-                type="radio"
-                v-model="dateType"
-                id="apply-date-spot"
-                value="apply-date-spot"
+                type="date"
+                class="form-control"
+                v-bind:value="props.dateFrom"
+                v-on:change="onChangeDateFrom"
+                required
               />
-              <label class="form-check-label" for="apply-date-spot">日付</label>
-            </div>
-            <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+              <span
+                v-if="props.dateTo !== undefined && dateType === 'apply-date-period'"
+                class="input-group-text"
+              >〜</span>
               <input
-                class="form-check-input"
-                type="radio"
-                v-model="dateType"
-                name="apply-date-type"
-                id="apply-date-period"
-                value="apply-date-period"
+                v-if="props.dateTo !== undefined && dateType === 'apply-date-period'"
+                type="date"
+                class="form-control"
+                v-bind:value="props.dateTo"
+                v-on:change="onChangeDateTo"
+                required
               />
-              <label class="form-check-label" for="apply-date-period">期間</label>
             </div>
-            <input
-              type="date"
-              v-bind:value="props.dateFrom"
-              v-on:change="onChangeDateFrom"
-              required
-            />
-            <span v-if="props.dateTo !== undefined && dateType === 'apply-date-period'">
-              〜
-              <input type="date" v-bind:value="props.dateTo" v-on:change="onChangeDateTo" required />
-            </span>
           </div>
         </div>
         <div class="row" v-if="props.timeFrom !== undefined">
           <div class="col-2 bg-dark text-white border border-dark">時刻</div>
-          <div class="col-9 bg-white text-black border border-dark">
-            <div
-              v-for="(option, index) in props.applyTypeOptions2"
-              class="form-check form-check-inline"
-            >
+          <div class="col-9 bg-white text-black border border-dark p-2">
+            <div class="input-group">
+              <div
+                v-for="(option, index) in props.applyTypeOptions2"
+                class="form-check form-check-inline"
+              >
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="apply-type-option2"
+                  v-bind:id="'apply-type-option2-' + option.name"
+                  v-bind:value="option.name"
+                  v-bind:checked="index === 0"
+                  v-on:change="onChangeApplyType2"
+                />
+                <label
+                  class="form-check-label"
+                  v-bind:for="'apply-type-option2-' + option.name"
+                >{{ option.description }}</label>
+              </div>
               <input
-                class="form-check-input"
-                type="radio"
-                name="apply-type-option2"
-                v-bind:id="'apply-type-option2-' + option.name"
-                v-bind:value="option.name"
-                v-bind:checked="index === 0"
-                v-on:change="onChangeApplyType2"
+                v-if="props.timeFrom !== undefined"
+                v-bind:value="props.timeFrom"
+                v-on:change="onChangeTimeFrom"
+                type="time"
+                class="form-control"
+                required
               />
-              <label
-                class="form-check-label"
-                v-bind:for="'apply-type-option2-' + option.name"
-              >{{ option.description }}</label>
+              <span v-if="props.timeTo !== undefined" class="input-group-text">〜</span>
+              <input
+                v-if="props.timeTo !== undefined"
+                type="time"
+                class="form-control"
+                v-bind:value="props.timeTo"
+                v-on:change="onChangeTimeTo"
+                required
+              />
             </div>
-            <input
-              v-if="props.timeFrom !== undefined"
-              v-bind:value="props.timeFrom"
-              v-on:change="onChangeTimeFrom"
-              type="time"
-              required
-            />
-            <span v-if="props.timeTo !== undefined">
-              〜
-              <input type="time" v-bind:value="props.timeTo" v-on:change="onChangeTimeTo" required />
-            </span>
           </div>
         </div>
         <div class="row" v-if="props.reason !== undefined">
           <div class="col-2 bg-dark text-white border border-dark">理由</div>
-          <div class="col-9 bg-white text-black border border-dark">
+          <div class="col-9 bg-white text-black border border-dark p-2">
             <textarea
+              class="form-control"
               rows="3"
               cols="32"
               v-on:change="onChangeReason"
@@ -344,8 +370,8 @@ function onSubmit() {
         </div>
         <div class="row" v-if="props.contact !== undefined">
           <div class="col-2 bg-dark text-white border border-dark">連絡先</div>
-          <div class="col-9 bg-white text-black border border-dark">
-            <textarea rows="3" cols="32" v-on:change="onChangeContact"></textarea>
+          <div class="col-9 bg-white text-black border border-dark p-2">
+            <textarea class="form-control" rows="3" cols="32" v-on:change="onChangeContact"></textarea>
           </div>
         </div>
         <div class="row g-2 mt-2">
@@ -375,5 +401,11 @@ body {
   border-top-color: orange !important;
   border-bottom-color: orange !important;
   color: black !important;
+}
+</style>
+
+<style scoped>
+.form-width-10 {
+  width: 10%;
 }
 </style>

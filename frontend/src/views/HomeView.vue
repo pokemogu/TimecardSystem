@@ -14,7 +14,7 @@ const userId = ref('');
 const userPassword = ref('');
 const formFilled = computed(() => (userId.value !== '' && userPassword.value !== ''));
 
-const redirectedStatus = route.query.status ? route.query.status as string : '';
+const redirectedStatus = route.params.status ? route.params.status as string : '';
 if (redirectedStatus === 'forcedLogout') {
   alertMessage.value = 'セッションが無効となり強制ログアウトしました';
 }
@@ -24,14 +24,20 @@ function onLogin(event: Event): void {
   store.login(userId.value, userPassword.value)
     .then((success) => {
       if (success) {
-        router.push({ name: 'dashboard' });
+        if (route.params.redirect) {
+          router.push({ path: route.params.redirect as string });
+        }
+        else {
+          router.push({ name: 'dashboard' });
+        }
       }
       else {
         alertMessage.value = 'IDかPASSが間違っています';
         userPassword.value = '';
       }
     })
-    .catch(() => {
+    .catch((error) => {
+      console.log(error)
       alertMessage.value = 'システムエラーが発生しました';
       userPassword.value = '';
     });

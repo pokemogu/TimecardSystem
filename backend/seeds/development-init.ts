@@ -1,5 +1,5 @@
 import { Knex } from 'knex';
-import { hashPassword } from '../src/auth';
+import { hashPassword } from '../src/verify';
 import { fakeNames } from '../../fakeNames';
 import * as models from '../../shared/models';
 import * as apiif from '../../shared/APIInterfaces';
@@ -21,9 +21,24 @@ function generateRandom(min = 0, max = 100) {
   return rand;
 }
 
+const lookupTable: number[] = [];
+for (let i = 1e6; i--;) {
+  lookupTable.push(Math.random() * 101 | 0);
+}
+
+let randomTableIndex = 0;
+function randomTableLookup() {
+  return ++randomTableIndex >= lookupTable.length ? lookupTable[randomTableIndex = 0] : lookupTable[randomTableIndex];
+}
+
+function dateToLocalString(date: Date) {
+  return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
+}
+
 export async function seed(knex: Knex): Promise<void> {
 
-  await knex('recordLog').del();
+  await knex('record').del();
+  //await knex('recordLog').del();
   await knex('applyOption').del();
   await knex('apply').del();
   await knex('roleLevel').del();
@@ -527,7 +542,112 @@ export async function seed(knex: Knex): Promise<void> {
 
 
   // テスト打刻
+  const recordTypeCache: Record<string, number> = {};
+  const recordTypes = await knex.select<{
+    id: number, name: string, description: string
+  }[]>({ id: 'id', name: 'name', description: 'description' })
+    .from('recordType');
 
+  for (const recordType of recordTypes) {
+    recordTypeCache[recordType.name] = recordType.id;
+  }
+
+  // 3ヶ月前からの打刻データを生成開始
+  const baseDate = new Date();
+  baseDate.setMonth(baseDate.getMonth() - 3);
+  baseDate.setDate(1);
+
+
+  /*
+  INSERT INTO cars (name) VALUES ('BMW');
+  SET @last_id_in_cars = LAST_INSERT_ID();
+  INSERT INTO carModels (otherID,name) VALUES (@last_id_in_cars,'F30');
+  SELECT @last_id_in_cars;
+   */
+
+  // 浜松工場日勤
+  const hamamatsuUsers = await knex
+    .select<{ id: number }[]>({ id: 'id' }).from('user').where('defaultWorkPattern', workHamamatsuDayId)
+
+  let tempDate = new Date(baseDate);
+
+  const records: { user: number, date: string, clockin: Date, break: Date, reenter: Date, clockout: Date }[] = [];
+  for (let i = 0; i < 90; i++) { // 90日間(3ヶ月)のデータを生成する
+    const dayOfWeek = tempDate.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      for (const hamamatsuUser of hamamatsuUsers) {
+        tempDate.setHours(8);
+        tempDate.setMinutes(randomTableLookup() % 32);
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const clockinDate = new Date(tempDate);
+        //const clockinTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
+        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['clockin'], timestamp: tempDate });
+        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['clockin'], timestamp: tempDate });
+        //const clockinResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+        //const clockinId = clockinResult['LAST_INSERT_ID()'];
+
+        tempDate.setHours(12);
+        tempDate.setMinutes(randomTableLookup() % 15);
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const breakDate = new Date(tempDate);
+        //const breakTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
+        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['break'], timestamp: tempDate });
+        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['break'], timestamp: tempDate });
+        //const breakResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+        //const breakId = breakResult['LAST_INSERT_ID()'];
+
+        tempDate.setHours(12);
+        tempDate.setMinutes(44 + (randomTableLookup() % 15));
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const reenterDate = new Date(tempDate);
+        //const reenterTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
+        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['reenter'], timestamp: tempDate });
+        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['reenter'], timestamp: tempDate });
+        //const reenterResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+        //const reenterId = reenterResult['LAST_INSERT_ID()'];
+
+        tempDate.setHours(17);
+        tempDate.setMinutes(30 + (randomTableLookup() % 10));
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const clockoutDate = new Date(tempDate);
+        //const clockoutTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
+        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['clockout'], timestamp: tempDate });
+        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['clockout'], timestamp: tempDate });
+        //const clockoutResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+        //const clockoutId = clockoutResult['LAST_INSERT_ID()'];
+
+        /*
+        const sql = `
+        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['clockout']}, '${clockinTime}');
+        SET @last_id_clockin = LAST_INSERT_ID();
+        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['break']}, '${breakTime}');
+        SET @last_id_break = LAST_INSERT_ID();
+        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['reenter']}, '${reenterTime}');
+        SET @last_id_reenter = LAST_INSERT_ID();
+        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['clockout']}, '${clockoutTime}');
+        SET @last_id_clockout = LAST_INSERT_ID();
+        INSERT INTO record(user, date, clockin, break, reenter, clockout)
+          VALUES(${hamamatsuUser.id}, '${dateToLocalString(tempDate)}', @last_id_clockin, @last_id_break, @last_id_reenter, @last_id_clockout);
+        `;
+        await knex.raw(sql);
+        */
+
+        /*
+        await knex('record').insert({
+          user: hamamatsuUser.id, date: dateToLocalString(tempDate),
+          clockin: clockinId, break: breakId, reenter: reenterId, clockout: clockoutId
+        });
+        process.stdout.write('*');
+        */
+        records.push({
+          user: hamamatsuUser.id, date: dateToLocalString(tempDate),
+          clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate
+        });
+      }
+    }
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+  await knex('record').insert(records);
 
   // その他情報
   await knex('systemConfig').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');

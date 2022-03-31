@@ -30,7 +30,12 @@ const router = createRouter({
     {
       path: '/logout',
       name: 'logout',
-      component: () => import('@/views/Logout.vue')
+      component: () => { },
+      beforeEnter: async (to, from) => {
+        const store = useSessionStore();
+        await store.logout();
+        return { name: 'home' };
+      }
     },
     {
       path: '/apply/record',
@@ -96,7 +101,22 @@ const router = createRouter({
       path: '/admin/privilege',
       name: 'admin-privilege',
       component: () => import('@/views/PrivilegeView.vue'),
-      meta: { title: `${appName} - 権限設定` }
+      meta: { title: `${appName} - 権限設定` },
+    },
+    {
+      path: '/admin/holiday',
+      name: 'admin-holiday',
+      component: () => import('@/views/HolidayView.vue'),
+      meta: { title: `${appName} - 休日設定` },
+    },
+    {
+      path: '/approval/:id',
+      name: 'approval',
+      component: () => import('@/views/PrivilegeView.vue'),
+      //meta: { title: `${appName} - 権限設定` },
+      redirect: to => {
+        return { name: 'apply-leave', params: { id: to.params.id } }
+      }
     }
   ]
 });
@@ -121,7 +141,8 @@ router.beforeEach(async (to, from) => {
   // ログインしていない場合はホーム画面にリダイレクトする
   if (to.name !== 'home' && to.name !== 'record') {
     if (!store.isLoggedIn()) {
-      return { name: 'home' };
+      //return { name: 'home' };
+      return { name: 'home', params: { redirect: to.path } };
     } else {
       try {
         // リフレッシュトークンが有効かどうか、サーバーに問い合わせる

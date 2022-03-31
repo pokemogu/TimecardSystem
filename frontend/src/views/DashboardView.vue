@@ -161,7 +161,9 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/bulkapply" class="btn btn-warning btn-sm" role="button">一括申請機能</RouterLink>
       </div>
-      <div class="d-grid col-2 gap-2"></div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink to="/admin/holiday" class="btn btn-warning btn-sm" role="button">休日登録</RouterLink>
+      </div>
     </div>
   </div>
   <!--

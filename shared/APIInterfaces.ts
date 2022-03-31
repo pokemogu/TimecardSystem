@@ -19,6 +19,12 @@ export interface IssueTokenResponseBody {
   token?: IssueTokenResponseData
 }
 
+export interface ChangePasswordRequestBody {
+  account?: string,
+  oldPassword: string,
+  newPassword: string
+}
+
 export type UserRequestPathParams = Record<'userId', string>;
 
 export interface AccessTokenRequestBody {
@@ -125,8 +131,9 @@ export type ApplyRequestPathParams = Record<'applyType', string>;
 export interface ApplyRequestBody {
   targetUserAccount?: string,
   timestamp: string,
-  dateFrom: string,
-  dateTo?: string,
+  date?: string,
+  dateTimeFrom: string,
+  dateTimeTo?: string,
   dateRelated?: string,
   options?: {
     name: string,
@@ -313,9 +320,29 @@ export interface PrivilegeResponseData2 {
   viewDepartmentUserInfo?: boolean,
   viewSectionUserInfo?: boolean
 }
+
 export type PrivilageRequestData = PrivilegeResponseData;
 
 export interface PrivilegeResponseBody {
   message: string,
   privileges?: PrivilegeResponseData[]
+}
+
+export interface HolidayRequestQuery {
+  from?: string,
+  to?: string,
+  limit?: number,
+  offset?: number
+}
+
+export interface HolidayResponseData {
+  date: string,
+  name: string
+}
+
+export type HolidayRequestData = HolidayResponseData;
+
+export interface HolidaysResponseBody {
+  message: string,
+  holidays?: HolidayResponseData[]
 }
