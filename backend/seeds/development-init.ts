@@ -96,6 +96,19 @@ export async function seed(knex: Knex): Promise<void> {
     { name: "打刻端末8" },
   ]);
 
+  // 申請
+  await knex('applyType').insert([ // その他カスタム申請
+    { name: 'special-leave', isSystemType: false, description: '特別休暇' },
+    { name: 'temporary-leave', isSystemType: false, description: '一時帰休' },
+    { name: 'other-leave', isSystemType: false, description: 'その他休暇' }
+  ]);
+
+  const applyTypes = await knex.select<{
+    id: number, name: string, isSystemType: boolean, description: string
+  }[]>({
+    id: 'id', name: 'name', isSystemType: 'isSystemType', description: 'description'
+  }).from('applyType');
+
   // 権限情報
   await knex('privilege').insert([
     {
@@ -140,6 +153,70 @@ export async function seed(knex: Knex): Promise<void> {
       registerUser: true, registerDevice: true,
       viewAllUserInfo: true
     },
+  ]);
+
+  const privileges = await knex
+    .select<{ id: number, name: string }[]>()
+    .from('privilege');
+
+  // 申請権限
+
+  const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
+  const typeLeave = applyTypes.find(applyType => applyType.name === 'leave').id;
+  const typeHalfdayLeave = applyTypes.find(applyType => applyType.name === 'halfday-leave').id;
+  const typeMourningLeave = applyTypes.find(applyType => applyType.name === 'mourning-leave').id;
+  const typeMeasureLeave = applyTypes.find(applyType => applyType.name === 'measure-leave').id;
+  const typeOvertime = applyTypes.find(applyType => applyType.name === 'overtime').id;
+
+  const privilegeIdProductionProper = privileges.find(privilege => privilege.name === '製造社員').id
+  const privilegeIdOfficeProper = privileges.find(privilege => privilege.name === '事務社員').id
+  const privilegeIdSectionManager = privileges.find(privilege => privilege.name === '部署管理者').id
+  const privilegeIdDepartmentManager = privileges.find(privilege => privilege.name === '部門管理者').id
+  const privilegeIdSystemAdmin = privileges.find(privilege => privilege.name === 'システム管理者').id
+  const privilegeIdBoardMember = privileges.find(privilege => privilege.name === '役員').id
+
+  await knex('applyPrivilege').insert([
+    { type: typeRecord, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdProductionProper, permitted: true },
+
+    { type: typeRecord, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdOfficeProper, permitted: true },
+
+    { type: typeRecord, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdSectionManager, permitted: true },
+
+    { type: typeRecord, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdDepartmentManager, permitted: true },
+
+    { type: typeRecord, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdSystemAdmin, permitted: true },
+
+    { type: typeRecord, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeHalfdayLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeMourningLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeMeasureLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeOvertime, privilege: privilegeIdBoardMember, permitted: true },
   ]);
 
   // 承認権限情報
@@ -217,10 +294,6 @@ export async function seed(knex: Knex): Promise<void> {
     ({ department: 'department.id' }, { section: 'section.id' }, { departmentName: 'department.name' }, { sectionName: 'section.name' })
     .from('section')
     .join('department', { 'department.id': 'section.department' });
-
-  const privileges = await knex
-    .select<{ id: number, name: string }[]>()
-    .from('privilege');
 
   const fakeUsers: models.User[] = [];
   for (let i = 0; i < fakeNames.length + 1; i++) {

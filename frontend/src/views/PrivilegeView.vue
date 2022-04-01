@@ -15,6 +15,8 @@ const store = useSessionStore();
 const isModalOpened = ref(false);
 const selectedPrivilege = ref<apiif.PrivilegeResponseData>({ name: '' });
 const privilegeInfos = ref<apiif.PrivilegeResponseData[]>([]);
+const applyPrivilegeInfos = ref<{ privilege: number, applyPrivilege: apiif.ApplyPrivilegeResponseData[] }[]>([]);
+const applyPrivilegeColumns = ref<string[]>([]);
 const checks = ref<Record<number, boolean>>({});
 
 const limit = ref(10);
@@ -30,6 +32,22 @@ async function updateTable() {
       if (infos) {
         privilegeInfos.value.splice(0);
         Array.prototype.push.apply(privilegeInfos.value, infos);
+
+        applyPrivilegeInfos.value.splice(0);
+        applyPrivilegeColumns.value.splice(0);
+        for (const info of infos) {
+          if (info.id) {
+            const infos2 = await tokenAccess.getApplyPrivilege(info.id);
+            if (infos2) {
+              applyPrivilegeInfos.value.push({
+                privilege: info.id,
+                applyPrivilege: infos2.filter(info => info.isSystemType === true)
+              })
+            }
+          }
+        }
+        applyPrivilegeColumns.value = applyPrivilegeInfos.value[0].applyPrivilege.map(priv => priv.applyTypeDescription);
+        console.log(applyPrivilegeInfos.value);
       }
     }
   }
@@ -55,22 +73,13 @@ async function onPageForward() {
   updateTable();
 }
 
-async function onWorkPatternClick(workPatternName?: string) {
+async function onPrivilegeClick(privilegeId?: number) {
 
-  if (workPatternName) {
-    try {
-      const token = await store.getToken();
-      if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-      }
-    }
-    catch (error) {
-      alert(error);
-      return;
-    }
+  if (privilegeId) {
+    selectedPrivilege.value.id = privilegeId;
   }
   else {
-    selectedPrivilege.value.name = '';
+    selectedPrivilege.value = { name: '' };
   }
   isModalOpened.value = true;
 }
@@ -146,7 +155,7 @@ async function onWorkPatternSubmit() {
           type="button"
           class="btn btn-primary"
           id="new-route"
-          v-on:click="onWorkPatternClick()"
+          v-on:click="onPrivilegeClick()"
         >新規勤務体系作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
@@ -168,7 +177,7 @@ async function onWorkPatternSubmit() {
               <th rowspan="2"></th>
               <th rowspan="2" class="text-center">権限名称</th>
               <th rowspan="2" class="text-center vertical">PC使用</th>
-              <th colspan="9" class="text-center">申請</th>
+              <th :colspan="applyPrivilegeColumns.length" class="text-center">申請</th>
               <th rowspan="2" scope="col" class="text-center vertical">承認</th>
               <th rowspan="2" scope="col" class="text-center vertical">勤怠照会</th>
               <th rowspan="2" scope="col" class="text-center vertical">工程管理</th>
@@ -179,7 +188,12 @@ async function onWorkPatternSubmit() {
               <th rowspan="2" scope="col" class="text-center vertical">端末登録</th>
             </tr>
             <tr>
-              <th scope="col" class="text-center vertical">打刻</th>
+              <th
+                scope="col"
+                class="text-center vertical"
+                v-for="(item, index) in applyPrivilegeColumns"
+              >{{ item }}</th>
+              <!--
               <th scope="col" class="text-center vertical">有給</th>
               <th scope="col" class="text-center vertical">半休</th>
               <th scope="col" class="text-center vertical">代休</th>
@@ -188,6 +202,7 @@ async function onWorkPatternSubmit() {
               <th scope="col" class="text-center vertical">早出残業</th>
               <th scope="col" class="text-center vertical">遅刻</th>
               <th scope="col" class="text-center vertical">早退</th>
+              -->
               <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
             </tr>
           </thead>
@@ -205,7 +220,7 @@ async function onWorkPatternSubmit() {
                 <button
                   type="button"
                   class="btn btn-link"
-                  v-on:click="onWorkPatternClick(privilege.name)"
+                  v-on:click="onPrivilegeClick(privilege.id)"
                 >
                   {{
                     privilege.name
@@ -215,9 +230,14 @@ async function onWorkPatternSubmit() {
               <td class="text-center">
                 <span v-if="privilege.recordByLogin">&check;</span>
               </td>
-              <td class="text-center">
-                <span v-if="privilege.applyRecord">&check;</span>
+
+              <td
+                class="text-center"
+                v-for="(item, index) in applyPrivilegeInfos.find(priv => priv.privilege === privilege.id)?.applyPrivilege"
+              >
+                <span v-if="item.permitted === true">&check;</span>
               </td>
+              <!--
               <td class="text-center">
                 <span v-if="privilege.applyLeave">&check;</span>
               </td>
@@ -242,6 +262,7 @@ async function onWorkPatternSubmit() {
               <td class="text-center">
                 <span v-if="privilege.applyEarly">&check;</span>
               </td>
+              -->
               <td class="text-center">
                 <span v-if="privilege.approve">&check;</span>
               </td>

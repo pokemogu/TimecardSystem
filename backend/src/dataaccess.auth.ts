@@ -51,7 +51,7 @@ export async function issueRefreshToken(this: DatabaseAccess, account: string, p
 export async function issueQrCodeRefreshToken(this: DatabaseAccess, accessToken: string, account: string): Promise<apiif.IssueTokenResponseData> {
 
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-  const privilege = await this.getUserPrivilege(authUserInfo.id);
+  const privilege = await this.getUserPrivilege(accessToken, authUserInfo.id);
 
   // QRコード発行の権限が無い場合はエラー
   if (!privilege.issueQr) {

@@ -11,6 +11,7 @@ const testSuperUserName = 'スーパーシステム管理者X';
 const testSuperUserPhonetic = 'スーパーシステムカンリシャエックス';
 let testSuperUserPassword = 'P@ssw0rdXXXXX'
 const testSuperPrivilegeName = '____TEST_SUPER_USER_PRIVILEGE___';
+const testSuperWorkPatternName = '____TEST_SUPER_USER_WORKPATTERN___';
 
 describe('データアクセステスト', () => {
 
@@ -50,23 +51,32 @@ describe('データアクセステスト', () => {
 
     // テスト用特権ユーザーの作成
     knex = knexConnect(knexconfig);
+
     await knex('privilege').insert({
       name: testSuperPrivilegeName,
-      recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewDuty: true,
+      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
+      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true,
+      viewRecord: true, viewRecordPerDevice: true,
       viewSectionUserInfo: true, viewDepartmentUserInfo: true, viewAllUserInfo: true,
-      configureDutySystem: true, configurePrivilege: true, configureDutyStructure: true,
+      configurePrivilege: true, configureWorkPattern: true,
       issueQr: true, registerUser: true, registerDevice: true
     });
 
     const lastPrivilegeResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
     const lastPrivilegeId = lastPrivilegeResult['LAST_INSERT_ID()'];
 
+    await knex('workPattern').insert([
+      { name: testSuperWorkPatternName, onTimeStart: '8:30', onTimeEnd: '17:30' }
+    ]);
+
+    const lastWorkPatternResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+    const lastWorkPatterId = lastWorkPatternResult['LAST_INSERT_ID()'];
+
     await knex('user').insert({
       available: true, account: testSuperUserAccount, password: hashPassword(testSuperUserPassword),
       registeredAt: new Date(),
       email: 'adm99999@sample.com', name: testSuperUserName, phonetic: testSuperUserPhonetic,
-      privilege: lastPrivilegeId
+      privilege: lastPrivilegeId, defaultWorkPattern: lastWorkPatterId
     });
 
     // 特権ユーザーのログイン
@@ -112,6 +122,26 @@ describe('データアクセステスト', () => {
           console.log(appyOptionType);
         })
       });
+    });
+
+    // 権限関連
+    test('getPrivileges', async () => {
+      const access = new DatabaseAccess(knex);
+      const token = await access.issueAccessToken(refreshToken);
+      const applyPrivileges = await access.getUserApplyPrivilege(token, testSuperUserAccount)
+      //console.log(applyPrivileges);
+      expect(applyPrivileges).toBeDefined();
+      //console.log(await access.getUserApplyPrivilege(token, 1));
+      //console.log(await access.getUserApplyPrivilege(token, 301));
+
+      //console.log(await access.getApplyPrivilege(token, 1));
+      //console.log(await access.getApplyPrivilege(token, 2));
+      //console.log(await access.getApplyPrivilege(token, 3));
+      //console.log(await access.getApplyPrivilege(token, 4));
+      await access.getApplyPrivilege(token, 5);
+      //console.log(await access.getApplyPrivilege(token, 6));
+      //console.log(await access.getApplyPrivilege(token, 7));
+      //console.log(await access.getApplyPrivilege(token, 8));
     });
 
     // 承認ルート関連
@@ -211,19 +241,19 @@ describe('データアクセステスト', () => {
       let userInfo = await access.getUsers(token, {
         byName: '金子'
       });
-      console.log(userInfo);
+      //console.log(userInfo);
       expect(userInfo).toBeDefined();
 
       userInfo = await access.getUsers(token, {
         byPhonetic: 'ホシ'
       });
-      console.log(userInfo);
+      //console.log(userInfo);
       expect(userInfo).toBeDefined();
 
       userInfo = await access.getUsers(token, {
         byAccount: 'USR00234'
       });
-      console.log(userInfo);
+      //console.log(userInfo);
       expect(userInfo).toBeDefined();
 
       userInfo = await access.getUsers(token, {
@@ -246,7 +276,7 @@ describe('データアクセステスト', () => {
         byName: '久保田',
         byDepartment: '東名工場'
       });
-      console.log(userInfo);
+      //console.log(userInfo);
       expect(userInfo).toBeDefined();
 
     });
@@ -257,14 +287,14 @@ describe('データアクセステスト', () => {
       const token = await access.issueAccessToken(refreshToken);
 
       let userInfo = await access.getUsers(token, { byAccount: account });
-      console.log(userInfo);
+      //console.log(userInfo);
       //expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeTruthy();
 
       const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(token, account);
       userInfo = await access.getUsers(token, { byAccount: account });
       console.log(userInfo);
       expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeFalsy();
-      console.log(qrCodeRefreshToken);
+      //console.log(qrCodeRefreshToken);
 
       await access.revokeRefreshToken(account, qrCodeRefreshToken.refreshToken);
     });
@@ -337,44 +367,44 @@ describe('データアクセステスト', () => {
       result = await access.getRecords({
         byUserAccount: 'USR00'
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         from: new Date('2022-03-12')
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         to: new Date('2022-03-21')
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         from: new Date('2022-03-01'),
         to: new Date('2022-03-21')
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         byUserAccount: 'USR00',
         from: new Date('2022-03-01'),
         to: new Date('2022-03-21')
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         byUserAccount: 'USR00',
         from: new Date('2022-03-01'),
         to: new Date('2022-03-21'),
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         byUserName: '太郎',
         from: new Date('2022-03-01'),
         to: new Date('2022-03-21'),
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         byDepartment: '浜松',
@@ -383,7 +413,7 @@ describe('データアクセステスト', () => {
         to: new Date('2022-03-21'),
         limit: 10
       });
-      console.log(result);
+      //console.log(result);
 
       result = await access.getRecords({
         byDepartment: '浜松',
@@ -393,7 +423,7 @@ describe('データアクセステスト', () => {
         to: new Date('2022-03-21'),
         limit: 10
       });
-      console.log(result);
+      //console.log(result);
 
     });
   });
@@ -402,13 +432,13 @@ describe('データアクセステスト', () => {
     test('getSmtpServerInfo', async () => {
       const access = new DatabaseAccess(knex);
       const smtpInfo = await access.getSmtpServerInfo();
-      console.log(smtpInfo);
+      //console.log(smtpInfo);
     });
 
     test('generateAvailableUserAccount', async () => {
       const access = new DatabaseAccess(knex);
       const candidates = await access.generateAvailableUserAccount();
-      console.log(candidates);
+      //console.log(candidates);
     });
   });
 
@@ -419,6 +449,7 @@ describe('データアクセステスト', () => {
 
     await knex('user').where('account', testSuperUserAccount).del();
     await knex('privilege').where('name', testSuperPrivilegeName).del();
+    await knex('workPattern').where('name', testSuperWorkPatternName).del();
 
     knex.destroy();
   });

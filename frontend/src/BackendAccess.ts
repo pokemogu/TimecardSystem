@@ -211,6 +211,17 @@ export class TokenAccess {
     }
   }
 
+  public async getApplyPrivilege(privilegeId: number) {
+    try {
+      return (await axios.get<apiif.ApplyPrivilegeResponseBody>(`${urlPrefix}/api/apply-privilage/${privilegeId}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout
+      })).data.applyPrivileges;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async getPrivileges(params?: { limit?: number, offset?: number }) {
     try {
       const data = (await axios.get<apiif.PrivilegeResponseBody>(`${urlPrefix}/api/privilage`, {

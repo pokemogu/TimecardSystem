@@ -332,6 +332,32 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
     }
   });
 
+  app.get<{ id: number }, apiif.ApplyPrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/apply-privilage/:id', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const applyPrivileges = await access.getApplyPrivilege(token, req.params.id);
+      console.log(applyPrivileges)
+      res.send({
+        message: 'ok',
+        applyPrivileges: applyPrivileges
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
   app.put<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);

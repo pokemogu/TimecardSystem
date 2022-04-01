@@ -289,8 +289,8 @@ function onSubmit() {
                 <label class="form-check-label" for="apply-date-period">期間</label>
               </div>
               <select class="form-select" v-if="isDateFromSpanningDay === true">
-                <option>当日</option>
-                <option>翌日</option>
+                <option :value="false" selected>当日</option>
+                <option :value="true">翌日</option>
               </select>
               <input
                 type="date"

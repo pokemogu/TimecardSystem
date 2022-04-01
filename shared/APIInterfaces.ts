@@ -328,6 +328,19 @@ export interface PrivilegeResponseBody {
   privileges?: PrivilegeResponseData[]
 }
 
+export interface ApplyPrivilegeResponseData {
+  applyTypeId: number,
+  applyTypeName: string,
+  applyTypeDescription: string,
+  isSystemType: boolean,
+  permitted: boolean
+}
+
+export interface ApplyPrivilegeResponseBody {
+  message: string,
+  applyPrivileges?: ApplyPrivilegeResponseData[]
+}
+
 export interface HolidayRequestQuery {
   from?: string,
   to?: string,

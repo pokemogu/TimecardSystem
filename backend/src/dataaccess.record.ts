@@ -128,13 +128,17 @@ export async function getRecords(this: DatabaseAccess, params: {
   const result = await this.knex
     .select<RecordResult[]>
     (
-      { id: 'record.id' }, { type: 'recordType.name' }, { typeDescription: 'recordType.description' },
-      { timestamp: 'record.timestamp' }, { userAccount: 'user.account' }, { userName: 'user.name' }, { department: 'department.name' }, { section: 'section.name' }
+      { id: 'record.id' }, { date: 'record.date' }, { clockin: 'record.clockin' }, { break: 'record.break' }, { reenter: 'record.reenter' }, { clockout: 'record.clockout' },
+      { clockinDevice: 'd1.name' }, { breakDevice: 'd2.name' }, { reenterDevice: 'd3.name' }, { clockoutDevice: 'd4.name' },
+      { clockinApply: 'record.clockinApply' }, { breakApply: 'record.breakApply' }, { reenterApply: 'record.reenterApply' }, { clockoutApply: 'record.clockoutApply' },
+      { userAccount: 'user.account' }, { userName: 'user.name' }, { department: 'department.name' }, { section: 'section.name' }
     )
-    .from('recordLog')
-    .join('recordType', { 'recordType.id': 'record.type' })
+    .from('record')
     .join('user', { 'user.id': 'record.user' })
-    .join('device', { 'device.id': 'record.device' })
+    .leftJoin('device as d1', { 'd1.id': 'record.clockinDevice' })
+    .leftJoin('device as d2', { 'd2.id': 'record.breakDevice' })
+    .leftJoin('device as d3', { 'd3.id': 'record.reenterDevice' })
+    .leftJoin('device as d4', { 'd4.id': 'record.clockoutDevice' })
     .leftJoin('section', { 'section.id': 'user.section' })
     .leftJoin('department', { 'department.id': 'section.department' })
     .where(function (builder) {
@@ -151,16 +155,13 @@ export async function getRecords(this: DatabaseAccess, params: {
         builder.where('department.name', 'like', `%${params.byDepartment}%`);
       }
       if (params.byDevice) {
-        builder.where('department.name', 'like', `%${params.byDepartment}%`);
-      }
-      if (params.from && params.to) {
-        builder.whereBetween('timestamp', [params.from, params.to]);
+        builder.where('d1.name', 'like', `%${params.byDevice}%`);
       }
       else if (params.from) {
-        builder.where('timestamp', '>=', params.from);
+        builder.where('record.date', '>=', params.from);
       }
       else if (params.to) {
-        builder.where('timestamp', '<=', params.to);
+        builder.where('record.date', '<=', params.to);
       }
     })
     .modify(function (builder) {

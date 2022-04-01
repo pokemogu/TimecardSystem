@@ -193,14 +193,14 @@ export async function up(knex: Knex): Promise<void> {
       { name: 'record', isSystemType: true, description: '打刻' },
       { name: 'leave', isSystemType: true, description: '有休' },
       { name: 'halfday-leave', isSystemType: true, description: '半休' },
+      { name: 'makeup-leave', isSystemType: true, description: '代休' },
       { name: 'mourning-leave', isSystemType: true, description: '慶弔休' },
       { name: 'measure-leave', isSystemType: true, description: '措置休' },
       { name: 'overtime', isSystemType: true, description: '早出・残業' },
       { name: 'lateness', isSystemType: true, description: '遅刻' },
       { name: 'leave-early', isSystemType: true, description: '早退' },
       { name: 'break', isSystemType: true, description: '外出' },
-      { name: 'holiday-work', isSystemType: true, description: '休出' },
-      { name: 'makeup-leave', isSystemType: true, description: '代休' },
+      { name: 'holiday-work', isSystemType: true, description: '休日出勤' },
     ]);
 
     await knex.schema.createTable('applyOptionType', function (table) {
@@ -292,12 +292,12 @@ export async function up(knex: Knex): Promise<void> {
       table.foreign('optionValue').references('id').inTable('applyOptionValue');
     });
 
-    await knex.schema.createTable('applyPermission', function (table) {
-      table.integer('apply').unsigned().notNullable();
+    await knex.schema.createTable('applyPrivilege', function (table) {
+      table.integer('type').unsigned().notNullable();
       table.integer('privilege').unsigned().notNullable();
       table.boolean('permitted').notNullable().defaultTo(false);
 
-      table.foreign('apply').references('id').inTable('apply');
+      table.foreign('type').references('id').inTable('applyType');
       table.foreign('privilege').references('id').inTable('privilege');
     });
 
@@ -309,6 +309,33 @@ export async function up(knex: Knex): Promise<void> {
 
       table.foreign('apply').references('id').inTable('apply');
     });
+
+    /*
+    await knex.schema.createView('applyPrivilegeExistingList', function (view) {
+      view.as(
+        knex.select({
+          userId: 'user.id', userAccount: 'user.account', userName: 'user.name', applyTypeId: 'applyType.id',
+          isSystemType: 'applyType.isSystemType', permitted: 'applyPrivilege.permitted'
+        })
+          .from('applyType')
+          .join('applyPrivilege', { 'applyPrivilege.type': 'applyType.id' })
+          .join('user', { 'user.privilege': 'applyPrivilege.privilege' })
+      );
+    });
+
+    await knex.schema.createView('applyPrivilegeAllList', function (view) {
+      view.as(
+        knex
+          .select({
+            applyTypeId: 'applyType.id', applyTypeName: 'applyType.name', applyTypeDescription: 'applyType.description',
+            userId: 'userId', userAccount: 'userAccount', userName: 'userName',
+            isSystemType: 'applyPrivilegeExistingList.isSystemType', permitted: 'applyPrivilegeExistingList.permitted'
+          })
+          .from('applyType')
+          .leftJoin('applyPrivilegeExistingList', { 'applyType.id': 'applyPrivilegeExistingList.applyTypeId' })
+      );
+    });
+    */
 
     ///////////////////////////////////////////////////////////////////////
     // 打刻関連
@@ -578,6 +605,8 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
 export async function down(knex: Knex): Promise<void> {
   await knex.schema.raw('drop procedure if exists generateAllDays');
 
+  //await knex.schema.dropViewIfExists('applyPrivilegeAllList');
+  //await knex.schema.dropViewIfExists('applyPrivilegeExistingList');
   await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
   await knex.schema.dropViewIfExists('recordTimeWithOnTime');
   await knex.schema.dropViewIfExists('recordTime');
@@ -595,7 +624,7 @@ export async function down(knex: Knex): Promise<void> {
   //await knex.schema.dropTableIfExists('recordLogTemp');
   //await knex.schema.dropTableIfExists('recordLog');
   await knex.schema.dropTableIfExists('schedule');
-  await knex.schema.dropTableIfExists('applyPermission');
+  await knex.schema.dropTableIfExists('applyPrivilege');
   await knex.schema.dropTableIfExists('applyOption');
   await knex.schema.dropTableIfExists('apply');
   await knex.schema.dropTableIfExists('applyOptionValue');

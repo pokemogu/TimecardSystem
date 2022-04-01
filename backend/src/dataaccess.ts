@@ -131,8 +131,10 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   public registerPrivilege = privilege.registerPrivilege;
   public getUserPrivilege = privilege.getUserPrivilege;
+  public getUserApplyPrivilege = privilege.getUserApplyPrivilege;
   public addPrivilege = privilege.addPrivilege;
   public getPrivileges = privilege.getPrivileges;
+  public getApplyPrivilege = privilege.getApplyPrivilege;
   public updatePrivilege = privilege.updatePrivilege;
   public deletePrivilege = privilege.deletePrivilege;
 
