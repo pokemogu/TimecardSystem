@@ -56,17 +56,17 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.string('name').notNullable().unique();
       table.boolean('recordByLogin').notNullable().defaultTo(false);
-      table.boolean('applyRecord').notNullable().defaultTo(false);
-      table.boolean('applyLeave').notNullable().defaultTo(false);
-      table.boolean('applyHalfDayLeave').notNullable().defaultTo(false);
-      table.boolean('applyMakeupLeave').notNullable().defaultTo(false);
-      table.boolean('applyMourningLeave').notNullable().defaultTo(false);
-      table.boolean('applyMeasureLeave').notNullable().defaultTo(false);
-      table.boolean('applyOvertime').notNullable().defaultTo(false);
-      table.boolean('applyLate').notNullable().defaultTo(false);
+      //table.boolean('applyRecord').notNullable().defaultTo(false);
+      //table.boolean('applyLeave').notNullable().defaultTo(false);
+      //table.boolean('applyHalfDayLeave').notNullable().defaultTo(false);
+      //table.boolean('applyMakeupLeave').notNullable().defaultTo(false);
+      //table.boolean('applyMourningLeave').notNullable().defaultTo(false);
+      //table.boolean('applyMeasureLeave').notNullable().defaultTo(false);
+      //table.boolean('applyOvertime').notNullable().defaultTo(false);
+      //table.boolean('applyLate').notNullable().defaultTo(false);
       table.integer('maxApplyLateNum').unsigned();
       table.integer('maxApplyLateHours').unsigned();
-      table.boolean('applyEarly').notNullable().defaultTo(false);
+      //table.boolean('applyEarly').notNullable().defaultTo(false);
       table.integer('maxApplyEarlyNum').unsigned();
       table.integer('maxApplyEarlyHours').unsigned();
       table.boolean('approve').notNullable().defaultTo(false);
@@ -297,6 +297,7 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('privilege').unsigned().notNullable();
       table.boolean('permitted').notNullable().defaultTo(false);
 
+      table.unique(['type', 'privilege']);
       table.foreign('type').references('id').inTable('applyType');
       table.foreign('privilege').references('id').inTable('privilege');
     });

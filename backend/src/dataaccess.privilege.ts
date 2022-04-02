@@ -87,7 +87,7 @@ export async function getApplyPrivilege(this: DatabaseAccess, accessToken: strin
       builder.andOnIn('applyPrivilege.privilege', [privilege]);
     });
 
-  console.log(results);
+  //console.log(results);
 
   return results.map((result) => {
     return <apiif.ApplyPrivilegeResponseData>{
@@ -102,25 +102,59 @@ export async function getApplyPrivilege(this: DatabaseAccess, accessToken: strin
 
 export async function addPrivilege(this: DatabaseAccess, accessToken: string, privilege: apiif.PrivilageRequestData) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-  lodash.omit(privilege, ['id']);
-  await this.knex('privilege').insert(privilege);
+
+  const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
+  Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
+
+  const applyTypes = await this.getApplyTypes();
+
+  await this.knex('privilege').insert(lodash.omit(privilege, ['id', 'applyPrivileges']));
+
+  const privilegeLastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+  const privilegeLastId = privilegeLastIdResult['LAST_INSERT_ID()'];
+
+  await this.knex('applyPrivilege').insert(applyPrivileges.map(applyPrivilege => {
+    return {
+      type: applyTypes.find(applyType => applyType.name === applyPrivilege.applyTypeName)?.id,
+      privilege: privilegeLastId,
+      permitted: applyPrivilege.permitted
+    };
+  }));
 }
 
-export async function getPrivileges(this: DatabaseAccess) {
-  const result = await this.knex.table<apiif.PrivilegeResponseData>('privilege');
+export async function getPrivileges(this: DatabaseAccess, accessToken: string) {
+  const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege');
 
-  return result;
+  for (const result of results) {
+    if (result.id) {
+      result.applyPrivileges = await this.getApplyPrivilege(accessToken, result.id);
+    }
+  }
+  return results;
 }
 
 export async function updatePrivilege(this: DatabaseAccess, accessToken: string, privilege: apiif.PrivilageRequestData) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-  const id = privilege.id;
-  lodash.omit(privilege, ['id']);
+  const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
+  Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
 
-  await this.knex('privilege')
-    .where('id', id)
-    .update(privilege);
+  const applyTypes = await this.getApplyTypes();
+
+  await this.knex('privilege').where('id', privilege.id).update(lodash.omit(privilege, ['applyPrivileges']));
+
+  await this.knex.transaction(async (trx) => {
+    await this.knex('applyPrivilege').del().where('privilege', privilege.id).transacting(trx);
+    await this.knex('applyPrivilege').insert(applyPrivileges.map(applyPrivilege => {
+      return {
+        type: applyTypes.find(applyType => applyType.name === applyPrivilege.applyTypeName)?.id,
+        privilege: privilege.id,
+        permitted: applyPrivilege.permitted
+      };
+    })).transacting(trx);
+  });
+  //    .onConflict(['type', 'privilege'])
+  //    .merge(['permitted']); // ON DUPLICATE KEY UPDATE
 }
 
 export async function deletePrivilege(this: DatabaseAccess, accessToken: string, idOrName: string | number) {

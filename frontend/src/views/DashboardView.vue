@@ -15,7 +15,7 @@ const store = useSessionStore();
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="管理画面"
+          titleName="メニュー画面"
           v-bind:userName="store.userName"
         ></Header>
       </div>
@@ -120,7 +120,11 @@ const store = useSessionStore();
         <RouterLink to="/apply/other" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/approve/config" class="btn btn-warning btn-sm" role="button">申請種類設定</RouterLink>
+        <RouterLink
+          :to="{ name: 'admin-custom-apply' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >申請種類設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程登録</RouterLink>

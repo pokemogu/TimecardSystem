@@ -42,23 +42,23 @@ async function updateTable() {
 }
 
 onMounted(async () => {
-  updateTable();
+  await updateTable();
 });
 
-watch(selectedYear, () => {
-  updateTable();
+watch(selectedYear, async () => {
+  await updateTable();
 });
 
 async function onPageBack() {
   const backTo = offset.value - limit.value;
   offset.value = backTo > 0 ? backTo : 0;
-  updateTable();
+  await updateTable();
 }
 
 async function onPageForward() {
   const forwardTo = offset.value + limit.value;
   offset.value = forwardTo > 0 ? forwardTo : 0;
-  updateTable();
+  await updateTable();
 }
 
 async function onHolidayClick(params?: { date: string, name: string }) {
@@ -97,7 +97,7 @@ async function onHolidayDelete() {
     checks.value[key] = false;
   }
 
-  updateTable();
+  await updateTable();
 }
 
 async function onHolidaySubmit() {
@@ -111,7 +111,7 @@ async function onHolidaySubmit() {
   catch (error) {
     alert(error);
   }
-  updateTable();
+  await updateTable();
 }
 
 </script>

@@ -110,6 +110,12 @@ const router = createRouter({
       meta: { title: `${appName} - 休日設定` },
     },
     {
+      path: '/admin/custom-apply',
+      name: 'admin-custom-apply',
+      component: () => import('@/views/CustomApplyView.vue'),
+      meta: { title: `${appName} - その他申請種別の設定` },
+    },
+    {
       path: '/approval/:id',
       name: 'approval',
       component: () => import('@/views/PrivilegeView.vue'),

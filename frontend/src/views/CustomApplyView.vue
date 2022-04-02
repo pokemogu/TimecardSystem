@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
@@ -7,25 +7,16 @@ import Header from '@/components/Header.vue';
 import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
-import WorkPatternEdit from '@/components/WorkPatternEdit.vue';
-
-function formatTimeString(time: string) {
-  const hourMinSec = time.split(':');
-  if (hourMinSec.length < 2) {
-    return '';
-  }
-
-  const hour = parseInt(hourMinSec[0]);
-  return ((hour > 24) ? ('翌' + (hour - 24)) : hour) + ':' + hourMinSec[1];
-}
+import CustomApplyEdit from '@/components/CustomApplyEdit.vue';
 
 const router = useRouter();
 const store = useSessionStore();
 
 const isModalOpened = ref(false);
-const selectedWorkPattern = ref<apiif.WorkPatternResponseData>({ name: '', onTimeStart: '', onTimeEnd: '', wagePatterns: [] });
-const workPatternInfos = ref<apiif.WorkPatternsResponseData[]>([]);
-const checks = ref<Record<number, boolean>>({});
+const selectedCustomApplyType = ref<apiif.ApplyTypeResponseData>({ name: '', isSystemType: false, description: '' });
+const selectedApplyPermissionNames = ref<string[]>([]);
+const customApplyTypes = ref<apiif.ApplyTypeResponseData[]>([]);
+const checks = ref<Record<string, boolean>>({});
 
 const limit = ref(10);
 const offset = ref(0);
@@ -33,15 +24,12 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getWorkPatterns({ limit: limit.value + 1, offset: offset.value });
-      if (infos) {
-        workPatternInfos.value.splice(0);
-        Array.prototype.push.apply(workPatternInfos.value, infos);
-      }
+    const infos = await backendAccess.getApplyTypes();
+    if (infos) {
+      customApplyTypes.value.splice(0);
+      Array.prototype.push.apply(customApplyTypes.value, infos.filter(info => info.isSystemType === false));
     }
+
   }
   catch (error) {
     alert(error);
@@ -65,61 +53,33 @@ async function onPageForward() {
   await updateTable();
 }
 
-async function onWorkPatternClick(workPatternName?: string) {
-
-  if (workPatternName) {
-    try {
-      const token = await store.getToken();
-      if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        const workPattern = await tokenAccess.getWorkPattern(workPatternName);
-        if (workPattern) {
-          selectedWorkPattern.value = workPattern;
-        }
-      }
-    }
-    catch (error) {
-      alert(error);
-      return;
+async function onCustomApplyTypeClick(name?: string) {
+  if (name) {
+    const applyType = customApplyTypes.value.find(applyType => applyType.name === name);
+    if (applyType) {
+      selectedCustomApplyType.value = applyType;
     }
   }
   else {
-    selectedWorkPattern.value.name = '';
-    selectedWorkPattern.value.onTimeStart = '';
-    selectedWorkPattern.value.onTimeEnd = '';
+    selectedCustomApplyType.value.id = undefined;
+    selectedCustomApplyType.value.name = '';
+    selectedCustomApplyType.value.description = '';
+    selectedCustomApplyType.value.isSystemType = false;
   }
-
-
   isModalOpened.value = true;
-
-  // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
-  /*
-  const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
-    if (targetRouteInfo) {
-      selectedWorkPattern.value = {
-        id: targetRouteInfo?.id ? targetRouteInfo?.id : undefined,
-        name: targetRouteInfo?.name ? targetRouteInfo?.name : '',
-        roles: targetRouteInfo?.roles ? targetRouteInfo?.roles : []
-      };
-    }
-    else {
-      selectedWorkPattern.value = { name: '', roles: [] };
-    }
-    isApprovalRouteSelected.value = true;
-  */
 }
 
-async function onWorkPatternDelete() {
-  if (!confirm('チェックされた勤務体系を削除しますか? (※従業員が1人でも使用している勤務体系は削除できず、サーバーエラーが発生します)')) {
+async function onApplyTypeDelete() {
+  if (!confirm('チェックされた申請種類を削除しますか? (※1回でもこの申請種類で申請がされている場合は削除できず、サーバーエラーが発生します)')) {
     return;
   }
   try {
     const token = await store.getToken();
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      for (const workPattern of workPatternInfos.value) {
-        if (checks.value[workPattern.id]) {
-          await tokenAccess.deleteWorkPattern(workPattern.id);
+      const access = new backendAccess.TokenAccess(token);
+      for (const applyType of customApplyTypes.value) {
+        if (checks.value[applyType.name]) {
+          await access.deleteApplyType(applyType.name);
         }
       }
     }
@@ -136,20 +96,48 @@ async function onWorkPatternDelete() {
   await updateTable();
 }
 
-async function onWorkPatternSubmit() {
-  console.log(selectedWorkPattern.value);
-
+async function onSubmit() {
   try {
     const token = await store.getToken();
     if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
+      const access = new backendAccess.TokenAccess(token);
 
-      // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
-      if (selectedWorkPattern.value.id) {
-        await tokenAccess.updateWorkPattern(selectedWorkPattern.value);
+      console.log(selectedCustomApplyType.value.id)
+      // 新規申請種類の場合は追加する
+      if (!selectedCustomApplyType.value.id) {
+        selectedCustomApplyType.value.isSystemType = false;
+        selectedCustomApplyType.value.id = await access.addApplyType(selectedCustomApplyType.value);
+      } else {
+        await access.updateApplyType(selectedCustomApplyType.value);
       }
-      else {
-        await tokenAccess.addWorkPattern(selectedWorkPattern.value);
+
+      // この申請種類の権限を設定する
+      const privileges = await access.getPrivileges();
+      if (privileges) {
+        for (const privilege of privileges) {
+          const applyPrivilege = privilege.applyPrivileges?.find(applyPrivilege => applyPrivilege.applyTypeId === selectedCustomApplyType.value.id);
+
+          // 権限追加
+          if (selectedApplyPermissionNames.value.some(name => name === privilege.name)) {
+            if (applyPrivilege) { // 既に申請権限情報がある場合はそれを修正する
+              applyPrivilege.permitted = true;
+            }
+            else { // 申請権限情報がない場合は追加する
+              privilege.applyPrivileges?.push({
+                applyTypeId: selectedCustomApplyType.value.id ?? 0,
+                applyTypeName: selectedCustomApplyType.value.name,
+                permitted: true
+              });
+            }
+          }
+          // 権限削除
+          else {
+            if (applyPrivilege) { // 既に権限情報がある場合はそれを修正する
+              applyPrivilege.permitted = false;
+            }
+          }
+          await access.updatePrivilege(privilege);
+        }
       }
     }
   }
@@ -157,18 +145,6 @@ async function onWorkPatternSubmit() {
     alert(error);
   }
   await updateTable();
-}
-
-function sliceDictionary(dict: Record<string, string[]>, limit: number) {
-  const newDict: Record<string, string[]> = {};
-  for (const key in dict) {
-    if (limit <= 0) {
-      break;
-    }
-    newDict[key] = dict[key];
-    limit--;
-  }
-  return newDict;
 }
 
 </script>
@@ -179,7 +155,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="勤務体系設定"
+          titleName="その他申請種類設定"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
           v-on:customButton1="router.push({ name: 'dashboard' })"
@@ -188,11 +164,12 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <WorkPatternEdit
+      <CustomApplyEdit
         v-model:isOpened="isModalOpened"
-        v-model:workPattern="selectedWorkPattern"
-        v-on:submit="onWorkPatternSubmit"
-      ></WorkPatternEdit>
+        v-model:applyType="selectedCustomApplyType"
+        v-model:applyPermissionNames="selectedApplyPermissionNames"
+        v-on:submit="onSubmit"
+      ></CustomApplyEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
@@ -201,8 +178,8 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           type="button"
           class="btn btn-primary"
           id="new-route"
-          v-on:click="onWorkPatternClick()"
-        >新規勤務体系作成</button>
+          v-on:click="onCustomApplyTypeClick()"
+        >その他申請種類の追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
         <button
@@ -210,8 +187,8 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           class="btn btn-primary"
           id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onWorkPatternDelete()"
-        >チェックした勤務体系を削除</button>
+          v-on:click="onApplyTypeDelete"
+        >チェックした申請種類を削除</button>
       </div>
     </div>
 
@@ -221,34 +198,31 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           <thead>
             <tr>
               <th scope="col"></th>
-              <th scope="col">勤務体系名</th>
-              <th scope="col">定時開始時刻</th>
-              <th scope="col">定時終了時刻</th>
-              <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
+              <th scope="col">申請種類</th>
+              <!--<th scope="col">休日名</th>-->
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(workPattern, index) in workPatternInfos">
+            <tr v-for="(applyType, index) in customApplyTypes">
               <th scope="row">
                 <input
                   class="form-check-input"
                   type="checkbox"
                   :id="'checkbox' + index"
-                  v-model="checks[workPattern.id]"
+                  v-model="checks[applyType.name]"
                 />
               </th>
               <td>
                 <button
                   type="button"
                   class="btn btn-link"
-                  v-on:click="onWorkPatternClick(workPattern.name)"
-                >{{ workPattern.name }}</button>
+                  v-on:click="onCustomApplyTypeClick(applyType.name)"
+                >{{ applyType.description }}</button>
               </td>
-              <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>
-              <td>{{ formatTimeString(workPattern.onTimeEnd) }}</td>
             </tr>
           </tbody>
-          <tfoot>
+          <!--
+<tfoot>
             <tr>
               <td colspan="7">
                 <nav>
@@ -260,7 +234,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
                     </li>
                     <li
                       class="page-item"
-                      v-bind:class="{ disabled: workPatternInfos.length <= limit }"
+                      v-bind:class="{ disabled: customApplyTypes.length <= limit }"
                     >
                       <button class="page-link" v-on:click="onPageForward">
                         <span>&raquo;</span>
@@ -271,6 +245,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
               </td>
             </tr>
           </tfoot>
+          -->
         </table>
       </div>
     </div>

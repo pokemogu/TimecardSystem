@@ -320,7 +320,7 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
         throw new Error('invalid Authorization header');
       }
 
-      const privileges = await access.getPrivileges();
+      const privileges = await access.getPrivileges(token);
       res.send({
         message: 'ok',
         privileges: privileges
@@ -656,6 +656,68 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
       res.send({
         message: 'ok',
         id: id
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.post<{}, { message: string, id?: number }, apiif.ApplyTypeRequestData>('/api/apply-type', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+
+      const id = await access.addApplyType(req.body);
+      res.send({
+        message: 'ok',
+        id: id
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{}, apiif.ApplyTypeResponseBody, {}, { limit: number, offset: number }>('/api/apply-type', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+
+      const applyTypes = await access.getApplyTypes();
+      res.send({
+        message: 'ok',
+        applyTypes: applyTypes
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApplyTypeRequestData>('/api/apply-type', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+
+      const id = await access.updateApplyType(req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.delete<{ name: string }, apiif.MessageOnlyResponseBody, {}>('/api/apply-type/:name', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+
+      const applyTypes = await access.deleteApplyType(req.params.name);
+      res.send({
+        message: 'ok'
       });
     }
     catch (error) {

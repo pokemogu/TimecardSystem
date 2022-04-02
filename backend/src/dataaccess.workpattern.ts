@@ -115,8 +115,6 @@ export async function updateWorkPattern(this: DatabaseAccess, accessToken: strin
 
   const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first()).id;
 
-  // 一旦、対象勤務体系の既存勤務時間帯情報は全て消す
-  await this.knex('wagePattern').del().where('workPattern', workPattern.id);
 
   // 勤務時間帯情報を追加する
   const wagePatterns: {
@@ -131,13 +129,19 @@ export async function updateWorkPattern(this: DatabaseAccess, accessToken: strin
   }
 
   if (wagePatterns.length > 0) {
-    await this.knex('wagePattern').insert(wagePatterns);
+    await this.knex.transaction(async (trx) => {
+      // 一旦、対象勤務体系の既存勤務時間帯情報は全て消す
+      await this.knex('wagePattern').del().where('workPattern', workPattern.id).transacting(trx);
+      await this.knex('wagePattern').insert(wagePatterns).transacting(trx);
+    });
   }
 }
 
 export async function deleteWorkPattern(this: DatabaseAccess, accessToken: string, id: number) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-  await this.knex('wagePattern').del().where('workPattern', id);
-  await this.knex('workPattern').del().where('id', id);
+  await this.knex.transaction(async (trx) => {
+    await this.knex('wagePattern').del().where('workPattern', id);
+    await this.knex('workPattern').del().where('id', id);
+  });
 }

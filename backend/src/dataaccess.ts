@@ -115,6 +115,9 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   public submitApply = apply.submitApply;
   public getApplyTypes = apply.getApplyTypes;
+  public addApplyType = apply.addApplyType;
+  public updateApplyType = apply.updateApplyType;
+  public deleteApplyType = apply.deleteApplyType;
   public getApplyOptionTypes = apply.getApplyOptionTypes;
 
   ///////////////////////////////////////////////////////////////////////

@@ -13,6 +13,7 @@ const props = defineProps<{
 const hoildayDate = ref(props.date ? props.date : '');
 hoildayDate.value = hoildayDate.value.replace(/\//g, '-');
 const holidayName = ref(props.name ? props.name : '');
+const isNewHoliday = ref(props.date ? true : false);
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
@@ -55,7 +56,7 @@ async function onSubmit(event: Event) {
                 id="date"
                 v-model="hoildayDate"
                 required
-                :disabled="hoildayDate !== ''"
+                :disabled="isNewHoliday"
               />
             </div>
           </div>

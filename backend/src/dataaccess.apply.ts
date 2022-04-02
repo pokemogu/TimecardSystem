@@ -1,3 +1,4 @@
+import lodash from 'lodash';
 import { DatabaseAccess } from './dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
 
@@ -68,11 +69,39 @@ export async function submitApply(this: DatabaseAccess, accessToken: string, app
 export async function getApplyTypes(this: DatabaseAccess) {
 
   const applyTypes = await this.knex
-    .select<{ name: string, description: string }[]>
-    ({ name: 'name' }, { description: 'description' })
+    .select<apiif.ApplyTypeResponseData[]>
+    ({ id: 'id' }, { name: 'name' }, { isSystemType: 'isSystemType' }, { description: 'description' })
     .from('applyType');
 
   return applyTypes;
+}
+
+export async function addApplyType(this: DatabaseAccess, applyType: apiif.ApplyTypeRequestData) {
+
+  await this.knex('applyType').insert(applyType)
+    .onConflict(['id'])
+    .merge(['name', 'isSystemType', 'description']); // ON DUPLICATE KEY UPDATE
+
+  const lastApplyTypeResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+  const lastApplyTypeId = lastApplyTypeResult['LAST_INSERT_ID()'];
+
+  return lastApplyTypeId;
+}
+
+export async function updateApplyType(this: DatabaseAccess, applyType: apiif.ApplyTypeRequestData) {
+
+  await this.knex('applyType').update(applyType).where('id', applyType.id);
+}
+
+export async function deleteApplyType(this: DatabaseAccess, name: string) {
+
+  const applyType = await this.knex
+    .select<apiif.ApplyTypeResponseData[]>({ id: 'id' }).from('applyType').where('name', name).first();
+
+  await this.knex.transaction(async (trx) => {
+    await this.knex('applyPrivilege').del().where('type', applyType.id);
+    await this.knex('applyType').del().where('name', name);
+  });
 }
 
 export async function getApplyOptionTypes(this: DatabaseAccess, applyType: string) {

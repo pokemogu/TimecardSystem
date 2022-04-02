@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter, RouterLink } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
@@ -15,8 +15,7 @@ const store = useSessionStore();
 const isModalOpened = ref(false);
 const selectedPrivilege = ref<apiif.PrivilegeResponseData>({ name: '' });
 const privilegeInfos = ref<apiif.PrivilegeResponseData[]>([]);
-const applyPrivilegeInfos = ref<{ privilege: number, applyPrivilege: apiif.ApplyPrivilegeResponseData[] }[]>([]);
-const applyPrivilegeColumns = ref<string[]>([]);
+const applyTypes = ref<apiif.ApplyTypeResponseData[]>([]);
 const checks = ref<Record<number, boolean>>({});
 
 const limit = ref(10);
@@ -28,36 +27,42 @@ async function updateTable() {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
+
       const infos = await tokenAccess.getPrivileges({ limit: limit.value + 1, offset: offset.value });
       if (infos) {
         privilegeInfos.value.splice(0);
         Array.prototype.push.apply(privilegeInfos.value, infos);
 
-        applyPrivilegeInfos.value.splice(0);
-        applyPrivilegeColumns.value.splice(0);
-        for (const info of infos) {
-          if (info.id) {
-            const infos2 = await tokenAccess.getApplyPrivilege(info.id);
-            if (infos2) {
-              applyPrivilegeInfos.value.push({
-                privilege: info.id,
-                applyPrivilege: infos2.filter(info => info.isSystemType === true)
-              })
+        // ヘッダ順に並びかえる
+        for (const privilege of privilegeInfos.value) {
+          if (!privilege.applyPrivileges) {
+            continue;
+          }
+          const temp: apiif.ApplyPrivilegeResponseData[] = [];
+          for (const applyType of applyTypes.value) {
+            const result = privilege.applyPrivileges.find(priv => priv.applyTypeName === applyType.name);
+            if (result) {
+              temp.push(result);
             }
           }
+          privilege.applyPrivileges.splice(0);
+          Array.prototype.push.apply(privilege.applyPrivileges, temp);
         }
-        applyPrivilegeColumns.value = applyPrivilegeInfos.value[0].applyPrivilege.map(priv => priv.applyTypeDescription);
-        console.log(applyPrivilegeInfos.value);
+
       }
     }
   }
   catch (error) {
     alert(error);
   }
-
 }
 
 onMounted(async () => {
+  const types = await backendAccess.getApplyTypes();
+  if (types) {
+    applyTypes.value.splice(0);
+    applyTypes.value = types.filter(applyType => applyType.isSystemType === true);
+  }
   updateTable();
 });
 
@@ -76,16 +81,27 @@ async function onPageForward() {
 async function onPrivilegeClick(privilegeId?: number) {
 
   if (privilegeId) {
-    selectedPrivilege.value.id = privilegeId;
+    selectedPrivilege.value = privilegeInfos.value.find(priv => priv.id === privilegeId) ?? { name: '' };
   }
   else {
-    selectedPrivilege.value = { name: '' };
+    selectedPrivilege.value = {
+      name: '',
+      applyPrivileges: applyTypes.value.map(applyType => {
+        return <apiif.ApplyPrivilegeResponseData>{
+          applyTypeId: applyType.id,
+          applyTypeName: applyType.name,
+          applyTypeDescription: applyType.description,
+          isSystemType: applyType.isSystemType,
+          permitted: false
+        }
+      })
+    };
   }
   isModalOpened.value = true;
 }
 
-async function onWorkPatternDelete() {
-  if (!confirm('チェックされた勤務体系を削除しますか? (※従業員が1人でも使用している勤務体系は削除できず、サーバーエラーが発生します)')) {
+async function onPrivilegeDelete() {
+  if (!confirm('チェックされた権限を削除しますか? (※従業員が1人でも使用している権限は削除できず、サーバーエラーが発生します)')) {
     return;
   }
   try {
@@ -106,24 +122,28 @@ async function onWorkPatternDelete() {
   updateTable();
 }
 
-async function onWorkPatternSubmit() {
-  console.log(selectedPrivilege.value);
-
+async function onPrivilegeSubmit() {
   try {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
 
-      // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
+      // 権限が作成済であれば既存ルートの更新、そうでなければ新規作成
       if (selectedPrivilege.value.id) {
         await tokenAccess.updatePrivilege(selectedPrivilege.value);
       }
       else {
-        await tokenAccess.addPrivilege(selectedPrivilege.value);
+        if (privilegeInfos.value.some(privilegeInfo => privilegeInfo.name === selectedPrivilege.value.name)) {
+          alert('既に同じ名称の権限を作成済です。権限名称を変えてください。');
+        }
+        else {
+          await tokenAccess.addPrivilege(selectedPrivilege.value);
+        }
       }
     }
   }
   catch (error) {
+    console.log(error);
     alert(error);
   }
   updateTable();
@@ -137,7 +157,7 @@ async function onWorkPatternSubmit() {
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="勤務体系設定"
+          titleName="権限設定"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
           v-on:customButton1="router.push({ name: 'dashboard' })"
@@ -146,7 +166,11 @@ async function onWorkPatternSubmit() {
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <PrivilegeEdit v-model:isOpened="isModalOpened"></PrivilegeEdit>
+      <PrivilegeEdit
+        v-model:isOpened="isModalOpened"
+        v-model:privilege="selectedPrivilege"
+        v-on:submit="onPrivilegeSubmit"
+      ></PrivilegeEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
@@ -156,7 +180,7 @@ async function onWorkPatternSubmit() {
           class="btn btn-primary"
           id="new-route"
           v-on:click="onPrivilegeClick()"
-        >新規勤務体系作成</button>
+        >新規権限作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
         <button
@@ -164,8 +188,8 @@ async function onWorkPatternSubmit() {
           class="btn btn-primary"
           id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onWorkPatternDelete()"
-        >チェックした勤務体系を削除</button>
+          v-on:click="onPrivilegeDelete"
+        >チェックした権限を削除</button>
       </div>
     </div>
 
@@ -177,7 +201,7 @@ async function onWorkPatternSubmit() {
               <th rowspan="2"></th>
               <th rowspan="2" class="text-center">権限名称</th>
               <th rowspan="2" class="text-center vertical">PC使用</th>
-              <th :colspan="applyPrivilegeColumns.length" class="text-center">申請</th>
+              <th :colspan="applyTypes.length" class="text-center">申請</th>
               <th rowspan="2" scope="col" class="text-center vertical">承認</th>
               <th rowspan="2" scope="col" class="text-center vertical">勤怠照会</th>
               <th rowspan="2" scope="col" class="text-center vertical">工程管理</th>
@@ -191,19 +215,8 @@ async function onWorkPatternSubmit() {
               <th
                 scope="col"
                 class="text-center vertical"
-                v-for="(item, index) in applyPrivilegeColumns"
+                v-for="(item, index) in applyTypes.map(applyType => applyType.description)"
               >{{ item }}</th>
-              <!--
-              <th scope="col" class="text-center vertical">有給</th>
-              <th scope="col" class="text-center vertical">半休</th>
-              <th scope="col" class="text-center vertical">代休</th>
-              <th scope="col" class="text-center vertical">慶弔休</th>
-              <th scope="col" class="text-center vertical">措置休</th>
-              <th scope="col" class="text-center vertical">早出残業</th>
-              <th scope="col" class="text-center vertical">遅刻</th>
-              <th scope="col" class="text-center vertical">早退</th>
-              -->
-              <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
             </tr>
           </thead>
           <tbody>
@@ -233,43 +246,22 @@ async function onWorkPatternSubmit() {
 
               <td
                 class="text-center"
-                v-for="(item, index) in applyPrivilegeInfos.find(priv => priv.privilege === privilege.id)?.applyPrivilege"
+                v-for="(item, index) in privilege.applyPrivileges?.filter(applyType => applyType.isSystemType === true)"
               >
                 <span v-if="item.permitted === true">&check;</span>
               </td>
-              <!--
-              <td class="text-center">
-                <span v-if="privilege.applyLeave">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyHalfDayLeave">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyMakeupLeave">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyMourningLeave">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyMeasureLeave">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyOvertime">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyLate">&check;</span>
-              </td>
-              <td class="text-center">
-                <span v-if="privilege.applyEarly">&check;</span>
-              </td>
-              -->
               <td class="text-center">
                 <span v-if="privilege.approve">&check;</span>
               </td>
               <td class="text-center">
-                <span v-if="privilege.viewRecord === undefined || privilege.viewRecord === null">本人</span>
-                <span v-else-if="privilege.viewRecord === false">部署</span>
-                <span v-else-if="privilege.viewRecord === true">全社</span>
+                <span v-if="privilege.viewRecord === undefined || privilege.viewRecord === false"></span>
+                <span
+                  v-else-if="privilege.viewRecord === true && privilege.viewAllUserInfo === true"
+                >全社</span>
+                <span
+                  v-else-if="privilege.viewRecord === true && privilege.viewSectionUserInfo === true"
+                >部署</span>
+                <span v-else-if="privilege.viewRecord === true">本人</span>
               </td>
               <td class="text-center">
                 <span v-if="privilege.viewRecordPerDevice">&check;</span>

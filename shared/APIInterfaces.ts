@@ -110,7 +110,19 @@ export interface DevicesResponseBody {
   devices?: DevicesResponseData[]
 }
 
-export type optionsApplyRequestPathParams = Record<'type', string>;
+export interface ApplyTypeResponseData {
+  id?: number,
+  name: string,
+  description: string,
+  isSystemType: boolean
+}
+
+export type ApplyTypeRequestData = ApplyTypeResponseData;
+
+export interface ApplyTypeResponseBody {
+  message: string,
+  applyTypes?: ApplyTypeResponseData[]
+}
 
 export interface ApplyOptionsResponseData {
   name: string,
@@ -125,8 +137,6 @@ export interface ApplyOptionsResponseBody {
   message: string,
   optionTypes?: ApplyOptionsResponseData[]
 }
-
-export type ApplyRequestPathParams = Record<'applyType', string>;
 
 export interface ApplyRequestBody {
   targetUserAccount?: string,
@@ -263,51 +273,13 @@ export interface PrivilegeResponseData {
   id?: number,
   name: string,
   recordByLogin?: boolean,
-  applyRecord?: boolean,
-  applyLeave?: boolean,
-  applyHalfDayLeave?: boolean,
-  applyMakeupLeave?: boolean,
-  applyMourningLeave?: boolean,
-  applyMeasureLeave?: boolean,
-  applyOvertime?: boolean,
-  applyLate?: boolean,
-  maxApplyLateNum?: number,
-  maxApplyLateHours?: number,
-  applyEarly?: boolean,
-  maxApplyEarlyNum?: number,
-  maxApplyEarlyHours?: number,
-  approve?: boolean,
-  viewRecord?: boolean,
-  viewRecordPerDevice?: boolean,
-  configurePrivilege?: boolean,
-  configureWorkPattern?: boolean,
-  issueQr?: boolean,
-  registerUser?: boolean,
-  registerDevice?: boolean,
-  viewAllUserInfo?: boolean,
-  viewDepartmentUserInfo?: boolean,
-  viewSectionUserInfo?: boolean
-}
+  applyPrivileges?: ApplyPrivilegeResponseData[],
 
-export interface PrivilegeResponseData2 {
-  id?: number,
-  name: string,
-  recordByLogin?: boolean,
+  maxApplyLateNum?: number | null,
+  maxApplyLateHours?: number | null,
+  maxApplyEarlyNum?: number | null,
+  maxApplyEarlyHours?: number | null,
 
-  applyRecord?: boolean,
-  applyLeave?: boolean,
-  applyOvertime?: boolean,
-  applyLateness?: boolean,
-  applyLeaveEarly?: boolean,
-  applyHalfDayLeave?: boolean,
-  applyMakeupLeave?: boolean,
-  applyMourningLeave?: boolean,
-  applyMeasureLeave?: boolean,
-
-  maxApplyLateNum?: number,
-  maxApplyLateHours?: number,
-  maxApplyEarlyNum?: number,
-  maxApplyEarlyHours?: number,
   approve?: boolean,
   viewRecord?: boolean,
   viewRecordPerDevice?: boolean,
@@ -329,10 +301,10 @@ export interface PrivilegeResponseBody {
 }
 
 export interface ApplyPrivilegeResponseData {
-  applyTypeId: number,
+  applyTypeId?: number,
   applyTypeName: string,
-  applyTypeDescription: string,
-  isSystemType: boolean,
+  applyTypeDescription?: string,
+  isSystemType?: boolean,
   permitted: boolean
 }
 

@@ -185,6 +185,36 @@ export class TokenAccess {
     }
   }
 
+  public async addApplyType(applyType: apiif.ApplyTypeRequestData) {
+    try {
+      return (await axios.post<{ message: string, id?: number }>(`${urlPrefix}/api/apply-type`, applyType,
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
+      )).data.id;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async updateApplyType(applyType: apiif.ApplyTypeRequestData) {
+    try {
+      await axios.put<{ message: string, id?: number }>(`${urlPrefix}/api/apply-type`, applyType,
+        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
+      );
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteApplyType(name: string) {
+    try {
+      await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply-type/${name}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////
   // 権限関連
   ///////////////////////////////////////////////////////////////////////
@@ -452,6 +482,15 @@ export async function getDepartments() {
     }>(`${urlPrefix}/api/department`, { timeout: timeout });
 
     return response.data.departments;
+  } catch (error) {
+    handleAxiosError(error);
+  }
+}
+
+export async function getApplyTypes() {
+  try {
+    const response = await axios.get<apiif.ApplyTypeResponseBody>(`${urlPrefix}/api/apply-type`, { timeout: timeout });
+    return response.data.applyTypes;
   } catch (error) {
     handleAxiosError(error);
   }

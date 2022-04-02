@@ -39,6 +39,7 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex('record').del();
   //await knex('recordLog').del();
+  await knex('applyType').del().where('isSystemType', false);
   await knex('applyOption').del();
   await knex('apply').del();
   await knex('roleLevel').del();
@@ -113,33 +114,28 @@ export async function seed(knex: Knex): Promise<void> {
   await knex('privilege').insert([
     {
       name: '部署管理者',
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewRecord: true,
+      recordByLogin: true, approve: true, viewRecord: true,
       viewSectionUserInfo: true
     },
     {
       name: '部門管理者',
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true, viewRecord: true,
+      recordByLogin: true, approve: true, viewRecord: true,
       viewSectionUserInfo: true, viewDepartmentUserInfo: true
     },
     {
       name: '製造社員',
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
+      recordByLogin: true
     },
     {
       name: '事務社員',
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
+      recordByLogin: true
     },
     {
       name: '製造パート'
     },
     {
       name: '事務派遣',
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true
+      recordByLogin: true
     },
     {
       name: 'システム管理者',
@@ -160,7 +156,6 @@ export async function seed(knex: Knex): Promise<void> {
     .from('privilege');
 
   // 申請権限
-
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
   const typeLeave = applyTypes.find(applyType => applyType.name === 'leave').id;
   const typeHalfdayLeave = applyTypes.find(applyType => applyType.name === 'halfday-leave').id;
