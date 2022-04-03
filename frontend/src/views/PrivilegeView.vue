@@ -108,6 +108,11 @@ async function onPrivilegeDelete() {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
+      for (const privilege of privilegeInfos.value) {
+        if (privilege.id && checks.value[privilege.id]) {
+          await tokenAccess.deletePrivilege(privilege.id);
+        }
+      }
     }
   }
   catch (error) {

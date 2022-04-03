@@ -103,7 +103,7 @@ const store = useSessionStore();
           :to="{ name: 'admin-user' }"
           class="btn btn-warning btn-sm"
           role="button"
-        >従業員照会(QRコード)</RouterLink>
+        >従業員登録・照会(QR)</RouterLink>
       </div>
     </div>
 
@@ -117,7 +117,11 @@ const store = useSessionStore();
         >遅刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/other" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
+        <RouterLink
+          :to="{ name: 'apply-custom' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >その他申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink

@@ -6,6 +6,7 @@ import type * as models from 'shared/models';
 ///////////////////////////////////////////////////////////////////////
 // 権限情報関連
 ///////////////////////////////////////////////////////////////////////
+/*
 export async function registerPrivilege(this: DatabaseAccess, accessToken: string, privilegeData: {
 
 }) {
@@ -14,6 +15,7 @@ export async function registerPrivilege(this: DatabaseAccess, accessToken: strin
 
   await this.knex('privilege').insert(privilege);
 }
+*/
 
 export async function getUserPrivilege(this: DatabaseAccess, accessToken: string, idOrAccount: string | number): Promise<models.Privilege> {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
@@ -31,7 +33,7 @@ export async function getUserPrivilege(this: DatabaseAccess, accessToken: string
       .where('user.id', idOrAccount);
   }
 }
-
+/*
 export async function getUserApplyPrivilege(this: DatabaseAccess, accessToken: string, idOrAccount: string | number) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
@@ -73,7 +75,7 @@ export async function getUserApplyPrivilege(this: DatabaseAccess, accessToken: s
     }
   });
 }
-
+*/
 export async function getApplyPrivilege(this: DatabaseAccess, accessToken: string, privilege: number) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
@@ -157,13 +159,11 @@ export async function updatePrivilege(this: DatabaseAccess, accessToken: string,
   //    .merge(['permitted']); // ON DUPLICATE KEY UPDATE
 }
 
-export async function deletePrivilege(this: DatabaseAccess, accessToken: string, idOrName: string | number) {
+export async function deletePrivilege(this: DatabaseAccess, accessToken: string, id: number) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-  if (typeof idOrName === 'string') {
-    return await this.knex('privilege').del().where('name', idOrName);
-  }
-  else {
-    return await this.knex('privilege').del().where('id', idOrName);
-  }
+  await this.knex.transaction(async (trx) => {
+    await this.knex('applyPrivilege').del().where('privilege', id).transacting(trx);
+    await this.knex('privilege').del().where('id', id).transacting(trx);
+  });
 }

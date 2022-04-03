@@ -132,9 +132,9 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   // 権限情報関連
   ///////////////////////////////////////////////////////////////////////
-  public registerPrivilege = privilege.registerPrivilege;
+  //public registerPrivilege = privilege.registerPrivilege;
   public getUserPrivilege = privilege.getUserPrivilege;
-  public getUserApplyPrivilege = privilege.getUserApplyPrivilege;
+  //public getUserApplyPrivilege = privilege.getUserApplyPrivilege;
   public addPrivilege = privilege.addPrivilege;
   public getPrivileges = privilege.getPrivileges;
   public getApplyPrivilege = privilege.getApplyPrivilege;

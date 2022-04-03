@@ -128,9 +128,9 @@ describe('データアクセステスト', () => {
     test('getPrivileges', async () => {
       const access = new DatabaseAccess(knex);
       const token = await access.issueAccessToken(refreshToken);
-      const applyPrivileges = await access.getUserApplyPrivilege(token, testSuperUserAccount)
+      //const applyPrivileges = await access.getUserApplyPrivilege(token, testSuperUserAccount)
       //console.log(applyPrivileges);
-      expect(applyPrivileges).toBeDefined();
+      //expect(applyPrivileges).toBeDefined();
       //console.log(await access.getUserApplyPrivilege(token, 1));
       //console.log(await access.getUserApplyPrivilege(token, 301));
 

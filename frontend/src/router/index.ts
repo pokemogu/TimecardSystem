@@ -116,6 +116,12 @@ const router = createRouter({
       meta: { title: `${appName} - その他申請種別の設定` },
     },
     {
+      path: '/apply/custom',
+      name: 'apply-custom',
+      component: () => import('@/views/ApplyCustomView.vue'),
+      meta: { title: `${appName} - その他申請` },
+    },
+    {
       path: '/approval/:id',
       name: 'approval',
       component: () => import('@/views/PrivilegeView.vue'),

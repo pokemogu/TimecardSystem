@@ -42,8 +42,20 @@ interface ApplyFormProps {
   reason?: string,
   contact?: string
 }
-
 const props = defineProps<ApplyFormProps>();
+
+const applyTypeValue1 = ref(props.applyTypeValue1 ?? '');
+const dateFrom = ref(props.dateFrom ?? '');
+const dateTo = ref(props.dateTo ?? '');
+const timeFrom = ref(props.timeFrom ?? '');
+const timeTo = ref(props.timeTo ?? '');
+const reason = ref(props.reason ?? '');
+const contact = ref(props.contact ?? '');
+
+if (props.isDateToOptional === false && props.dateTo !== undefined) {
+  dateType.value = 'apply-date-period';
+}
+
 const emits = defineEmits<{
   (event: 'update:applyTypeValue1', value: string): void,
   (event: 'update:applyTypeValue2', value: string): void,
@@ -58,6 +70,14 @@ const emits = defineEmits<{
 }>();
 
 onMounted(async () => {
+  if (props.applyTypeOptions1 && props.applyTypeOptions1.length > 0) {
+    applyTypeValue1.value = props.applyTypeOptions1[0].name;
+  }
+  const applyTypeValue2 = ref(props.applyTypeValue2 ?? '');
+  if (props.applyTypeOptions2 && props.applyTypeOptions2.length > 0) {
+    applyTypeValue2.value = props.applyTypeOptions2[0].name;
+  }
+
   try {
     if (store.isLoggedIn()) {
 
@@ -136,6 +156,8 @@ function onSubmit() {
       return;
     }
   }
+
+  emits('update:applyTypeValue1', applyTypeValue1.value);
   emits('submit');
 }
 
@@ -227,8 +249,9 @@ function onSubmit() {
       <form v-on:submit="onSubmit" v-on:submit.prevent>
         <div v-if="props.applyTypeOptions1" class="row">
           <div class="col-2 bg-dark text-white border border-dark">種類</div>
-          <div class="col-9 bg-white text-black border border-dark">
+          <div class="col-9 bg-white text-black border border-dark p-2">
             <div
+              v-if="isApplyTypeOptionsDropdown !== true"
               v-for="(option, index) in props.applyTypeOptions1"
               class="form-check form-check-inline"
             >
@@ -240,12 +263,21 @@ function onSubmit() {
                 v-bind:value="option.name"
                 v-bind:checked="index === 0"
                 v-on:change="onChangeApplyType1"
+                v-model="applyTypeValue1"
               />
               <label
                 class="form-check-label"
                 v-bind:for="'apply-type-option1-' + option.name"
               >{{ option.description }}</label>
             </div>
+
+            <select v-else class="form-select" v-model="applyTypeValue1" required>
+              <option value disabled>申請種類を選択してください</option>
+              <option
+                v-for="(option, index) in props.applyTypeOptions1"
+                :value="option.name"
+              >{{ option.description }}</option>
+            </select>
           </div>
         </div>
         <div
@@ -267,7 +299,7 @@ function onSubmit() {
           <div class="col-2 bg-dark text-white border border-dark">日付</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
             <div class="input-group">
-              <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+              <div v-if="props.isDateToOptional === true" class="form-check form-check-inline">
                 <input
                   class="form-check-input"
                   type="radio"
@@ -277,7 +309,7 @@ function onSubmit() {
                 />
                 <label class="form-check-label" for="apply-date-spot">日付</label>
               </div>
-              <div v-if="props.isDateToOptional" class="form-check form-check-inline">
+              <div v-if="props.isDateToOptional === true" class="form-check form-check-inline">
                 <input
                   class="form-check-input"
                   type="radio"
