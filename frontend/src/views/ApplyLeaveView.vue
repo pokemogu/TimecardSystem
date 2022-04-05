@@ -49,6 +49,7 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         await access.apply('leave', {
+          date: dateFrom.value,
           dateTimeFrom: new Date(`${dateFrom.value}T00:00:00`).toISOString(),
           dateTimeTo: dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`).toISOString() : undefined,
           timestamp: new Date().toISOString(),

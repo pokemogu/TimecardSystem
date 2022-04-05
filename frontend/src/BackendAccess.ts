@@ -423,6 +423,40 @@ export class TokenAccess {
     }
   }
 
+  public async setUserWorkPatternCalendar(workPatternCalendar: apiif.UserWorkPatternCalendarRequestData) {
+    try {
+      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern-calendar`, workPatternCalendar, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getUserWorkPatternCalendar(params?: apiif.UserWorkPatternCalendarRequestQuery) {
+    try {
+      const data = (await axios.get<apiif.UserWorkPatternCalendarResponseBody>(`${urlPrefix}/api/work-pattern-calendar`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: params
+      })).data;
+      return data.userWorkPatternCalendars;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteUserWorkPatternCalendar(date: string, account?: string) {
+    try {
+      await axios.delete<apiif.MessageOnlyResponseBody>(
+        `${urlPrefix}/api/work-pattern-calendar/${date}` + (account ? `/${account}` : ''), {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////
   // 休日情報関連
   ///////////////////////////////////////////////////////////////////////
@@ -525,7 +559,7 @@ export async function getUserAccountCandidates() {
 
 export async function getHolidays(params: apiif.HolidayRequestQuery) {
   try {
-    const result = await (await axios.get<apiif.HolidaysResponseBody>(`${urlPrefix}/api/holiday`, { timeout: timeout, params: params })).data;
+    const result = (await axios.get<apiif.HolidaysResponseBody>(`${urlPrefix}/api/holiday`, { timeout: timeout, params: params })).data;
     if (result?.holidays) {
       return result.holidays.map((holiday) => {
         const date = new Date(holiday.date);
@@ -533,7 +567,7 @@ export async function getHolidays(params: apiif.HolidayRequestQuery) {
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
         const day = date.getDate().toString().padStart(2, '0');
         return {
-          date: `${year}/${month}/${day}`,
+          date: `${year}-${month}-${day}`,
           name: holiday.name
         };
       });

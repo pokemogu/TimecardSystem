@@ -54,8 +54,7 @@ describe('データアクセステスト', () => {
 
     await knex('privilege').insert({
       name: testSuperPrivilegeName,
-      recordByLogin: true, applyRecord: true, applyLeave: true, applyHalfDayLeave: true, applyMakeupLeave: true,
-      applyMourningLeave: true, applyMeasureLeave: true, applyOvertime: true, applyLate: true, approve: true,
+      recordByLogin: true, approve: true,
       viewRecord: true, viewRecordPerDevice: true,
       viewSectionUserInfo: true, viewDepartmentUserInfo: true, viewAllUserInfo: true,
       configurePrivilege: true, configureWorkPattern: true,

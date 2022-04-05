@@ -32,14 +32,20 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     department: string,
     section: string
     privilege: string,
-    qrCodeIssuedNum: number
+    qrCodeIssuedNum: number,
+    defaultWorkPatternName: string,
+    optional1WorkPatternName: string,
+    optional2WorkPatternName: string
   };
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
   const result = await this.knex
     .select<RecordResult[]>
     (
-      { id: 'user.id' }, { isAvailable: 'user.available' }, { registeredAt: 'user.registeredAt' }, { account: 'user.account' }, { name: 'user.name' }, { email: 'user.email' },
-      { phonetic: 'user.phonetic' }, { department: 'department.name' }, { section: 'section.name' }, { privilege: 'privilege.name' },
+      {
+        id: 'user.id', isAvailable: 'user.available', registeredAt: 'user.registeredAt', account: 'user.account', name: 'user.name', email: 'user.email',
+        phonetic: 'user.phonetic', department: 'department.name', section: 'section.name', privilege: 'privilege.name',
+        defaultWorkPatternName: 'w1.name', optional1WorkPatternName: 'w2.name', optional2WorkPatternName: 'w3.name'
+      }
     )
     .sum('token.isQrToken', { as: 'qrCodeIssuedNum' })
     .from('user')
@@ -47,6 +53,9 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     .leftJoin('department', { 'department.id': 'section.department' })
     .join('privilege', { 'privilege.id': 'user.privilege' })
     .leftJoin('token', { 'token.user': 'user.id' })
+    .leftJoin('workPattern as w1', { 'w1.id': 'user.defaultWorkPattern' })
+    .leftJoin('workPattern as w2', { 'w2.id': 'user.optional1WorkPattern' })
+    .leftJoin('workPattern as w3', { 'w3.id': 'user.optional2WorkPattern' })
     .where(function (builder) {
       if (params.byId) {
         builder.where('user.id', params.byId);

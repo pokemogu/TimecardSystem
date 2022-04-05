@@ -94,6 +94,9 @@ export class DatabaseAccess {
   public getWorkPattern = workPattern.getWorkPattern;
   public updateWorkPattern = workPattern.updateWorkPattern;
   public deleteWorkPattern = workPattern.deleteWorkPattern;
+  public setUserWorkPatternCalendar = workPattern.setUserWorkPatternCalendar;
+  public getUserWorkPatternCalendar = workPattern.getUserWorkPatternCalendar;
+  public deleteUserWorkPatternCalendar = workPattern.deleteUserWorkPatternCalendar;
 
   ///////////////////////////////////////////////////////////////////////
   // 打刻情報関連 dataaccess.record

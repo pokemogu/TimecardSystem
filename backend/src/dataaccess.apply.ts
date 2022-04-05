@@ -22,7 +22,20 @@ export async function submitApply(this: DatabaseAccess, accessToken: string, app
     }
   }
 
-  const routeInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', apply.route).first();
+  const routeInfo = await this.knex.select<{
+    id: number,
+    approvalLevel1MainUser: number, approvalLevel1SubUser: number
+    approvalLevel2MainUser: number, approvalLevel2SubUser: number
+    approvalLevel3MainUser: number, approvalLevel3SubUser: number
+    approvalDecisionUser: number
+  }[]>({
+    id: 'id',
+    approvalLevel1MainUser: 'approvalLevel1MainUser', approvalLevel1SubUser: 'approvalLevel1SubUser',
+    approvalLevel2MainUser: 'approvalLevel2MainUser', approvalLevel2SubUser: 'approvalLevel2SubUser',
+    approvalLevel3MainUser: 'approvalLevel3MainUser', approvalLevel3SubUser: 'approvalLevel3SubUser',
+    approvalDecisionUser: 'approvalDecisionUser'
+  })
+    .from('approvalRoute').where('name', apply.route).first();
   if (!routeInfo) {
     throw new Error(`invalid route name ${apply.route} specified`);
   }
@@ -38,7 +51,11 @@ export async function submitApply(this: DatabaseAccess, accessToken: string, app
     dateRelated: apply.dateRelated ? new Date(apply.dateRelated) : undefined,
     reason: apply.reason ? apply.reason : undefined,
     contact: apply.contact ? apply.contact : undefined,
-    route: routeInfo.id
+    route: routeInfo.id,
+    currentApprovingMainUser:
+      routeInfo.approvalLevel1MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalDecisionUser,
+    currentApprovingSubUser:
+      routeInfo.approvalLevel1SubUser ?? routeInfo.approvalLevel2SubUser ?? routeInfo.approvalLevel2SubUser
   });
 
   const lastApplyResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
@@ -61,6 +78,18 @@ export async function submitApply(this: DatabaseAccess, accessToken: string, app
   }
 
   return lastApplyId;
+}
+
+export async function getUnapprovedApplies(this: DatabaseAccess, accessToken: string) {
+
+}
+
+export async function getRejectedApplies(this: DatabaseAccess, accessToken: string) {
+
+}
+
+export async function getMyApprovedApplies(this: DatabaseAccess, accessToken: string) {
+
 }
 
 ///////////////////////////////////////////////////////////////////////

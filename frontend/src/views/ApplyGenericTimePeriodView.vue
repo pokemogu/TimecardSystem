@@ -52,6 +52,7 @@ async function onRouteSubmit() {
         console.log(routeName.value);
         const access = new backendAccess.TokenAccess(token);
         await access.apply(applyType.value, {
+          date: dateFrom.value,
           dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
           dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
           timestamp: new Date().toISOString(),
@@ -59,7 +60,12 @@ async function onRouteSubmit() {
           route: routeName.value
         });
 
-        router.push({ name: 'dashboard' });
+        if (applyType.value === 'holiday-work' && doApplyMakeupLeave.value === true) {
+          router.push({ name: 'apply-makeup-leave', query: { relatedDate: dateFrom.value } });
+        }
+        else {
+          router.push({ name: 'dashboard' });
+        }
       }
     }
   } catch (error) {

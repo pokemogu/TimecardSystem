@@ -67,15 +67,18 @@ export interface UserInfosResponseBody {
 
 export interface UserInfoResponseData {
   id: number,
-  available: boolean,
-  registeredAt: string,
+  available?: boolean,
+  registeredAt?: string,
   account: string,
   name: string,
-  phonetic: string,
-  email: string,
-  section: string,
-  department: string,
-  qrCodeIssueNum: number
+  phonetic?: string,
+  email?: string,
+  section?: string,
+  department?: string,
+  qrCodeIssueNum?: number,
+  defaultWorkPatternName?: string,
+  optional1WorkPatternName?: string,
+  optional2WorkPatternName?: string
 }
 
 export interface UserInfoResponseBody {
@@ -166,33 +169,51 @@ export interface DepartmentResponseBody {
   departments?: DepartmentResponseData[]
 }
 
+export interface ApplyRequestQuery {
+  id?: number,
+  timestampFrom?: string,
+  timestampTo?: string,
+  type?: string,
+
+  targetedUserAccount?: string,
+  appliedUserAccount?: string,
+  approvalUserAccount?: string,
+
+  dateTimeFrom?: string,
+  dateTimeTo?: string,
+
+  limit?: number,
+  offset?: number
+}
+
 export interface ApplyResponseData {
   id: number,
   timestamp: string,
-  type: {
+  type: ApplyTypeResponseData,
+
+  targetedUser: UserInfoResponseData,
+  appliedUser?: UserInfoResponseData,
+
+  approvedLevel1User?: UserInfoResponseData,
+  approvedLevel1Timestamp?: string,
+  approvedLevel2User?: UserInfoResponseData,
+  approvedLevel2Timestamp?: string,
+  approvedLevel3User?: UserInfoResponseData,
+  approvedLevel3Timestamp?: string,
+  approvedDecisionUser?: UserInfoResponseData,
+  approvedDecisionTimestamp?: string,
+
+  date: string,
+  dateTimeFrom: string,
+  dateTimeTo?: string,
+  dateRelated?: string,
+  options?: {
     name: string,
-    description: string
-  }
-  userTargeted?: {
-    account: string,
-    name: string
-  },
-  userApplied: {
-    account: string,
-    name: string
-  },
-  userApproves: {
-    account: string,
-    name: string,
-    role: {
-      name: string,
-      level: number
-    }
-    timestamp: string,
-    isApproved?: boolean
-  }[]
-  dateFrom: string,
-  dateTo?: string
+    value: string
+  }[],
+  reason?: string,
+  contact?: string,
+  isApproved?: boolean
 }
 
 export interface ApplyResponseBody {
@@ -213,14 +234,21 @@ export interface ApprovalRouteRoleBody {
 export interface ApprovalRouteResposeData {
   id?: number,
   name: string,
-  roles: {
+  roles?: {
     level: number,
     users: {
       role: string,
       account: string,
       name?: string
     }[]
-  }[]
+  }[],
+  approvalLevel1MainUserId?: number, approvalLevel1MainUserAccount?: string, approvalLevel1MainUserName?: string,
+  approvalLevel1SubUserId?: number, approvalLevel1SubUserAccount?: string, approvalLevel1SubUserName?: string,
+  approvalLevel2MainUserId?: number, approvalLevel2MainUserAccount?: string, approvalLevel2MainUserName?: string,
+  approvalLevel2SubUserId?: number, approvalLevel2SubUserAccount?: string, approvalLevel2SubUserName?: string,
+  approvalLevel3MainUserId?: number, approvalLevel3MainUserAccount?: string, approvalLevel3MainUserName?: string,
+  approvalLevel3SubUserId?: number, approvalLevel3SubUserAccount?: string, approvalLevel3SubUserName?: string,
+  approvalDecisionUserId?: number, approvalDecisionUserAccount?: string, approvalDecisionUserName?: string,
 }
 
 export type ApprovalRouteRequestData = ApprovalRouteResposeData;
@@ -330,4 +358,30 @@ export type HolidayRequestData = HolidayResponseData;
 export interface HolidaysResponseBody {
   message: string,
   holidays?: HolidayResponseData[]
+}
+
+export interface UserWorkPatternCalendarRequestQuery {
+  from?: string,
+  to?: string,
+  account?: string,
+  limit?: number,
+  offset?: number
+}
+
+export interface UserWorkPatternCalendarResponseData {
+  id?: number,
+  date: string,
+  user: UserInfoResponseData,
+  workPattern: WorkPatternsResponseData | null
+}
+
+export interface UserWorkPatternCalendarRequestData {
+  date: string,
+  name: string | null,
+  account?: string
+}
+
+export interface UserWorkPatternCalendarResponseBody {
+  message: string,
+  userWorkPatternCalendars?: UserWorkPatternCalendarResponseData[]
 }

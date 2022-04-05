@@ -16,6 +16,12 @@ const router = createRouter({
       meta: { title: `${appName} - ログイン` }
     },
     {
+      path: '/work-pattern',
+      name: 'work-pattern',
+      component: () => import('@/views/WorkPatternCalendarView.vue'),
+      meta: { title: `${appName} - 勤務体系登録` },
+    },
+    {
       path: '/record',
       name: 'record',
       component: () => import('@/views/RecordView.vue'),
@@ -37,6 +43,7 @@ const router = createRouter({
         return { name: 'home' };
       }
     },
+    // 打刻申請
     {
       path: '/apply/record',
       name: 'apply-record',
@@ -44,11 +51,110 @@ const router = createRouter({
       meta: { title: `${appName} - 打刻申請` }
     },
     {
+      path: '/apply/record/:id',
+      name: 'apply-record-view',
+      component: () => import('@/views/ApplyRecordView.vue'),
+      meta: { title: `${appName} - 打刻申請` }
+    },
+    // 休暇申請
+    {
       path: '/apply/leave',
       name: 'apply-leave',
       component: () => import('@/views/ApplyLeaveView.vue'),
       meta: { title: `${appName} - 休暇申請` }
     },
+    {
+      path: '/apply/leave/:id',
+      name: 'apply-leave-view',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` }
+    },
+    // 早出・残業申請
+    {
+      path: '/apply/overtime',
+      name: 'apply-overtime',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period', params: { type: 'overtime' } }
+      }
+    },
+    {
+      path: '/apply/overtime/:id',
+      name: 'apply-overtime-view',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period-view', params: { type: 'overtime', id: to.params.id } }
+      }
+    },
+    // 遅刻申請
+    {
+      path: '/apply/lateness',
+      name: 'apply-lateness',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period', params: { type: 'lateness' } }
+      }
+    },
+    {
+      path: '/apply/lateness/:id',
+      name: 'apply-lateness-view',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period-view', params: { type: 'lateness', id: to.params.id } }
+      }
+    },
+    // 早退申請
+    {
+      path: '/apply/leave-early',
+      name: 'apply-leave-early',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period', params: { type: 'leave-early' } }
+      }
+    },
+    {
+      path: '/apply/leave-early/:id',
+      name: 'apply-leave-early-view',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period-view', params: { type: 'leave-early', id: to.params.id } }
+      }
+    },
+    // 外出申請
+    {
+      path: '/apply/break',
+      name: 'apply-break',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period', params: { type: 'break' } }
+      }
+    },
+    {
+      path: '/apply/break/:id',
+      name: 'apply-break-view',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period-view', params: { type: 'break', id: to.params.id } }
+      }
+    },
+    // 休日出勤申請
+    {
+      path: '/apply/holiday-work',
+      name: 'apply-holiday-work',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period', params: { type: 'holiday-work' } }
+      }
+    },
+    {
+      path: '/apply/holiday-work/:id',
+      name: 'apply-holiday-work-view',
+      component: () => { },
+      redirect: to => {
+        return { name: 'apply-generic-time-period-view', params: { type: 'holiday-work', id: to.params.id } }
+      }
+    },
+    // 汎用申請
     {
       path: '/apply/generic-time-period/:type',
       name: 'apply-generic-time-period',
@@ -56,11 +162,38 @@ const router = createRouter({
       meta: { title: `${appName} - 申請` }
     },
     {
+      path: '/apply/generic-time-period/:type/:id',
+      name: 'apply-generic-time-period-view',
+      component: () => import('@/views/ApplyGenericTimePeriodView.vue'),
+      meta: { title: `${appName} - 申請` }
+    },
+    // 代休申請
+    {
       path: '/apply/makeup-leave',
       name: 'apply-makeup-leave',
       component: () => import('@/views/ApplyMakeupLeaveView.vue'),
       meta: { title: `${appName} - 代休申請` }
     },
+    {
+      path: '/apply/makeup-leave/:id',
+      name: 'apply-makeup-leave-view',
+      component: () => import('@/views/ApplyMakeupLeaveView.vue'),
+      meta: { title: `${appName} - 代休申請` }
+    },
+    // その他申請
+    {
+      path: '/apply/custom',
+      name: 'apply-custom',
+      component: () => import('@/views/ApplyCustomView.vue'),
+      meta: { title: `${appName} - その他申請` },
+    },
+    {
+      path: '/apply/:type/:id',
+      name: 'apply-custom-view',
+      component: () => import('@/views/ApplyCustomView.vue'),
+      meta: { title: `${appName} - その他申請` }
+    },
+    // 承認関連
     {
       path: '/approval/pending',
       name: 'approval-pending',
@@ -114,12 +247,6 @@ const router = createRouter({
       name: 'admin-custom-apply',
       component: () => import('@/views/CustomApplyView.vue'),
       meta: { title: `${appName} - その他申請種別の設定` },
-    },
-    {
-      path: '/apply/custom',
-      name: 'apply-custom',
-      component: () => import('@/views/ApplyCustomView.vue'),
-      meta: { title: `${appName} - その他申請` },
     },
     {
       path: '/approval/:id',

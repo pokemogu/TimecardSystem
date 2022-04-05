@@ -147,9 +147,10 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('userWorkPatternCalendar', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
-      table.integer('workPattern').unsigned().notNullable();
+      table.integer('workPattern').unsigned().comment('その日の勤務体系を指定する。NULLの場合はいずれの勤務体系でも無いことを明示する。');
       table.date('date').notNullable();
 
+      table.unique(['user', 'date']);
       table.foreign('user').references('id').inTable('user');
       table.foreign('workPattern').references('id').inTable('workPattern');
     });
@@ -260,6 +261,27 @@ export async function up(knex: Knex): Promise<void> {
       { optionType: optionTypeLeaveType[0].id, name: 'measure', isSystemType: true, description: '措置休暇' },
     ]);
 
+    await knex.schema.createTable('approvalRoute', function (table) {
+      table.increments('id');
+      table.string('name').notNullable();
+
+      table.integer('approvalLevel1MainUser').unsigned();
+      table.integer('approvalLevel1SubUser').unsigned();
+      table.integer('approvalLevel2MainUser').unsigned();
+      table.integer('approvalLevel2SubUser').unsigned();
+      table.integer('approvalLevel3MainUser').unsigned();
+      table.integer('approvalLevel3SubUser').unsigned();
+      table.integer('approvalDecisionUser').unsigned();
+
+      table.foreign('approvalLevel1MainUser').references('id').inTable('user');
+      table.foreign('approvalLevel1SubUser').references('id').inTable('user');
+      table.foreign('approvalLevel2MainUser').references('id').inTable('user');
+      table.foreign('approvalLevel2SubUser').references('id').inTable('user');
+      table.foreign('approvalLevel3MainUser').references('id').inTable('user');
+      table.foreign('approvalLevel3SubUser').references('id').inTable('user');
+      table.foreign('approvalDecisionUser').references('id').inTable('user');
+    });
+
     await knex.schema.createTable('apply', function (table) {
       table.increments('id');
       table.integer('type').unsigned().notNullable().index().comment('申請種別');
@@ -272,12 +294,29 @@ export async function up(knex: Knex): Promise<void> {
       table.datetime('dateRelated').comment('申請内容に関連する日時(例: 代休申請での休日出勤日)');
       table.string('reason').comment('申請理由');
       table.string('contact').comment('申請における連絡先(休暇取得時の連絡先)');
-      table.boolean('isApproved').index().comment('TRUEの場合は承認済、FALSEの場合は否認済、NULLの場合は未承認');
       table.integer('route').unsigned().notNullable().index().comment('申請承認ルート');
+      table.integer('currentApprovingMainUser').unsigned();
+      table.integer('currentApprovingSubUser').unsigned();
+      table.integer('approvedLevel1User').unsigned();
+      table.datetime('approvedLevel1UserTimestamp');
+      table.integer('approvedLevel2User').unsigned();
+      table.datetime('approvedLeve21UserTimestamp');
+      table.integer('approvedLevel3User').unsigned();
+      table.datetime('approvedLevel3UserTimestamp');
+      table.integer('approvedDecisionUser').unsigned();
+      table.datetime('approvedDecisionUserTimestamp');
+      table.boolean('isApproved').index().comment('TRUEの場合は承認済、FALSEの場合は否認済、NULLの場合は未承認');
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('appliedUser').references('id').inTable('user');
       table.foreign('type').references('id').inTable('applyType');
+      table.foreign('route').references('id').inTable('approvalRoute');
+      table.foreign('currentApprovingMainUser').references('id').inTable('user');
+      table.foreign('currentApprovingSubUser').references('id').inTable('user');
+      table.foreign('approvedLevel1User').references('id').inTable('user');
+      table.foreign('approvedLevel2User').references('id').inTable('user');
+      table.foreign('approvedLevel3User').references('id').inTable('user');
+      table.foreign('approvedDecisionUser').references('id').inTable('user');
     });
 
     await knex.schema.createTable('applyOption', function (table) {
@@ -499,11 +538,6 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       table.foreign('role').references('id').inTable('role');
     });
 
-    await knex.schema.createTable('approvalRoute', function (table) {
-      table.increments('id');
-      table.string('name').notNullable();
-    });
-
     await knex.schema.createTable('approvalRouteMember', function (table) {
       table.increments('id');
       table.integer('route').unsigned().notNullable();
@@ -617,7 +651,6 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('systemConfig');
   await knex.schema.dropTableIfExists('config');
   await knex.schema.dropTableIfExists('approvalRouteMember');
-  await knex.schema.dropTableIfExists('approvalRoute');
   await knex.schema.dropTableIfExists('approval');
   await knex.schema.dropTableIfExists('roleLevel');
   await knex.schema.dropTableIfExists('role');
@@ -628,6 +661,7 @@ export async function down(knex: Knex): Promise<void> {
   await knex.schema.dropTableIfExists('applyPrivilege');
   await knex.schema.dropTableIfExists('applyOption');
   await knex.schema.dropTableIfExists('apply');
+  await knex.schema.dropTableIfExists('approvalRoute');
   await knex.schema.dropTableIfExists('applyOptionValue');
   await knex.schema.dropTableIfExists('applyOptionType');
   await knex.schema.dropTableIfExists('applyType');

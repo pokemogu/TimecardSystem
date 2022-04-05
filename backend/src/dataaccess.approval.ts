@@ -1,5 +1,7 @@
+import lodash from 'lodash';
 import { DatabaseAccess } from './dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
+import { Console } from 'console';
 
 ///////////////////////////////////////////////////////////////////////
 // 承認ルート関連
@@ -40,7 +42,17 @@ export async function getApprovalRouteRoles(this: DatabaseAccess) {
 export async function addApprovalRoute(this: DatabaseAccess, accessToken: string, route: apiif.ApprovalRouteRequestData) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-  await this.knex('approvalRoute').insert({ name: route.name });
+  await this.knex('approvalRoute').insert({
+    name: route.name,
+    approvalLevel1MainUser: route.approvalLevel1MainUserId,
+    approvalLevel1SubUser: route.approvalLevel1SubUserId,
+    approvalLevel2MainUser: route.approvalLevel2MainUserId,
+    approvalLevel2SubUser: route.approvalLevel2SubUserId,
+    approvalLevel3MainUser: route.approvalLevel3MainUserId,
+    approvalLevel3SubUser: route.approvalLevel3SubUserId,
+    approvalDecisionUser: route.approvalDecisionUserId
+  });
+  /*
   const routeInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', route.name).first();
 
   // 改めて承認メンバー情報を追加する
@@ -53,6 +65,7 @@ export async function addApprovalRoute(this: DatabaseAccess, accessToken: string
     }
   }
   await this.knex('approvalRouteMember').insert(members);
+  */
 }
 
 /**
@@ -65,6 +78,26 @@ export async function addApprovalRoute(this: DatabaseAccess, accessToken: string
 export async function getApprovalRoutes(this: DatabaseAccess, accessToken: string, params?: { limit: number, offset: number }, routeIdOrName?: number | string) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
+  return await this.knex.select<apiif.ApprovalRouteResposeData[]>({
+    id: 'approvalRoute.id', name: 'approvalRoute.name',
+    approvalLevel1MainUserId: 'u1_1.id', approvalLevel1MainUserAccount: 'u1_1.account', approvalLevel1MainUserName: 'u1_1.name',
+    approvalLevel1SubUserId: 'u1_2.id', approvalLevel1SubUserAccount: 'u1_2.account', approvalLevel1SubUserName: 'u1_2.name',
+    approvalLevel2MainUserId: 'u2_1.id', approvalLevel2MainUserAccount: 'u2_1.account', approvalLevel2MainUserName: 'u2_1.name',
+    approvalLevel2SubUserId: 'u2_2.id', approvalLevel2SubUserAccount: 'u2_2.account', approvalLevel2SubUserName: 'u2_2.name',
+    approvalLevel3MainUserId: 'u3_1.id', approvalLevel3MainUserAccount: 'u3_1.account', approvalLevel3MainUserName: 'u3_1.name',
+    approvalLevel3SubUserId: 'u3_2.id', approvalLevel3SubUserAccount: 'u3_2.account', approvalLevel3SubUserName: 'u3_2.name',
+    approvalDecisionUserId: 'u4.id', approvalDecisionUserAccount: 'u4.account', approvalDecisionUserName: 'u4.name',
+  })
+    .from('approvalRoute')
+    .leftJoin('user as u1_1', { 'u1_1.id': 'approvalRoute.approvalLevel1MainUser' })
+    .leftJoin('user as u1_2', { 'u1_2.id': 'approvalRoute.approvalLevel1SubUser' })
+    .leftJoin('user as u2_1', { 'u2_1.id': 'approvalRoute.approvalLevel2MainUser' })
+    .leftJoin('user as u2_2', { 'u2_2.id': 'approvalRoute.approvalLevel2SubUser' })
+    .leftJoin('user as u3_1', { 'u3_1.id': 'approvalRoute.approvalLevel3MainUser' })
+    .leftJoin('user as u3_2', { 'u3_2.id': 'approvalRoute.approvalLevel3SubUser' })
+    .leftJoin('user as u4', { 'u4.id': 'approvalRoute.approvalDecisionUser' })
+
+  /*
   const roleMembers = await this.knex
     .select<{ routeId: number, routeName: string, roleName: string, level: number, userAccount: string, userName: string }[]>(
       { routeId: 'approvalRoute.id', routeName: 'approvalRoute.name', roleName: 'role.name', level: 'role.level', userAccount: 'user.account', userName: 'user.name' }
@@ -108,6 +141,7 @@ export async function getApprovalRoutes(this: DatabaseAccess, accessToken: strin
   }
 
   return routes.slice(params?.offset ? params.offset : 0, params?.limit ? params.offset + params.limit : undefined);
+  */
 }
 
 /**
@@ -119,6 +153,7 @@ export async function getApprovalRoutes(this: DatabaseAccess, accessToken: strin
 export async function updateApprovalRoute(this: DatabaseAccess, accessToken: string, route: apiif.ApprovalRouteResposeData) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
+  /*
   const routeInfo = await this.knex
     .select<{ id: number, name: string }[]>({ id: 'id', name: 'name' })
     .from('approvalRoute')
@@ -131,13 +166,22 @@ export async function updateApprovalRoute(this: DatabaseAccess, accessToken: str
       }
     })
     .first();
+    */
 
-  if (routeInfo.name !== route.name) {
-    await this.knex('approvalRoute')
-      .where('id', routeInfo.id)
-      .update({ name: route.name })
-  }
+  await this.knex('approvalRoute')
+    .where('id', route.id)
+    .update({
+      name: route.name,
+      approvalLevel1MainUser: route.approvalLevel1MainUserId === undefined ? null : route.approvalLevel1MainUserId,
+      approvalLevel1SubUser: route.approvalLevel1SubUserId === undefined ? null : route.approvalLevel1SubUserId,
+      approvalLevel2MainUser: route.approvalLevel2MainUserId === undefined ? null : route.approvalLevel2MainUserId,
+      approvalLevel2SubUser: route.approvalLevel2SubUserId === undefined ? null : route.approvalLevel2SubUserId,
+      approvalLevel3MainUser: route.approvalLevel3MainUserId === undefined ? null : route.approvalLevel3MainUserId,
+      approvalLevel3SubUser: route.approvalLevel3SubUserId === undefined ? null : route.approvalLevel3SubUserId,
+      approvalDecisionUser: route.approvalDecisionUserId === undefined ? null : route.approvalDecisionUserId
+    });
 
+  /*
   // 一旦、対象ルートの既存承認メンバー情報は全て消す
   await this.knex('approvalRouteMember').del().where('route', routeInfo.id);
 
@@ -152,6 +196,7 @@ export async function updateApprovalRoute(this: DatabaseAccess, accessToken: str
     }
   }
   await this.knex('approvalRouteMember').insert(members);
+  */
 }
 
 /**
@@ -163,6 +208,6 @@ export async function updateApprovalRoute(this: DatabaseAccess, accessToken: str
 export async function deleteApprovalRoute(this: DatabaseAccess, accessToken: string, id: number) {
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
 
-  await this.knex('approvalRouteMember').del().where('route', id);
+  //await this.knex('approvalRouteMember').del().where('route', id);
   await this.knex('approvalRoute').del().where('id', id);
 }

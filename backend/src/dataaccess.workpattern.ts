@@ -145,3 +145,105 @@ export async function deleteWorkPattern(this: DatabaseAccess, accessToken: strin
     await this.knex('workPattern').del().where('id', id);
   });
 }
+
+export async function setUserWorkPatternCalendar(this: DatabaseAccess, accessToken: string, workPatternCalendar: apiif.UserWorkPatternCalendarRequestData) {
+  let userId = 0;
+  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+  if (workPatternCalendar.account) {
+    const userInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', workPatternCalendar.account).first();
+    userId = userInfo.id;
+  }
+  else {
+    userId = authUserInfo.id;
+  }
+
+  let workPatternId: number | null = null;
+  if (workPatternCalendar.name !== null) {
+    const workPatternResult = await this.knex.select<{ id: number }[]>({ id: 'id' })
+      .from('workPattern')
+      .where('name', workPatternCalendar.name)
+      .first();
+    workPatternId = workPatternResult.id;
+  }
+  await this.knex('userWorkPatternCalendar').insert({ user: userId, date: new Date(workPatternCalendar.date), workPattern: workPatternId })
+    .onConflict(['user', 'date']).merge(['workPattern']); // ON DUPLICATE KEY UPDATE
+}
+
+export async function getUserWorkPatternCalendar(this: DatabaseAccess, accessToken: string, params?: apiif.UserWorkPatternCalendarRequestQuery) {
+  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
+  type RecordUserWorkPatternCalendar = {
+    id: number, date: string,
+    userId: number, userAccount: string, userName: string,
+    workPatternId: number, workPatternName: string, workPatternOnTimeStart: string, workPatternOnTimeEnd: string
+  };
+
+  const results = await this.knex.select<RecordUserWorkPatternCalendar[]>({
+    id: 'userWorkPatternCalendar.id', date: 'userWorkPatternCalendar.date',
+    userId: 'user.id', userAccount: 'user.account', userName: 'user.name',
+    workPatternId: 'workPattern.id', workPatternName: 'workPattern.name', workPatternOnTimeStart: 'workPattern.onTimeStart', workPatternOnTimeEnd: 'workPattern.onTimeEnd'
+  })
+    .from('userWorkPatternCalendar')
+    .join('user', { 'user.id': 'userWorkPatternCalendar.user' })
+    .leftJoin('workPattern', { 'workPattern.id': 'userWorkPatternCalendar.workPattern' })
+    .where(function (builder) {
+      if (params.from && params.to) {
+        builder.whereBetween('date', [params.from, params.to]);
+      }
+      else if (params.from) {
+        builder.where('date', '>=', params.from);
+      }
+      else if (params.to) {
+        builder.where('date', '<=', params.to);
+      }
+
+      if (params.account) {
+        builder.where('user.account', params.account);
+      }
+      else {
+        builder.where('user.id', authUserInfo.id);
+      }
+    })
+    .modify(function (builder) {
+      if (params.limit) {
+        builder.limit(params.limit);
+      }
+      if (params.offset) {
+        builder.offset(params.offset);
+      }
+    })
+    .orderBy('user.id', 'asc')
+    .orderBy('userWorkPatternCalendar.date', 'asc') as RecordUserWorkPatternCalendar[];
+
+  return <apiif.UserWorkPatternCalendarResponseData[]>results.map((result) => {
+    return {
+      id: result.id,
+      date: result.date,
+      user: {
+        id: result.userId,
+        account: result.userAccount,
+        name: result.userName
+      },
+      workPattern: {
+        id: result.workPatternId,
+        name: result.workPatternName,
+        onTimeStart: result.workPatternOnTimeStart,
+        onTimeEnd: result.workPatternOnTimeEnd
+      }
+    }
+  })
+}
+
+export async function deleteUserWorkPatternCalendar(this: DatabaseAccess, accessToken: string, date: string, account?: string) {
+  let userId = 0;
+  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+  if (account) {
+    const userInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first();
+    userId = userInfo.id;
+  }
+  else {
+    userId = authUserInfo.id;
+  }
+
+  await this.knex('userWorkPatternCalendar').where('date', date).andWhere('user', userId).del();
+}

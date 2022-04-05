@@ -36,11 +36,7 @@ const store = useSessionStore();
         <RouterLink :to="{ name: 'apply-record' }" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-generic-time-period', params: { type: 'break' } }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >外出申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-break' }" class="btn btn-warning btn-sm" role="button">外出申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/approval/pending" class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
@@ -54,13 +50,19 @@ const store = useSessionStore();
     </div>
 
     <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
+      <div class="d-grid col-2 gap-2">
+        <RouterLink
+          :to="{ name: 'work-pattern' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >勤務体系登録</RouterLink>
+      </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink :to="{ name: 'apply-leave' }" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          :to="{ name: 'apply-generic-time-period', params: { type: 'holiday-work' } }"
+          :to="{ name: 'apply-holiday-work' }"
           class="btn btn-warning btn-sm"
           role="button"
         >休日出勤申請</RouterLink>
@@ -84,13 +86,17 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          to="/apply/generic-time-period/overtime"
+          :to="{ name: 'apply-overtime' }"
           class="btn btn-warning btn-sm"
           role="button"
-        >早出/残業申請</RouterLink>
+        >早出・残業申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/apply/makeup-leave" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
+        <RouterLink
+          :to="{ name: 'apply-makeup-leave' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink :to="{ name: 'admin-route' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
@@ -111,7 +117,7 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          :to="{ name: 'apply-generic-time-period', params: { type: 'lateness' } }"
+          :to="{ name: 'apply-lateness' }"
           class="btn btn-warning btn-sm"
           role="button"
         >遅刻申請</RouterLink>
@@ -146,7 +152,7 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
-          :to="{ name: 'apply-generic-time-period', params: { type: 'leave-early' } }"
+          :to="{ name: 'apply-leave-early' }"
           class="btn btn-warning btn-sm"
           role="button"
         >早退申請</RouterLink>

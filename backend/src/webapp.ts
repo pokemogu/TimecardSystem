@@ -77,7 +77,10 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
             phonetic: user.phonetic,
             department: user.department,
             section: user.section,
-            qrCodeIssueNum: user.qrCodeIssuedNum
+            qrCodeIssueNum: user.qrCodeIssuedNum,
+            defaultWorkPatternName: user.defaultWorkPatternName,
+            optional1WorkPatternName: user.optional1WorkPatternName,
+            optional2WorkPatternName: user.optional2WorkPatternName
           }
         });
       }
@@ -128,7 +131,10 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
             email: user.email,
             section: user.section,
             department: user.department,
-            qrCodeIssueNum: user.qrCodeIssuedNum
+            qrCodeIssueNum: user.qrCodeIssuedNum,
+            defaultWorkPatternName: user.defaultWorkPatternName,
+            optional1WorkPatternName: user.optional1WorkPatternName,
+            optional2WorkPatternName: user.optional2WorkPatternName
           }
         })
       });
@@ -843,6 +849,103 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
       }
 
       const routes = await access.deleteWorkPattern(token, req.params.id);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserWorkPatternCalendarRequestData>('/api/work-pattern-calendar', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.setUserWorkPatternCalendar(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{}, apiif.UserWorkPatternCalendarResponseBody, {}, apiif.UserWorkPatternCalendarRequestQuery>('/api/work-pattern-calendar', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const workPatternCalendars = await access.getUserWorkPatternCalendar(token, req.query);
+      res.send({
+        message: 'ok',
+        userWorkPatternCalendars: workPatternCalendars
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.delete<{ date: string, account: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date/:account', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteUserWorkPatternCalendar(token, req.params.date, req.params.account);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteUserWorkPatternCalendar(token, req.params.date);
       res.send({
         message: 'ok'
       });

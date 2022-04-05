@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -10,6 +10,7 @@ import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 import * as backendAccess from '@/BackendAccess';
 
 const router = useRouter();
+const route = useRoute();
 const store = useSessionStore();
 
 const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
@@ -23,6 +24,9 @@ const reason = ref('');
 const isMounted = ref(false);
 
 onMounted(async () => {
+  if (route.params.id) {
+    console.log('view mode!!!: ' + route.params.id.toString());
+  }
   try {
     const applyTypeOptions = await backendAccess.getApplyTypeOptions('record');
     if (applyTypeOptions?.optionTypes) {
@@ -67,28 +71,30 @@ async function onRouteSubmit() {
           route: routeName.value
         });
 
-        const routeInfo = await access.getApprovalRoute(routeName.value);
-        if (routeInfo) {
-          const smallestLevelRole = routeInfo.roles.reduce((prev, cur) => prev.level < cur.level ? prev : cur);
-          const emails: string[] = [];
-          for (const user of smallestLevelRole.users) {
-            console.log(user.account);
-            const userInfo = await access.getUserInfo(user.account);
-            if (userInfo) {
-              emails.push(userInfo.email);
+        /*
+          const routeInfo = await access.getApprovalRoute(routeName.value);
+          if (routeInfo) {
+            const smallestLevelRole = routeInfo.roles.reduce((prev, cur) => prev.level < cur.level ? prev : cur);
+            const emails: string[] = [];
+            for (const user of smallestLevelRole.users) {
+              console.log(user.account);
+              const userInfo = await access.getUserInfo(user.account);
+              if (userInfo) {
+                emails.push(userInfo.email);
+              }
             }
+  
+            const mailBody =
+              `以下の通り申請致しますのでご承認お願い致します。
+  
+  ${window.location.origin}/approve/${applyId}`
+  
+            location.href =
+              'mailto: ' + emails.join(', ') +
+              '?subject=打刻申請の承認依頼' +
+              '&body=' + encodeURIComponent(mailBody.replace('\n', '\r\n'));
           }
-
-          const mailBody =
-            `以下の通り申請致しますのでご承認お願い致します。
-
-${window.location.origin}/approve/${applyId}`
-
-          location.href =
-            'mailto: ' + emails.join(', ') +
-            '?subject=打刻申請の承認依頼' +
-            '&body=' + encodeURIComponent(mailBody.replace('\n', '\r\n'));
-        }
+          */
 
         router.push({ name: 'dashboard' });
       }

@@ -32,26 +32,6 @@ async function updateTable() {
       if (infos) {
         routeInfos.value.splice(0);
         Array.prototype.push.apply(routeInfos.value, infos);
-
-        roleMembersLinear.value = {};
-        for (const route of routeInfos.value) {
-          roleMembersLinear.value[route.name] = [];
-          for (let i = 0; i < roleNamesLinear.value.length; i++) {
-
-            let foundUser = false;
-            for (const role of route.roles) {
-              for (const user of role.users) {
-                if (user.role === roleNamesLinear.value[i]) {
-                  roleMembersLinear.value[route.name].push(user.name ? user.name : '');
-                  foundUser = true;
-                }
-              }
-            }
-            if (!foundUser) {
-              roleMembersLinear.value[route.name].push('');
-            }
-          }
-        }
       }
     }
   }
@@ -69,34 +49,30 @@ onMounted(async () => {
       Array.prototype.push.apply(roleNamesLinear.value, role.names);
     }
 
-    updateTable();
+    await updateTable();
   }
 });
 
 async function onPageBack() {
   const backTo = offset.value - limit.value;
   offset.value = backTo > 0 ? backTo : 0;
-  updateTable();
+  await updateTable();
 }
 
 async function onPageForward() {
   const forwardTo = offset.value + limit.value;
   offset.value = forwardTo > 0 ? forwardTo : 0;
-  updateTable();
+  await updateTable();
 }
 
 function onRouteClick(routeName?: string) {
   // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
   const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
   if (targetRouteInfo) {
-    selectedRoute.value = {
-      id: targetRouteInfo?.id ? targetRouteInfo?.id : undefined,
-      name: targetRouteInfo?.name ? targetRouteInfo?.name : '',
-      roles: targetRouteInfo?.roles ? targetRouteInfo?.roles : []
-    };
+    selectedRoute.value = targetRouteInfo;
   }
   else {
-    selectedRoute.value = { name: '', roles: [] };
+    selectedRoute.value = { name: '' };
   }
   isApprovalRouteSelected.value = true;
 }
@@ -124,7 +100,7 @@ async function onRouteDelete() {
   for (const key in checks.value) {
     checks.value[key] = false;
   }
-  updateTable();
+  await updateTable();
 }
 
 async function onSubmit() {
@@ -145,7 +121,7 @@ async function onSubmit() {
   catch (error) {
     alert(error);
   }
-  updateTable();
+  await updateTable();
 }
 
 function sliceDictionary(dict: Record<string, string[]>, limit: number) {
@@ -213,27 +189,40 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
             <tr>
               <th scope="col"></th>
               <th scope="col">ルート名</th>
-              <th v-for="roleName in roleNamesLinear">{{ roleName }}</th>
+              <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
+              <th scope="col">承認者1(主)</th>
+              <th scope="col">承認者1(副)</th>
+              <th scope="col">承認者2(主)</th>
+              <th scope="col">承認者2(副)</th>
+              <th scope="col">承認者3(主)</th>
+              <th scope="col">承認者3(副)</th>
+              <th scope="col">決裁者</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(roleMembers, routeName) in sliceDictionary(roleMembersLinear, limit)">
+            <tr v-for="(item, index) in routeInfos">
               <th scope="row">
                 <input
                   class="form-check-input"
                   type="checkbox"
-                  :id="'checkbox' + routeName"
-                  v-model="checks[routeName]"
+                  :id="'checkbox' + index"
+                  v-model="checks[item.name]"
                 />
               </th>
               <td>
                 <button
                   type="button"
                   class="btn btn-link"
-                  v-on:click="onRouteClick(routeName as string)"
-                >{{ routeName }}</button>
+                  v-on:click="onRouteClick(item.name)"
+                >{{ item.name }}</button>
               </td>
-              <td v-for="memberName in roleMembers">{{ memberName }}</td>
+              <td>{{ item.approvalLevel1MainUserName }}</td>
+              <td>{{ item.approvalLevel1SubUserName }}</td>
+              <td>{{ item.approvalLevel2MainUserName }}</td>
+              <td>{{ item.approvalLevel2SubUserName }}</td>
+              <td>{{ item.approvalLevel3MainUserName }}</td>
+              <td>{{ item.approvalLevel3SubUserName }}</td>
+              <td>{{ item.approvalDecisionUserName }}</td>
             </tr>
           </tbody>
           <tfoot>
@@ -275,28 +264,7 @@ body {
   border-bottom-color: orange !important;
   color: black !important;
 }
-/*
-.nav-item {
-  background: navajowhite !important;
-}
 
-.nav-item:active {
-  background: navajowhite !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-}
-
-.nav-pills .nav-link:active {
-  background-color: orange !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-  color: black !important;
-}
-*/
 .nav-tabs .nav-item .nav-link {
   background-color: navajowhite !important;
   border-left-color: orange !important;

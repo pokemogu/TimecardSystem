@@ -38,6 +38,7 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         await access.apply('makeup-leave', {
+          date: dateFrom.value,
           dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
           dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
           dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`).toISOString(),

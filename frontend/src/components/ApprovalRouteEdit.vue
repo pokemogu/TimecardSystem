@@ -1,30 +1,20 @@
 <script setup lang="ts">
 
-import { ref, watch, onMounted } from 'vue';
-
-import { useSessionStore } from '@/stores/session';
-import * as backendAccess from '@/BackendAccess';
-
+import { ref } from 'vue';
 import UserSelect from '@/components/UserSelect.vue';
-
 import type * as apiif from 'shared/APIInterfaces';
-
-const store = useSessionStore();
 
 const props = defineProps<{
   isOpened: boolean,
-  route?: apiif.ApprovalRouteResposeData
+  route: apiif.ApprovalRouteResposeData
 }>();
 
-const routeName = ref(props.route?.name ? props.route.name : '');
+const routeInfo = ref(props.route);
 const isUserSelectOpened = ref(false);
+const selectedUserId = ref(0);
 const selectedUserAccount = ref('');
 const selectedUserName = ref('');
-const inputUserAccounts = ref<string[][]>([]);
-const inputUserNames = ref<string[][]>([]);
-
-const currentRow = ref(0);
-const currentCol = ref(0);
+const selectedUserIndex = ref(0);
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
@@ -35,89 +25,79 @@ const emits = defineEmits<{
 function onClose(event: Event) {
   emits('update:isOpened', false);
 }
-const roles = ref<apiif.ApprovalRouteRoleData[]>([]);
 
 function onSubmit(event: Event) {
-  const route: apiif.ApprovalRouteResposeData = { name: routeName.value, roles: [] };
-  for (let i = 0; i < roles.value.length; i++) {
-    const users: { role: string, account: string, name: string }[] = [];
-    for (let j = 0; j < roles.value[i].names.length; j++) {
-      if (inputUserAccounts.value[i][j] !== '') {
-        users.push({ role: roles.value[i].names[j], account: inputUserAccounts.value[i][j], name: inputUserNames.value[i][j] });
-      }
-    }
-    if (route.roles) {
-      route.roles.push({ level: roles.value[i].level, users: users });
-    }
-  }
-
-  if (props.route?.id) {
-    route.id = props.route.id;
-  }
-  emits('update:route', route);
+  emits('update:route', routeInfo.value);
   emits('update:isOpened', false);
   emits('submit');
 }
 
-try {
-  const result = await backendAccess.getApprovalRouteRoles();
-  if (result) {
-    roles.value.splice(0);
-    Array.prototype.push.apply(roles.value, result);
-
-    // ユーザー名取得の為のアクセストークを取得する
-    const token = props.route ? await store.getToken() : undefined;
-
-    for (const role of roles.value) {
-      inputUserAccounts.value.push([]);
-      inputUserNames.value.push([]);
-      for (const roleName of role.names) {
-
-        // ルート設定情報をprop渡しされている場合は適切な項目に入力する
-        let account = ''; // 新規追加の場合は空
-        if (props.route && props.route.roles) {
-          const userRole = props.route.roles.find(userRole => userRole.level === role.level);
-          if (userRole) {
-            const user = userRole.users.find(user => user.role === roleName);
-            if (user) {
-              account = user.account;
-            }
-          }
-        }
-        inputUserAccounts.value[inputUserAccounts.value.length - 1].push(account);
-
-        let userName = '';
-        if (token && account !== '') {
-          const access = new backendAccess.TokenAccess(token);
-          const info = await access.getUserInfo(account);
-          if (info) {
-            userName = info.name;
-          }
-        }
-        inputUserNames.value[inputUserAccounts.value.length - 1].push(userName);
-      }
-    }
+function onUserSelectSubmit() {
+  console.log('selectedUserId = ' + selectedUserId.value)
+  switch (selectedUserIndex.value) {
+    case 0:
+      routeInfo.value.approvalLevel1MainUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel1MainUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel1MainUserName = selectedUserName.value;
+      break;
+    case 1:
+      routeInfo.value.approvalLevel1SubUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel1SubUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel1SubUserName = selectedUserName.value;
+      break;
+    case 2:
+      routeInfo.value.approvalLevel2MainUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel2MainUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel2MainUserName = selectedUserName.value;
+      break;
+    case 3:
+      routeInfo.value.approvalLevel2SubUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel2SubUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel2SubUserName = selectedUserName.value;
+      break;
+    case 4:
+      routeInfo.value.approvalLevel3MainUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel3MainUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel3MainUserName = selectedUserName.value;
+      break;
+    case 5:
+      routeInfo.value.approvalLevel3SubUserId = selectedUserId.value;
+      routeInfo.value.approvalLevel3SubUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalLevel3SubUserName = selectedUserName.value;
+      break;
+    case 6:
+      routeInfo.value.approvalDecisionUserId = selectedUserId.value;
+      routeInfo.value.approvalDecisionUserAccount = selectedUserAccount.value;
+      routeInfo.value.approvalDecisionUserName = selectedUserName.value;
+      break;
   }
-} catch (error) {
-  console.log(error);
 }
 
-watch(selectedUserAccount, () => {
-  inputUserAccounts.value[currentCol.value][currentRow.value] = selectedUserAccount.value;
-  inputUserNames.value[currentCol.value][currentRow.value] = selectedUserName.value;
-});
-
 function isAllFilled() {
-  if (routeName.value === '') {
+  if (routeInfo.value.name === '') {
     return false;
   }
 
-  for (const inputUserAccountCol of inputUserAccounts.value) {
-    for (const inputUserAccountRow of inputUserAccountCol) {
-      if (inputUserAccountRow !== '') {
-        return true;
-      }
-    }
+  if (routeInfo.value.approvalLevel1MainUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalLevel1SubUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalLevel2MainUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalLevel2SubUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalLevel3MainUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalLevel3SubUserAccount !== '') {
+    return true;
+  }
+  if (routeInfo.value.approvalDecisionUserAccount !== '') {
+    return true;
   }
 
   return false;
@@ -130,11 +110,14 @@ function isAllFilled() {
     <div class="modal-dialog modal-xl vue-modal">
       <Teleport to="#approval-route-root" v-if="isUserSelectOpened">
         <UserSelect
+          v-model:id="selectedUserId"
           v-model:account="selectedUserAccount"
           v-model:name="selectedUserName"
           v-model:isOpened="isUserSelectOpened"
+          v-on:submit="onUserSelectSubmit"
         ></UserSelect>
       </Teleport>
+
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">申請ルート設定</h5>
@@ -143,19 +126,25 @@ function isAllFilled() {
         <div class="modal-body">
           <div class="input-group mb-3">
             <span class="input-group-text" id="basic-addon3">ルート名</span>
-            <input type="text" class="form-control" id="route-name" v-model="routeName" required />
+            <input
+              type="text"
+              class="form-control"
+              id="route-name"
+              v-model="routeInfo.name"
+              required
+            />
           </div>
           <div class="row">
-            <div class="col-3" v-for="(level, indexCol) in roles">
-              <div class="row p-1" v-for="(name, indexRow) in level.names">
+            <div class="col-3">
+              <div class="row p-1">
                 <div class="col-12">
-                  <label :for="'user' + indexCol + indexRow" class="form-label">{{ name }}</label>
+                  <label for="user1-1" class="form-label">承認者1(主)</label>
                   <div class="input-group mb-3">
                     <input
-                      type="search"
+                      type="input"
                       class="form-control"
-                      :id="'user' + indexCol + indexRow"
-                      v-model="inputUserAccounts[indexCol][indexRow]"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel1MainUserAccount"
                       placeholder="社員ID"
                       disabled
                       readonly
@@ -164,19 +153,235 @@ function isAllFilled() {
                       class="btn btn-outline-secondary"
                       type="button"
                       id="button-addon2"
-                      v-on:click="inputUserAccounts[indexCol][indexRow] = ''; inputUserNames[indexCol][indexRow] = ''"
+                      v-on:click="routeInfo.approvalLevel1MainUserId = undefined; routeInfo.approvalLevel1MainUserAccount = ''; routeInfo.approvalLevel1MainUserName = ''"
                     >&times;</button>
                     <button
                       class="btn btn-outline-secondary"
                       type="button"
                       id="button-addon2"
-                      v-on:click="isUserSelectOpened = true; currentCol = indexCol; currentRow = indexRow"
+                      v-on:click="selectedUserIndex = 0; isUserSelectOpened = true"
                     >検索</button>
                   </div>
                   <input
                     class="form-control"
                     type="text"
-                    v-model="inputUserNames[indexCol][indexRow]"
+                    v-model="routeInfo.approvalLevel1MainUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">承認者1(副)</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel1SubUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalLevel1SubUserId = undefined; routeInfo.approvalLevel1SubUserAccount = ''; routeInfo.approvalLevel1SubUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 1; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalLevel1SubUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="row p-1">
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">承認者2(主)</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel2MainUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalLevel2MainUserId = undefined; routeInfo.approvalLevel2MainUserAccount = ''; routeInfo.approvalLevel2MainUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 2; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalLevel2MainUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">承認者2(副)</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel2SubUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalLevel2SubUserId = undefined; routeInfo.approvalLevel2SubUserAccount = ''; routeInfo.approvalLevel2SubUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 3; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalLevel2SubUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="row p-1">
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">承認者3(主)</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel3MainUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalLevel3MainUserId = undefined; routeInfo.approvalLevel3MainUserAccount = ''; routeInfo.approvalLevel3MainUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 4; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalLevel3MainUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">承認者3(副)</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalLevel3SubUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalLevel3SubUserId = undefined; routeInfo.approvalLevel3SubUserAccount = ''; routeInfo.approvalLevel3SubUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 5; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalLevel3SubUserName"
+                    placeholder="社員名"
+                    disabled
+                    readonly
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-3">
+              <div class="row p-1">
+                <div class="col-12">
+                  <label for="user1-1" class="form-label">決裁者</label>
+                  <div class="input-group mb-3">
+                    <input
+                      type="input"
+                      class="form-control"
+                      id="user1-1"
+                      v-model="routeInfo.approvalDecisionUserAccount"
+                      placeholder="社員ID"
+                      disabled
+                      readonly
+                    />
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="routeInfo.approvalDecisionUserId = undefined; routeInfo.approvalDecisionUserAccount = ''; routeInfo.approvalDecisionUserName = ''"
+                    >&times;</button>
+                    <button
+                      class="btn btn-outline-secondary"
+                      type="button"
+                      id="button-addon2"
+                      v-on:click="selectedUserIndex = 6; isUserSelectOpened = true"
+                    >検索</button>
+                  </div>
+                  <input
+                    class="form-control"
+                    type="text"
+                    v-model="routeInfo.approvalDecisionUserName"
                     placeholder="社員名"
                     disabled
                     readonly

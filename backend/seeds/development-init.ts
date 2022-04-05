@@ -37,8 +37,9 @@ function dateToLocalString(date: Date) {
 
 export async function seed(knex: Knex): Promise<void> {
 
-  await knex('record').del();
+  await knex('record').truncate();
   //await knex('recordLog').del();
+  await knex("applyPrivilege").del();
   await knex('applyType').del().where('isSystemType', false);
   await knex('applyOption').del();
   await knex('apply').del();
@@ -507,10 +508,21 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex('user').insert(fakeUsers);
 
+  const getUserIdFromAccount = async (account: string) => {
+    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first()).id;
+  };
+
   // 申請ルート情報
   const routes: apiif.ApprovalRouteRequestData[] = [
     {
       name: '総務社員',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00276'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00277'),
+      approvalLevel2MainUserId: await getUserIdFromAccount('USR00290'),
+      approvalLevel2SubUserId: await getUserIdFromAccount('USR00282'),
+      approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel3SubUserId: await getUserIdFromAccount('USR00294'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00276' }, { role: '承認者1(副)', account: 'USR00277' }] },
         { level: 2, users: [{ role: '承認者2(主)', account: 'USR00290' }, { role: '承認者2(副)', account: 'USR00282' }] },
@@ -520,6 +532,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '開発部社員',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00273'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00274'),
+      approvalLevel2MainUserId: await getUserIdFromAccount('USR00289'),
+      // approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
+      approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel3SubUserId: await getUserIdFromAccount('USR00292'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00273' }, { role: '承認者1(副)', account: 'USR00274' }] },
         { level: 2, users: [{ role: '承認者2(主)', account: 'USR00289' }] },
@@ -529,6 +548,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '開発部課長',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00289'),
+      //approvalLevel1SubUserId: await getUserIdFromAccount('????????'),
+      approvalLevel2MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel2SubUserId: await getUserIdFromAccount('USR00292'),
+      //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00289' }] },
         { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
@@ -537,6 +563,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '開発部長',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00292'),
+      //approvalLevel2MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
         { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
@@ -544,6 +577,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '浜松製造部社員',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00226'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00227'),
+      approvalLevel2MainUserId: await getUserIdFromAccount('USR00229'),
+      approvalLevel2SubUserId: await getUserIdFromAccount('USR00228'),
+      approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel3SubUserId: await getUserIdFromAccount('USR00292'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00226' }, { role: '承認者1(副)', account: 'USR00227' }] },
         { level: 2, users: [{ role: '承認者2(主)', account: 'USR00229' }, { role: '承認者2(副)', account: 'USR00228' }] },
@@ -553,6 +593,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '製造部課長',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00229'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00228'),
+      approvalLevel2MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel2SubUserId: await getUserIdFromAccount('USR00292'),
+      //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00229' }, { role: '承認者1(副)', account: 'USR00228' }] },
         { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
@@ -561,6 +608,13 @@ export async function seed(knex: Knex): Promise<void> {
     },
     {
       name: '製造部長',
+      approvalLevel1MainUserId: await getUserIdFromAccount('USR00291'),
+      approvalLevel1SubUserId: await getUserIdFromAccount('USR00292'),
+      //approvalLevel2MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
+      //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
       roles: [
         { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
         { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
@@ -569,7 +623,17 @@ export async function seed(knex: Knex): Promise<void> {
   ]
 
   for (const route of routes) {
-    await knex('approvalRoute').insert({ name: route.name });
+    await knex('approvalRoute').insert({
+      name: route.name,
+      approvalLevel1MainUser: route.approvalLevel1MainUserId,
+      approvalLevel1SubUser: route.approvalLevel1SubUserId,
+      approvalLevel2MainUser: route.approvalLevel2MainUserId,
+      approvalLevel2SubUser: route.approvalLevel2SubUserId,
+      approvalLevel3MainUser: route.approvalLevel3MainUserId,
+      approvalLevel3SubUser: route.approvalLevel3SubUserId,
+      approvalDecisionUser: route.approvalDecisionUserId,
+    });
+
     const routeRow = await knex
       .select<{ id: number }>({ id: 'id' })
       .first()

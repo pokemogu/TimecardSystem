@@ -26,11 +26,26 @@ const userSection = ref('');
 interface ApplyFormProps {
   applyName: string,
   applyType: string,
+
   applyTypeValue1?: string,
   applyTypeOptions1?: { name: string, description: string }[],
   applyTypeValue2?: string,
   applyTypeOptions2?: { name: string, description: string }[],
   isApplyTypeOptionsDropdown?: boolean,
+
+  appliedUserName?: string,
+  appliedUserSectionName?: string,
+  timestamp?: string,
+
+  approvedLevel1UserName?: string,
+  approvedLevel1Timestamp?: string,
+  approvedLevel2UserName?: string,
+  approvedLevel2Timestamp?: string,
+  approvedLevel3UserName?: string,
+  approvedLevel3Timestamp?: string,
+  approvedDecisionUserName?: string,
+  approvedDecisionTimestamp?: string,
+
   dateOptional?: string,
   dateOptionalType?: string,
   dateFrom: string,
@@ -320,10 +335,6 @@ function onSubmit() {
                 />
                 <label class="form-check-label" for="apply-date-period">期間</label>
               </div>
-              <select class="form-select" v-if="isDateFromSpanningDay === true">
-                <option :value="false" selected>当日</option>
-                <option :value="true">翌日</option>
-              </select>
               <input
                 type="date"
                 class="form-control"
@@ -368,6 +379,12 @@ function onSubmit() {
                   v-bind:for="'apply-type-option2-' + option.name"
                 >{{ option.description }}</label>
               </div>
+              <!--
+              <select class="form-select" v-if="isDateFromSpanningDay === true">
+                <option :value="false" selected>当日</option>
+                <option :value="true">翌日</option>
+              </select>
+              -->
               <input
                 v-if="props.timeFrom !== undefined"
                 v-bind:value="props.timeFrom"

@@ -13,7 +13,6 @@ export async function setHoliday(this: DatabaseAccess, accessToken: string, holi
 }
 
 export async function getHolidays(this: DatabaseAccess, params: apiif.HolidayRequestQuery) {
-
   const results = await this.knex.select<{ date: Date, name: string }[]>({ date: 'date' }, { name: 'name' })
     .from('holiday')
     .where(function (builder) {

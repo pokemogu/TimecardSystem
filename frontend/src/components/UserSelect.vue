@@ -9,19 +9,23 @@ const store = useSessionStore();
 
 const selectedDepartmentName = ref('');
 const selectedSectionName = ref('');
+const selectedUserId = ref(0);
 const selectedUserAccount = ref('');
 const selectedUserName = ref('');
 
 const props = defineProps<{
   isOpened: boolean,
+  id?: number,
   account: string,
   name?: string
 }>();
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'update:account', value: string): void
-  (event: 'update:name', value: string): void
+  (event: 'update:id', value: number): void,
+  (event: 'update:account', value: string): void,
+  (event: 'update:name', value: string): void,
+  (event: 'submit', value: void): void
 }>();
 
 function onClose(event: Event) {
@@ -32,18 +36,21 @@ function onSubmit(event: Event) {
   if (selectedUserAccount.value !== '') {
     const user = userList.value.find(user => user.account === selectedUserAccount.value);
     if (user) {
+      selectedUserId.value = user.id;
       selectedUserName.value = user.name;
     }
+    emits('update:id', selectedUserId.value);
     emits('update:account', selectedUserAccount.value);
     emits('update:name', selectedUserName.value);
     emits('update:isOpened', false);
+    emits('submit');
   }
 }
 
 const departmentList = ref<{ name: string, sections?: { name: string }[] }[]>([]);
 const departmentNameList = ref<string[]>([]);
 const sectionNameList = ref<string[]>([]);
-const userList = ref<{ account: string, name: string }[]>([]);
+const userList = ref<{ id: number, account: string, name: string }[]>([]);
 
 backendAccess.getDepartments().then((departments) => {
   if (departments) {
@@ -79,7 +86,7 @@ watch(selectedSectionName, async () => {
       });
 
       if (userInfos) {
-        userList.value = userInfos.map((info) => { return { account: info.account, name: info.name } });
+        userList.value = userInfos.map((info) => { return { id: info.id, account: info.account, name: info.name } });
         selectedUserAccount.value = '';
       }
     }
@@ -99,7 +106,7 @@ watch(phoneticSearch, lodash.debounce(async () => {
       });
 
       if (userInfos) {
-        userList.value = userInfos.map((info) => { return { account: info.account, name: info.name } });
+        userList.value = userInfos.map((info) => { return { id: info.id, account: info.account, name: info.name } });
       }
     }
   }
