@@ -4,21 +4,60 @@ import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
-import UserSelect from '@/components/UserSelect.vue';
-import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
+import TableLayoutEdit from '@/components/TableLayoutEdit.vue';
+
+import LayoutEditButtonView from '@/components/LayoutEditButton.vue'
 
 import * as backendAccess from '@/BackendAccess';
 
 const router = useRouter();
 const store = useSessionStore();
 
-const isUserSelectOpened = ref(false);
-const isApprovalRouteSelected = ref(false);
 const selectedAccount = ref('');
 
 watch(selectedAccount, () => {
   console.log(selectedAccount.value);
 });
+
+const columnNames = ref<string[]>([
+  '打刻機ID', '部署', '従業員ID', '従業員氏名', '出勤時刻', '退勤時刻', '外出時刻', '再入時刻', '打刻状況'
+]);
+const defaultLayout = ref<{ name: string, columns: string[] }>({
+  name: '標準レイアウト',
+  columns: ['打刻機ID', '部署', '従業員氏名', '出勤時刻']
+});
+
+const layouts = ref<{ name: string, columns: string[] }[]>([
+  {
+    name: '提出用フォーマット',
+    columns: [
+      '打刻機ID', '部署', '従業員ID', '従業員氏名', '出勤時刻', '退勤時刻', '打刻状況'
+    ]
+  },
+  {
+    name: '確認用フォーマット',
+    columns: [
+      '打刻機ID', '部署', '従業員氏名', '出勤時刻'
+    ]
+  },
+  {
+    name: 'エビデンス用',
+    columns: [
+      '打刻機ID', '部署', '従業員ID', '従業員氏名', '出勤時刻', '退勤時刻', '外出時刻', '再入時刻', '打刻状況'
+    ]
+  }
+]);
+
+function onLayoutSubmit() {
+  const selectedLayout = layouts.value.find(layout => layout.name === selectedLayoutName.value);
+  console.log(selectedLayout);
+}
+
+const selectedLayoutName = ref('エビデンス用');
+
+watch(selectedLayoutName, () => {
+  console.log(selectedLayoutName.value);
+})
 
 </script>
 
@@ -36,29 +75,18 @@ watch(selectedAccount, () => {
       </div>
     </div>
 
-    <Teleport to="body" v-if="isUserSelectOpened">
-      <UserSelect v-model:account="selectedAccount" v-model:isOpened="isUserSelectOpened"></UserSelect>
-    </Teleport>
-
     <div class="row m-1">
       <div class="d-grid gap-2 col-2">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
-          v-on:click="isUserSelectOpened = true"
-        >エクスポート</button>
+        <button type="button" class="btn btn-primary" id="export">エクスポート</button>
       </div>
-      <div class="d-grid gap-2 col-2">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="select-layout"
-          v-on:click="isApprovalRouteSelected = true"
-        >レイアウト選択</button>
-      </div>
-      <div class="d-grid gap-2 col-2">
-        <button type="button" class="btn btn-primary" id="configure-layout">レイアウト設定</button>
+      <div class="d-grid gap-2 col-3">
+        <LayoutEditButtonView
+          :columnNames="columnNames"
+          v-model:layouts="layouts"
+          v-model:selectedLayoutName="selectedLayoutName"
+          :defaultLayout="defaultLayout"
+          v-on:submit="onLayoutSubmit"
+        ></LayoutEditButtonView>
       </div>
     </div>
 
