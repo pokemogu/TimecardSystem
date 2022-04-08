@@ -4,7 +4,7 @@ import { ref, onMounted } from 'vue';
 
 const props = defineProps<{
   columnNames: string[],
-  layout: { name: string, columns: string[] },
+  layout: { name: string, columnIndices: number[] },
   isOpened: boolean,
 }>();
 
@@ -12,12 +12,13 @@ const isOpened = ref(false);
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'update:layout', value: { name: string, columns: string[] }): void,
+  (event: 'update:layout', value: { name: string, columnIndices: number[] }): void,
+  (event: 'submitDelete'): void,
   (event: 'submit'): void,
 }>();
 
-const layout = ref<{ name: string, columns: string[] }>({
-  name: props.layout.name, columns: props.layout.columns.map(column => column)
+const layout = ref<{ name: string, columnIndices: number[] }>({
+  name: props.layout.name, columnIndices: props.layout.columnIndices.map(columnIndex => columnIndex)
 });
 const unselectedColumns = ref<string[]>([]);
 const selectedColumns = ref<string[]>([]);
@@ -27,30 +28,35 @@ const focusedSelectedColumn = ref('');
 
 const layoutName = ref(props.layout.name);
 
-function UpdateForm() {
-  selectedColumns.value.splice(0);
-  Array.prototype.push.apply(selectedColumns.value, layout.value.columns);
+onMounted(async () => {
+  Array.prototype.push.apply(selectedColumns.value, layout.value.columnIndices.map(columnIndex => props.columnNames[columnIndex]));
 
-  unselectedColumns.value.splice(0);
   for (const columnName of props.columnNames) {
     if (!selectedColumns.value.some(column => column === columnName)) {
       unselectedColumns.value.push(columnName);
     }
   }
-}
-
-onMounted(async () => {
-  UpdateForm();
 });
 
 function onClose(event: Event) {
   emits('update:isOpened', false);
 }
 
+function onDelete(event: Event) {
+  if (confirm('このレイアウトを削除しますか?')) {
+    emits('update:isOpened', false);
+    emits('submitDelete');
+  }
+}
+
 function onSubmit(event: Event) {
-  layout.value.columns.splice(0);
-  Array.prototype.push.apply(layout.value.columns, selectedColumns.value);
+  layout.value.columnIndices.splice(0);
+  Array.prototype.push.apply(
+    layout.value.columnIndices,
+    selectedColumns.value.map(column => props.columnNames.findIndex(columnName => columnName === column))
+  );
   layout.value.name = layoutName.value;
+  //console.log(layout.value)
   emits('update:isOpened', false);
   emits('update:layout', layout.value);
   emits('submit');
@@ -221,7 +227,12 @@ function onOrderDown() {
               class="btn btn-primary"
               :disabled="selectedColumns.length === 0"
             >設定</button>
-            <button v-if="props.layout.name !== ''" type="button" class="btn btn-danger">削除</button>
+            <button
+              v-if="props.layout.name !== ''"
+              type="button"
+              class="btn btn-danger"
+              v-on:click="onDelete"
+            >削除</button>
           </div>
         </div>
       </form>

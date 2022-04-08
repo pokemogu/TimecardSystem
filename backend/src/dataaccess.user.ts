@@ -57,6 +57,7 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     .leftJoin('workPattern as w2', { 'w2.id': 'user.optional1WorkPattern' })
     .leftJoin('workPattern as w3', { 'w3.id': 'user.optional2WorkPattern' })
     .where(function (builder) {
+      builder.where('isDevice', false);
       if (params.byId) {
         builder.where('user.id', params.byId);
       }
@@ -124,7 +125,8 @@ export async function generateAvailableUserAccount(this: DatabaseAccess) {
     (
       { account: 'account' }
     )
-    .from('user');
+    .from('user')
+    .where('isDevice', false);
 
   const users = result as { account: string }[];
 

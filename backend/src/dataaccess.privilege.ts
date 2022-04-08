@@ -24,13 +24,15 @@ export async function getUserPrivilege(this: DatabaseAccess, accessToken: string
     return await this.knex.table<models.Privilege>('privilege')
       .first()
       .join('user', { 'user.privilege': 'privilege.id' })
-      .where('user.account', idOrAccount);
+      .where('user.account', idOrAccount)
+      .andWhere('privilege.isSystemPrivilege', false);
   }
   else {
     return await this.knex.table<models.Privilege>('privilege')
       .first()
       .join('user', { 'user.privilege': 'privilege.id' })
-      .where('user.id', idOrAccount);
+      .where('user.id', idOrAccount)
+      .andWhere('privilege.isSystemPrivilege', false);
   }
 }
 /*
@@ -125,7 +127,7 @@ export async function addPrivilege(this: DatabaseAccess, accessToken: string, pr
 }
 
 export async function getPrivileges(this: DatabaseAccess, accessToken: string) {
-  const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege');
+  const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege').where('isSystemPrivilege', false);
 
   for (const result of results) {
     if (result.id) {
@@ -143,7 +145,7 @@ export async function updatePrivilege(this: DatabaseAccess, accessToken: string,
 
   const applyTypes = await this.getApplyTypes();
 
-  await this.knex('privilege').where('id', privilege.id).update(lodash.omit(privilege, ['applyPrivileges']));
+  await this.knex('privilege').where('id', privilege.id).andWhere('isSystemPrivilege', false).update(lodash.omit(privilege, ['applyPrivileges']));
 
   await this.knex.transaction(async (trx) => {
     await this.knex('applyPrivilege').del().where('privilege', privilege.id).transacting(trx);
@@ -164,6 +166,6 @@ export async function deletePrivilege(this: DatabaseAccess, accessToken: string,
 
   await this.knex.transaction(async (trx) => {
     await this.knex('applyPrivilege').del().where('privilege', id).transacting(trx);
-    await this.knex('privilege').del().where('id', id).transacting(trx);
+    await this.knex('privilege').del().where('id', id).andWhere('isSystemPrivilege', false).transacting(trx);
   });
 }

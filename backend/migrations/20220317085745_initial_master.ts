@@ -55,6 +55,7 @@ export async function up(knex: Knex): Promise<void> {
     await knex.schema.createTable('privilege', function (table) {
       table.increments('id');
       table.string('name').notNullable().unique();
+      table.boolean('isSystemPrivilege').defaultTo(false).comment('システム内部の権限設定かどうか(システム内部権限は打刻機アカウントに使用される)');
       table.boolean('recordByLogin').notNullable().defaultTo(false);
       //table.boolean('applyRecord').notNullable().defaultTo(false);
       //table.boolean('applyLeave').notNullable().defaultTo(false);
@@ -112,15 +113,16 @@ export async function up(knex: Knex): Promise<void> {
       table.string('password');
       table.string('name').notNullable().index();
       table.string('email');
-      table.string('phonetic').notNullable().index();
+      table.string('phonetic').index();
       table.integer('section').unsigned().index();
       table.integer('privilege').unsigned().notNullable();
       table.integer('hourlyWage');
       table.integer('commuteAllowance');
       table.boolean('printOutWageDetail');
-      table.integer('defaultWorkPattern').unsigned().notNullable();
+      table.integer('defaultWorkPattern').unsigned();
       table.integer('optional1WorkPattern').unsigned();
       table.integer('optional2WorkPattern').unsigned();
+      table.boolean('isDevice').defaultTo(false).comment('打刻機アカウントの場合TRUE、従業員アカウントの場合FALSE');
 
       table.foreign('section').references('id').inTable('section');
       table.foreign('privilege').references('id').inTable('privilege');
@@ -300,7 +302,7 @@ export async function up(knex: Knex): Promise<void> {
       table.integer('approvedLevel1User').unsigned();
       table.datetime('approvedLevel1UserTimestamp');
       table.integer('approvedLevel2User').unsigned();
-      table.datetime('approvedLeve21UserTimestamp');
+      table.datetime('approvedLevel2UserTimestamp');
       table.integer('approvedLevel3User').unsigned();
       table.datetime('approvedLevel3UserTimestamp');
       table.integer('approvedDecisionUser').unsigned();

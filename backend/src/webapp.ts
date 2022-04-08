@@ -447,10 +447,112 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
     }
   });
 
+  ///////////////////////////////////////////////////////////////////////
+  // 機器関連
+  ///////////////////////////////////////////////////////////////////////
+
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      await access.addDevice(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
   app.get<{}, apiif.DevicesResponseBody>('/api/devices', async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
-      const devices = await access.getDevices();
+      const devices = await access.getDevicesOld();
+      res.send({
+        message: 'ok',
+        devices: devices
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      await access.updateDevice(token, req.body);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+      console.log(error);
+    }
+  });
+
+  app.delete<{ account: string }, apiif.MessageOnlyResponseBody>('/api/device/:account', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const routes = await access.deleteDevice(token, req.params.account);
+      res.send({
+        message: 'ok'
+      });
+    }
+    catch (error) {
+      res.status(400);
+      res.send({ message: error.toString() });
+    }
+  });
+
+  app.get<{ limit: number, offset: number }, apiif.DevicesResponseBody>('/api/device', async (req, res) => {
+    try {
+      const access = new DatabaseAccess(knex);
+      const authHeader = req.get('Authorization');
+      if (!authHeader) {
+        throw new Error('Authorization header not found');
+      }
+
+      const token = extractTokenFromHeader(authHeader);
+      if (!token) {
+        throw new Error('invalid Authorization header');
+      }
+
+      const devices = await access.getDevices(token, req.query);
       res.send({
         message: 'ok',
         devices: devices

@@ -14,6 +14,7 @@ import * as approval from './dataaccess.approval';
 import * as privilege from './dataaccess.privilege';
 import * as holiday from './dataaccess.holiday';
 import * as mail from './dataaccess.mail';
+import * as device from './dataaccess.device';
 
 export class DatabaseAccess {
   protected knex: Knex;
@@ -160,6 +161,21 @@ export class DatabaseAccess {
   public deleteMail = mail.deleteMail;
 
   ///////////////////////////////////////////////////////////////////////
+  // デバイス情報関連
+  ///////////////////////////////////////////////////////////////////////
+  public getDevices = device.getDevices;
+  public getDeviceRefreshToken = device.getDeviceRefreshToken;
+  public addDevice = device.addDevice;
+  public updateDevice = device.updateDevice;
+  public deleteDevice = device.deleteDevice;
+
+  public async getDevicesOld() {
+    const devices = await this.knex.table<models.Device>('device');
+
+    return devices.map((device) => { return <apiif.DeviceResponseData>{ name: device.name } });
+  }
+
+  ///////////////////////////////////////////////////////////////////////
   // 部署情報関連
   ///////////////////////////////////////////////////////////////////////
   public async getDepartments() {
@@ -188,15 +204,6 @@ export class DatabaseAccess {
     }
 
     return result;
-  }
-
-  ///////////////////////////////////////////////////////////////////////
-  // デバイス情報関連
-  ///////////////////////////////////////////////////////////////////////
-  public async getDevices() {
-    const devices = await this.knex.table<models.Device>('device');
-
-    return devices.map((device) => { return <apiif.DevicesResponseData>{ name: device.name } });
   }
 
 }

@@ -1,5 +1,5 @@
 import { Knex } from 'knex';
-import { hashPassword } from '../src/verify';
+import { hashPassword, issueRefreshToken } from '../src/verify';
 import { fakeNames } from '../../fakeNames';
 import * as models from '../../shared/models';
 import * as apiif from '../../shared/APIInterfaces';
@@ -36,6 +36,10 @@ function dateToLocalString(date: Date) {
 }
 
 export async function seed(knex: Knex): Promise<void> {
+
+  const getUserIdFromAccount = async (account: string) => {
+    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first()).id;
+  };
 
   await knex('record').truncate();
   //await knex('recordLog').del();
@@ -86,18 +90,6 @@ export async function seed(knex: Knex): Promise<void> {
     { department: departmentNone, name: '[部署なし]' },
   ]);
 
-  // 端末情報
-  await knex('device').insert([
-    { name: "打刻端末1" },
-    { name: "打刻端末2" },
-    { name: "打刻端末3" },
-    { name: "打刻端末4" },
-    { name: "打刻端末5" },
-    { name: "打刻端末6" },
-    { name: "打刻端末7" },
-    { name: "打刻端末8" },
-  ]);
-
   // 申請
   await knex('applyType').insert([ // その他カスタム申請
     { name: 'special-leave', isSystemType: false, description: '特別休暇' },
@@ -113,6 +105,10 @@ export async function seed(knex: Knex): Promise<void> {
 
   // 権限情報
   await knex('privilege').insert([
+    {
+      name: '__SYSTEM_DEVICE_PRIVILEGE__', isSystemPrivilege: true,
+      viewRecord: true, viewAllUserInfo: true
+    },
     {
       name: '部署管理者',
       recordByLogin: true, approve: true, viewRecord: true,
@@ -155,6 +151,53 @@ export async function seed(knex: Knex): Promise<void> {
   const privileges = await knex
     .select<{ id: number, name: string }[]>()
     .from('privilege');
+
+  // 端末情報
+  const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
+  await knex('user').insert([
+    { available: true, registeredAt: new Date(), account: 'DKK00001', name: "打刻端末1", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00002', name: "打刻端末2", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00003', name: "打刻端末3", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00004', name: "打刻端末4", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00005', name: "打刻端末5", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00006', name: "打刻端末6", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00007', name: "打刻端末7", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00008', name: "打刻端末8", privilege: privilegeIdDevice, isDevice: true },
+  ]);
+
+  const secondsPerDay = 60 * 60 * 24;
+
+  let refreshToken = issueRefreshToken({ account: 'DKK00001' }, secondsPerDay * 3650);
+  let userIdDevice = await getUserIdFromAccount('DKK00001');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00002' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00002');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00003' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00003');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00004' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00004');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00005' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00005');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00006' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00006');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00007' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00007');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+
+  refreshToken = issueRefreshToken({ account: 'DKK00008' }, secondsPerDay * 3650);
+  userIdDevice = await getUserIdFromAccount('DKK00008');
+  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
 
   // 申請権限
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
@@ -508,10 +551,6 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex('user').insert(fakeUsers);
 
-  const getUserIdFromAccount = async (account: string) => {
-    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first()).id;
-  };
-
   // 申請ルート情報
   const routes: apiif.ApprovalRouteRequestData[] = [
     {
@@ -689,14 +728,6 @@ export async function seed(knex: Knex): Promise<void> {
   baseDate.setMonth(baseDate.getMonth() - 3);
   baseDate.setDate(1);
 
-
-  /*
-  INSERT INTO cars (name) VALUES ('BMW');
-  SET @last_id_in_cars = LAST_INSERT_ID();
-  INSERT INTO carModels (otherID,name) VALUES (@last_id_in_cars,'F30');
-  SELECT @last_id_in_cars;
-   */
-
   // 浜松工場日勤
   const hamamatsuUsers = await knex
     .select<{ id: number }[]>({ id: 'id' }).from('user').where('defaultWorkPattern', workHamamatsuDayId)
@@ -712,65 +743,22 @@ export async function seed(knex: Knex): Promise<void> {
         tempDate.setMinutes(randomTableLookup() % 32);
         tempDate.setSeconds(randomTableLookup() % 59);
         const clockinDate = new Date(tempDate);
-        //const clockinTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
-        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['clockin'], timestamp: tempDate });
-        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['clockin'], timestamp: tempDate });
-        //const clockinResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
-        //const clockinId = clockinResult['LAST_INSERT_ID()'];
 
         tempDate.setHours(12);
         tempDate.setMinutes(randomTableLookup() % 15);
         tempDate.setSeconds(randomTableLookup() % 59);
         const breakDate = new Date(tempDate);
-        //const breakTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
-        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['break'], timestamp: tempDate });
-        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['break'], timestamp: tempDate });
-        //const breakResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
-        //const breakId = breakResult['LAST_INSERT_ID()'];
 
         tempDate.setHours(12);
         tempDate.setMinutes(44 + (randomTableLookup() % 15));
         tempDate.setSeconds(randomTableLookup() % 59);
         const reenterDate = new Date(tempDate);
-        //const reenterTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
-        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['reenter'], timestamp: tempDate });
-        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['reenter'], timestamp: tempDate });
-        //const reenterResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
-        //const reenterId = reenterResult['LAST_INSERT_ID()'];
 
         tempDate.setHours(17);
         tempDate.setMinutes(30 + (randomTableLookup() % 10));
         tempDate.setSeconds(randomTableLookup() % 59);
         const clockoutDate = new Date(tempDate);
-        //const clockoutTime = tempDate.toISOString().slice(0, 19).replace('T', ' ');
-        //recordLogs.push({ user: hamamatsuUser.id, type: recordTypeCache['clockout'], timestamp: tempDate });
-        //await knex('recordLog').insert({ user: hamamatsuUser.id, type: recordTypeCache['clockout'], timestamp: tempDate });
-        //const clockoutResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
-        //const clockoutId = clockoutResult['LAST_INSERT_ID()'];
 
-        /*
-        const sql = `
-        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['clockout']}, '${clockinTime}');
-        SET @last_id_clockin = LAST_INSERT_ID();
-        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['break']}, '${breakTime}');
-        SET @last_id_break = LAST_INSERT_ID();
-        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['reenter']}, '${reenterTime}');
-        SET @last_id_reenter = LAST_INSERT_ID();
-        INSERT INTO recordLog(user, type, timestamp) VALUES(${hamamatsuUser.id}, ${recordTypeCache['clockout']}, '${clockoutTime}');
-        SET @last_id_clockout = LAST_INSERT_ID();
-        INSERT INTO record(user, date, clockin, break, reenter, clockout)
-          VALUES(${hamamatsuUser.id}, '${dateToLocalString(tempDate)}', @last_id_clockin, @last_id_break, @last_id_reenter, @last_id_clockout);
-        `;
-        await knex.raw(sql);
-        */
-
-        /*
-        await knex('record').insert({
-          user: hamamatsuUser.id, date: dateToLocalString(tempDate),
-          clockin: clockinId, break: breakId, reenter: reenterId, clockout: clockoutId
-        });
-        process.stdout.write('*');
-        */
         records.push({
           user: hamamatsuUser.id, date: dateToLocalString(tempDate),
           clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate
@@ -780,6 +768,278 @@ export async function seed(knex: Knex): Promise<void> {
     tempDate.setDate(tempDate.getDate() + 1);
   }
   await knex('record').insert(records);
+
+
+  // 承認テストデータ生成
+  const getRouteIdFromName = async (name: string) => {
+    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', name).first()).id;
+  };
+
+  const hamamatsuSeizouRouteId = await getRouteIdFromName('浜松製造部社員');
+
+  for (let i = 80; i < 90; i++) {
+    const userAccount = 'USR' + i.toString().padStart(5, '0');
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: dateNow,
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
+      currentApprovingSubUser: await getUserIdFromAccount('USR00227')
+    });
+  }
+
+  for (let i = 90; i < 100; i++) {
+    const userAccount = 'USR' + i.toString().padStart(5, '0');
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      currentApprovingMainUser: await getUserIdFromAccount('USR00229'),
+      currentApprovingSubUser: await getUserIdFromAccount('USR00228')
+    });
+  }
+
+  for (let i = 100; i < 110; i++) {
+    const userAccount = 'USR' + i.toString().padStart(5, '0');
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 2, 1000 * 60 * 60 * 3)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      approvedLevel2User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00229') : await getUserIdFromAccount('USR00228'),
+      approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      currentApprovingMainUser: await getUserIdFromAccount('USR00291'),
+      currentApprovingSubUser: await getUserIdFromAccount('USR00292')
+    });
+  }
+
+  for (let i = 100; i < 110; i++) {
+    const userAccount = 'USR' + i.toString().padStart(5, '0');
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 3, 1000 * 60 * 60 * 4)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 2, 1000 * 60 * 60 * 3)),
+      approvedLevel2User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00229') : await getUserIdFromAccount('USR00228'),
+      approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      approvedLevel3User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00291') : await getUserIdFromAccount('USR00292'),
+      approvedLevel3UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      currentApprovingMainUser: await getUserIdFromAccount('USR00300'),
+      currentApprovingSubUser: null
+    });
+  }
+
+  for (let i = 110; i < 120; i++) {
+    const userAccount = 'USR' + i.toString().padStart(5, '0');
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 4, 1000 * 60 * 60 * 5)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 3, 1000 * 60 * 60 * 4)),
+      approvedLevel2User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00229') : await getUserIdFromAccount('USR00228'),
+      approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 2, 1000 * 60 * 60 * 3)),
+      approvedLevel3User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00291') : await getUserIdFromAccount('USR00292'),
+      approvedLevel3UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      approvedDecisionUser: await getUserIdFromAccount('USR00300'),
+      approvedDecisionUserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      currentApprovingMainUser: null,
+      currentApprovingSubUser: null,
+      isApproved: true
+    });
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const userAccount = 'USR00120';
+    const dateNow = new Date();
+    const dateFrom = new Date(dateNow)
+    do {
+      dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
+    } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
+
+    // 休暇申請
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
+      currentApprovingSubUser: await getUserIdFromAccount('USR00227'),
+    });
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
+      currentApprovingSubUser: null,
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      isApproved: false
+    });
+
+    await knex('apply').insert({
+      type: typeLeave,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 5, 1000 * 60 * 60 * 6)),
+      date: dateToLocalString(dateNow),
+      dateTimeFrom: dateToLocalString(dateFrom),
+      reason: '休暇取得のため',
+      contact: '090-9999-0000',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 4, 1000 * 60 * 60 * 5)),
+      approvedLevel2User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00229') : await getUserIdFromAccount('USR00228'),
+      approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 3, 1000 * 60 * 60 * 4)),
+      approvedLevel3User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00291') : await getUserIdFromAccount('USR00292'),
+      approvedLevel3UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 2, 1000 * 60 * 60 * 3)),
+      approvedDecisionUser: await getUserIdFromAccount('USR00300'),
+      approvedDecisionUserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      currentApprovingMainUser: null,
+      currentApprovingSubUser: null,
+      isApproved: true
+    });
+
+    // 打刻申請
+    const optionTypeRecord1 = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionType').where('name', 'situation').first()).id;
+    const optionTypeRecord2 = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionType').where('name', 'recordType').first()).id;
+    const optionType1ValueNotyet = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionValue').where('name', 'notyet').first()).id;
+    const optionType2ValueClockin = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionValue').where('name', 'clockin').first()).id;
+    const dateRecord = new Date(dateNow);
+    dateRecord.setHours(8);
+    dateRecord.setMinutes(30);
+    dateRecord.setSeconds(0);
+
+    await knex('apply').insert({
+      type: typeRecord,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
+      date: dateToLocalString(dateRecord),
+      dateTimeFrom: dateRecord,
+      reason: '打刻忘れのため',
+      route: hamamatsuSeizouRouteId,
+      currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
+      currentApprovingSubUser: await getUserIdFromAccount('USR00227'),
+    });
+
+    let lastApplyResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeRecord1,
+      optionValue: optionType1ValueNotyet
+    });
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeRecord2,
+      optionValue: optionType2ValueClockin
+    });
+
+    await knex('apply').insert({
+      type: typeRecord,
+      user: await getUserIdFromAccount(userAccount),
+      timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 5, 1000 * 60 * 60 * 6)),
+      date: dateToLocalString(dateRecord),
+      dateTimeFrom: dateRecord,
+      reason: '打刻忘れのため',
+      route: hamamatsuSeizouRouteId,
+      approvedLevel1User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00226') : await getUserIdFromAccount('USR00227'),
+      approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 4, 1000 * 60 * 60 * 5)),
+      approvedLevel2User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00229') : await getUserIdFromAccount('USR00228'),
+      approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 3, 1000 * 60 * 60 * 4)),
+      approvedLevel3User: (generateRandom() > 10) ? await getUserIdFromAccount('USR00291') : await getUserIdFromAccount('USR00292'),
+      approvedLevel3UserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 2, 1000 * 60 * 60 * 3)),
+      approvedDecisionUser: await getUserIdFromAccount('USR00300'),
+      approvedDecisionUserTimestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
+      currentApprovingMainUser: null,
+      currentApprovingSubUser: null,
+      isApproved: true
+    });
+
+    lastApplyResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+    lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeRecord1,
+      optionValue: optionType1ValueNotyet
+    });
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeRecord2,
+      optionValue: optionType2ValueClockin
+    });
+  }
 
   // その他情報
   await knex('systemConfig').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');

@@ -249,6 +249,12 @@ const router = createRouter({
       meta: { title: `${appName} - その他申請種別の設定` },
     },
     {
+      path: '/admin/device',
+      name: 'admin-device',
+      component: () => import('@/views/DeviceView.vue'),
+      meta: { title: `${appName} - 打刻端末設定` },
+    },
+    {
       path: '/approval/:id',
       name: 'approval',
       component: () => import('@/views/PrivilegeView.vue'),

@@ -104,13 +104,17 @@ export interface DevicesRequestBody {
   name: string
 }
 
-export interface DevicesResponseData {
+export interface DeviceResponseData {
+  id?: number,
+  account: string,
   name: string
 }
 
+export type DeviceRequestData = DeviceResponseData;
+
 export interface DevicesResponseBody {
   message: string,
-  devices?: DevicesResponseData[]
+  devices?: DeviceResponseData[]
 }
 
 export interface ApplyTypeResponseData {

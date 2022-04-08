@@ -160,7 +160,7 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/regclient" class="btn btn-warning btn-sm" role="button">端末名設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-device' }" class="btn btn-warning btn-sm" role="button">打刻端末設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>

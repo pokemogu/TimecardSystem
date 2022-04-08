@@ -479,6 +479,55 @@ export class TokenAccess {
       handleAxiosError(error);
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 機器情報関連
+  ///////////////////////////////////////////////////////////////////////
+  public async addDevice(device: apiif.DeviceRequestData) {
+    try {
+      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device`, device, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getDevices(params?: { limit?: number, offset?: number }) {
+    try {
+      const data = (await axios.get<apiif.DevicesResponseBody>(`${urlPrefix}/api/device`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        timeout: timeout,
+        params: {
+          limit: params ? params.limit : undefined,
+          offset: params ? params.offset : undefined
+        }
+      })).data;
+      return data.devices;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async updateDevice(device: apiif.DeviceRequestData) {
+    try {
+      const data = (await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device`, device, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteDevice(account: string) {
+    try {
+      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device/${account}`, {
+        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
+      })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
 }
 
 export async function getDevices() {
