@@ -12,11 +12,14 @@ import * as backendAccess from '@/BackendAccess';
 
 import generateQrCodePDF from '../GenerateQrCodePDF';
 
+import UserEdit from '@/components/UserEdit.vue';
+
 const router = useRouter();
 const store = useSessionStore();
 
 const userInfos = ref<apiif.UserInfoResponseData[]>([]);
 const checks = ref<boolean[]>([]);
+const isModalOpened = ref(false);
 
 const limit = ref(10);
 const offset = ref(0);
@@ -94,7 +97,7 @@ async function onIssueQrCode() {
               name: userInfos.value[i].name,
               account: userInfos.value[i].account,
               refreshToken: issuedToken.token.refreshToken,
-              section: userInfos.value[i].section
+              section: userInfos.value[i].section ?? ''
             });
           }
         }
@@ -132,7 +135,7 @@ function onPageForward() {
       <div class="col-12 p-0">
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="従業員照会(QRコード)"
+          titleName="従業員登録・照会(QRコード発行)"
           v-bind:userName="store.userName"
           customButton1="メニュー画面"
           v-on:customButton1="router.push({ name: 'dashboard' })"
@@ -140,12 +143,24 @@ function onPageForward() {
       </div>
     </div>
 
+    <Teleport to="body" v-if="isModalOpened">
+      <UserEdit v-model:isOpened="isModalOpened"></UserEdit>
+    </Teleport>
+
     <div class="row justify-content-end p-2">
+      <div class="d-grid gap-2 col-2">
+        <button
+          type="button"
+          class="btn btn-primary"
+          id="new-user"
+          v-on:click="isModalOpened = true"
+        >従業員ID追加</button>
+      </div>
       <div class="d-grid gap-2 col-4">
         <button
           type="button"
           class="btn btn-primary"
-          id="export"
+          id="issue-qr"
           v-on:click="onIssueQrCode"
           v-bind:disabled="checks.every(check => check === false)"
         >チェックした従業員のQRコード発行</button>
@@ -232,7 +247,7 @@ function onPageForward() {
                   v-model="checks[index]"
                 />
               </th>
-              <td>{{ new Date(user.registeredAt).toLocaleDateString() }}</td>
+              <td>{{ new Date(user.registeredAt ?? '').toLocaleDateString() }}</td>
               <td>
                 <RouterLink
                   :to="{ name: 'admin-reguser', params: { account: user.account } }"
@@ -241,7 +256,7 @@ function onPageForward() {
               <td>{{ user.name }}</td>
               <td>{{ user.department }}</td>
               <td>{{ user.section }}</td>
-              <td>{{ user.qrCodeIssueNum > 0 ? '発行済' : '未発行' }}</td>
+              <td>{{ (user.qrCodeIssueNum ?? 0) > 0 ? '発行済' : '未発行' }}</td>
             </tr>
           </tbody>
           <tfoot>

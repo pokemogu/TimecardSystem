@@ -1,50 +1,69 @@
 <script setup lang="ts">
-import { nextTick, ref, watch, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
 
 import Header from '@/components/Header.vue';
-import DeviceSelect from '@/components/DeviceSelect.vue';
 import { BeepSound } from '@/BeepSound';
 
-import { openRecordDB, openDeviceDB } from '@/RecordDBSchema';
+import { openRecordDB, openDeviceDB, openUserCacheDB } from '@/RecordDBSchema';
 import RecordWorker from '@/RecordWorker?worker';
+
+function setTimeStr(date: Date) {
+  const hourStr = date.getHours().toString().padStart(2, '0');
+  const minStr = date.getMinutes().toString().padStart(2, '0');
+  const secStr = date.getSeconds().toString().padStart(2, '0');
+  return `${hourStr}:${minStr}:${secStr}`;
+}
+
+function dateToStr(date: Date) {
+  return date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
+}
+
+function dateToTimeStr(date: Date) {
+  return date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+}
 
 const router = useRouter();
 const store = useSessionStore();
-
-const isLoggedIn = store.isLoggedIn();
 let refreshToken = '';
-const timeStr = ref('00:00:00');
+
+const timeStr = ref(setTimeStr(new Date()));
+setInterval(() => { timeStr.value = setTimeStr(new Date()) }, 1000);
+
 const recordType = ref('clockin');
 const errorName = ref('');
-const cameraMode = ref('auto');
 const headerMessage = ref('');
 
-const userId = ref(store.isLoggedIn() ? store.userAccount : '');
+const userAccount = ref(store.isLoggedIn() ? store.userAccount : '');
 const userName = ref(store.isLoggedIn() ? store.userName : '');
-
 const status = ref(store.isLoggedIn() ? 'waitForRecord' : 'waitForScan');
+
+const clockinTime = ref('');
+const breakTime = ref('');
+const reenterTime = ref('');
+const clockoutTime = ref('');
+const onTime = ref('');
 
 let timeout = setTimeout(() => { }, 0);
 
-const resetCamera = () => {
-  cameraMode.value = 'off';
-  nextTick(() => { cameraMode.value = 'auto'; });
-};
-
 const initStatus = () => {
   refreshToken = '';
-  userId.value = store.isLoggedIn() ? store.userAccount : '';
+  userAccount.value = store.isLoggedIn() ? store.userAccount : '';
   userName.value = store.isLoggedIn() ? store.userName : '';
   errorName.value = '';
   status.value = store.isLoggedIn() ? 'waitForRecord' : 'waitForScan';
+
+  clockinTime.value = '';
+  breakTime.value = '';
+  reenterTime.value = '';
+  clockoutTime.value = '';
+  onTime.value = '';
 };
 
 const recordTokenCatch = (error: Error) => {
-  resetCamera();
   if (error.name === '401') {
     console.log(error);
     errorName.value = 'TokenAuthFailedError';
@@ -59,16 +78,76 @@ const recordTokenCatch = (error: Error) => {
 };
 
 let qrCodeString = '';
+async function onKeyPressed(event: KeyboardEvent) {
+  if (event.key === 'Enter') {
+    await onDecode(qrCodeString);
+    console.log('ENTER');
+    qrCodeString = '';
+  }
+  else {
+    qrCodeString = qrCodeString + event.key;
+  }
+}
+
+// 打刻端末名に関する設定
+const thisDeviceName = ref('');
+
 onMounted(async () => {
-  window.addEventListener('keypress', function (event: KeyboardEvent) {
-    if (event.key === 'Enter') {
-      console.log(qrCodeString);
-      qrCodeString = '';
+
+  try {
+
+    // QR打刻画面の場合
+    if (!store.isLoggedIn()) {
+
+      // バックグラウンドでの打刻送信ワーカーを起動する
+      const worker = new RecordWorker();
+
+      worker.onmessage = (ev) => {
+        const message = <{ type: string, message: string }>ev.data;
+        console.log(message);
+        if (message.type === 'error') {
+          headerMessage.value = message.message;
+          setTimeout(() => {
+            headerMessage.value = '';
+          }, 5000);
+        }
+      };
+
+      // USB QRリーダーからのキーボード信号をキャプチャする
+      window.addEventListener('keypress', onKeyPressed);
+
+      // 打刻画面を終了する場合はワーカーに打刻画面終了を告知し、キーボード信号キャプチャを終了する
+      onBeforeRouteLeave(() => {
+        worker.postMessage('ending');
+        window.removeEventListener('keypress', onKeyPressed);
+      });
     }
     else {
-      qrCodeString = qrCodeString + event.key;
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      const todayStr = dateToStr(new Date());
+      const userWorkPattern = await access.getUserWorkPatternCalendar({ from: todayStr, to: todayStr });
+      if (userWorkPattern && userWorkPattern.length > 0) {
+        if (userWorkPattern[0].workPattern) {
+        }
+      }
     }
-  })
+
+    // 現在設定されている端末名があれば取得する
+    const db = await openDeviceDB();
+    if (db) {
+      const keys = await db.getAllKeys('timecard-device');
+      if (keys.length > 0) {
+        const data = await db.get('timecard-device', keys[0]);
+        if (data) {
+          thisDeviceName.value = data.name;
+        }
+      }
+    }
+  }
+  catch (error) {
+    alert(error);
+  }
 });
 
 async function onRecord(event: Event) {
@@ -78,7 +157,13 @@ async function onRecord(event: Event) {
     if (!store.isLoggedIn()) {
       // QR打刻端末からの打刻の場合はキューイングで打刻する
       const db = await openRecordDB();
-      await db.put('timecard-record', { type: recordType.value, account: '', timestamp: dateNow, refreshToken: refreshToken });
+      await db.put('timecard-record', {
+        type: recordType.value,
+        account: userAccount.value,
+        timestamp: dateNow,
+        refreshToken: refreshToken,
+        isSent: false
+      });
     }
     else {
       // PC端末からの打刻の場合は即時打刻する。
@@ -87,7 +172,6 @@ async function onRecord(event: Event) {
       await access.record(recordType.value, dateNow);
     }
 
-    resetCamera();
     status.value = 'recordCompleted';
 
     clearTimeout(timeout);
@@ -98,103 +182,89 @@ async function onRecord(event: Event) {
   }
 }
 
-function onDecode(decodedQrcode: string) {
-  BeepSound.play();
-  status.value = 'waitForRecord';
-  backendAccess.getToken(decodedQrcode)
-    .then((token) => {
-      if (token?.token) {
-        refreshToken = decodedQrcode;
-        const access = new backendAccess.TokenAccess(token.token.accessToken);
-        access.getUserInfo(token.token.account).then((userInfo) => {
-          if (userInfo && token.token) {
-            userId.value = token.token.account;
-            userName.value = userInfo.name || '';
-          }
-        });
+async function onDecode(decodedQrcode: string) {
+  //BeepSound.play();
 
-        //status.value = 'waitForRecord';
-
-        // 認証してから1分経過しても打刻していない場合は認証をクリアする
-        clearTimeout(timeout);
-        timeout = setTimeout(() => {
-          resetCamera();
-          initStatus();
-        }, 60000);
+  const decodedStrs = decodedQrcode.split(':', 2);
+  if (decodedStrs.length < 2) {
+    errorName.value = 'TokenAuthFailedError';
+    status.value = 'error';
+  }
+  else {
+    try {
+      status.value = 'waitForRecord';
+      const userCacheDb = await openUserCacheDB();
+      const userInfo = await userCacheDb.get('timecard-user-cache', decodedStrs[0]);
+      userAccount.value = decodedStrs[0];
+      refreshToken = decodedStrs[1];
+      if (userInfo) {
+        userName.value = userInfo.name;
+        if (userInfo.workPattern?.onTimeStart && userInfo.workPattern?.onTimeEnd) {
+          onTime.value =
+            dateToTimeStr(userInfo.workPattern.onTimeStart) + ' 〜 ' + dateToTimeStr(userInfo.workPattern.onTimeEnd);
+        }
+        else {
+          onTime.value = '勤務予定無し';
+        }
       }
-    })
-    .catch(recordTokenCatch);
+      userCacheDb.close();
+
+      const recordDb = await openRecordDB();
+      if (recordDb) {
+        //const recordInfo = await recordDb.get('timecard-record', 0);
+        const recordInfos = await recordDb.getAllFromIndex('timecard-record', 'by-account', userAccount.value);
+        if (recordInfos) {
+          for (const recordInfo of recordInfos) {
+            switch (recordInfo.type) {
+              case 'clockin':
+                clockinTime.value = dateToTimeStr(recordInfo.timestamp);
+                break;
+              case 'break':
+                breakTime.value = dateToTimeStr(recordInfo.timestamp);
+                break;
+              case 'reenter':
+                reenterTime.value = dateToTimeStr(recordInfo.timestamp);
+                break;
+              case 'clockout':
+                clockoutTime.value = dateToTimeStr(recordInfo.timestamp);
+                break;
+            }
+          }
+        }
+        //console.log(recordInfos);
+        recordDb.close();
+
+        // 打鍵状況に合わせてボタンを自動的に変更する
+        if (clockinTime.value !== '') {
+          recordType.value = 'break';
+        }
+        if (breakTime.value !== '') {
+          recordType.value = 'reenter';
+        }
+        if (reenterTime.value !== '') {
+          recordType.value = 'clockout';
+        }
+        if (clockoutTime.value !== '') {
+          recordType.value = 'clockin';
+        }
+      }
+    }
+    catch (error) {
+      console.log(error);
+      alert(error);
+    }
+  }
+
+  // 認証してから1分経過しても打刻していない場合は認証をクリアする
+  clearTimeout(timeout);
+  timeout = setTimeout(() => {
+    initStatus();
+  }, 60000);
 }
 
 function onScanCancel() {
-  resetCamera();
   initStatus();
   clearTimeout(timeout);
-}
-
-async function onInit(promise: Promise<any>) {
-  try {
-    await promise;
-    errorName.value = '';
-  } catch (error: any) {
-    errorName.value = error.name;
-  }
-}
-
-setInterval(() => {
-  const now = new Date();
-  const hourStr = now.getHours().toString().padStart(2, '0');
-  const minStr = now.getMinutes().toString().padStart(2, '0');
-  const secStr = now.getSeconds().toString().padStart(2, '0');
-  timeStr.value = `${hourStr}:${minStr}:${secStr}`;
-}, 1000);
-
-// QR打刻端末の場合はバックグラウンドでの打刻送信ワーカーを起動する
-if (!store.isLoggedIn()) {
-  const worker = new RecordWorker();
-
-  onBeforeRouteLeave((to, from) => {
-    // ワーカーに打刻画面終了を告知する
-    worker.postMessage('ending');
-  });
-
-  worker.onmessage = (ev) => {
-    const message = <{ type: string, message: string }>ev.data;
-    console.log(message);
-    if (message.type === 'error') {
-      headerMessage.value = message.message;
-      setTimeout(() => {
-        headerMessage.value = '';
-      }, 5000);
-    }
-  };
-}
-
-// 打刻端末名に関する設定
-const thisDeviceName = ref('');
-const isDeviceSelectOpened = ref(false);
-
-// 現在設定されている端末名があれば取得する
-openDeviceDB().then((db) => {
-  db.getAllKeys('timecard-device').then((keys) => {
-    if (keys.length > 0) {
-      thisDeviceName.value = keys[0];
-    }
-  });
-});
-
-// 端末名の設定変更がされていたら、それを反映する
-watch(thisDeviceName, async () => {
-  const db = await openDeviceDB();
-  await db.put('timecard-device', { timestamp: new Date() }, thisDeviceName.value);
-});
-
-function onKeyPress(event: Event) {
-  console.log(event);
-}
-
-function onKeyDown(event: Event) {
-  console.log(event);
 }
 
 </script>
@@ -206,23 +276,46 @@ function onKeyDown(event: Event) {
         <Header
           v-bind:isAuthorized="store.isLoggedIn()"
           titleName="打刻画面"
-          customButton1="端末名設定"
-          v-on:customButton1="isDeviceSelectOpened = true"
-          v-bind:customButton2="isLoggedIn ? 'メニュー画面' : 'ログイン画面'"
-          v-on:customButton2="isLoggedIn ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
+          v-bind:customButton2="store.isLoggedIn() ? 'メニュー画面' : 'ログイン画面'"
+          v-on:customButton2="store.isLoggedIn() ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
           :customMessage="headerMessage"
           :deviceName="thisDeviceName"
         ></Header>
       </div>
     </div>
 
-    <Teleport to="body" v-if="isDeviceSelectOpened">
-      <DeviceSelect v-model:deviceName="thisDeviceName" v-model:isOpened="isDeviceSelectOpened"></DeviceSelect>
-    </Teleport>
-
-    <div class="row justify-content-center gy-5">
-      <div v-if="!store.isLoggedIn()" class="col-4 p-2">
-        <qrcode-stream v-bind:camera="cameraMode" @decode="onDecode" @init="onInit" />
+    <div class="row justify-content-center gy-5 m-2">
+      <div class="col-4 m-2">
+        <div class="row overflow-auto p-2">
+          <div class="col-4 h5">出勤記録</div>
+          <p
+            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
+          >{{ clockinTime !== '' ? clockinTime : '--:--' }}</p>
+        </div>
+        <div class="row overflow-auto p-2">
+          <div class="col-4 h5">外出記録</div>
+          <p
+            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
+          >{{ breakTime !== '' ? breakTime : '--:--' }}</p>
+        </div>
+        <div class="row overflow-auto p-2">
+          <div class="col-4 h5">再入記録</div>
+          <p
+            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
+          >{{ reenterTime !== '' ? reenterTime : '--:--' }}</p>
+        </div>
+        <div class="row overflow-auto p-2">
+          <div class="col-4 h5">退勤記録</div>
+          <p
+            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
+          >{{ clockoutTime !== '' ? clockoutTime : '--:--' }}</p>
+        </div>
+        <div class="row overflow-auto p-2">
+          <div class="col-4 h5">勤務予定</div>
+          <p
+            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
+          >{{ onTime !== '' ? onTime : '--:-- 〜 --:--' }}</p>
+        </div>
       </div>
       <div class="col-6">
         <div class="row">
@@ -238,7 +331,7 @@ function onKeyDown(event: Event) {
             v-if="thisDeviceName === ''"
             class="alert h5 alert-warning"
             role="alert"
-          >端末名を右上メニューボタンから設定してください。</div>
+          >端末名が設定されていません。管理者が本端末でログインしてメニュー画面から端末名を設定してください。</div>
           <div
             v-else-if="status === 'waitForAuth'"
             class="alert h5 alert-primary"
@@ -258,47 +351,12 @@ function onKeyDown(event: Event) {
             v-else-if="status === 'waitForScan'"
             class="alert h5 alert-light"
             role="alert"
-          >QRコードをカメラにかざしてスキャンしてください。</div>
+          >QRコードをかざしてスキャンしてください。</div>
           <div
             v-else-if="status === 'error' && errorName === 'TokenAuthFailedError'"
             class="alert h5 alert-danger"
             role="alert"
           >ユーザー認証に失敗しました。管理者にお問い合わせください。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'NotAllowedError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: カメラへのアクセスが許可されていません。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'NotFoundError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: この機器にはカメラがありません。</div>
-          <div
-            v-else-if="status === 'error' && (errorName === 'NotSupportedError' || errorName === 'InsecureContextError')"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: リモートHTTPS通信で無い為、カメラへのアクセスができません。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'NotReadableError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: カメラからの読み込みができません。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'OverconstrainedError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: カメラのスペックが本用途に適しておらず使用できません。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'StreamApiNotSupportedError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >エラー: このブラウザではカメラストリーミングがサポートされていません。</div>
-          <div
-            v-else-if="status === 'error'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >不明なエラーが発生しました: {{ errorName }}</div>
         </div>
 
         <div class="row">
@@ -309,7 +367,7 @@ function onKeyDown(event: Event) {
             v-bind:disabled="status !== 'waitForRecord'"
           >
             <span v-if="recordType === 'clockin'">出勤</span>
-            <span v-else-if="recordType === 'clockout'">退出</span>
+            <span v-else-if="recordType === 'clockout'">退勤</span>
             <span v-else-if="recordType === 'break'">外出</span>
             <span v-else-if="recordType === 'reenter'">再入</span>
             打刻
@@ -317,7 +375,7 @@ function onKeyDown(event: Event) {
         </div>
         <div class="row mt-2 mb-2">
           <div class="col-1 h3 text-end align-middle">ID</div>
-          <div class="col-3 h6 bg-white shadow-sm align-middle">{{ userId }}</div>
+          <div class="col-3 h6 bg-white shadow-sm align-middle">{{ userAccount }}</div>
           <div class="col-2 h3 text-end align-middle">氏名</div>
           <div class="col-6 h3 bg-white shadow-sm align-middle">{{ userName }}</div>
         </div>
@@ -347,7 +405,7 @@ function onKeyDown(event: Event) {
           autocomplete="off"
           v-bind:checked="recordType === 'clockout'"
         />
-        <label class="btn btn-outline-warning btn-lg" for="clockout">退出</label>
+        <label class="btn btn-outline-warning btn-lg" for="clockout">退勤</label>
       </div>
       <div class="d-grid gap-2 col-2">
         <input

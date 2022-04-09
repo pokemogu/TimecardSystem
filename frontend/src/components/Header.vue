@@ -69,12 +69,6 @@ const isPasswordChangeOpened = ref(false);
         class="ms-2 btn btn-warning btn-sm"
         role="button"
       >{{ props.customButton3 }}</button>
-      <button
-        v-if="props.isAuthorized"
-        v-on:click="isPasswordChangeOpened = true"
-        class="ms-2 btn btn-warning btn-sm"
-        role="button"
-      >パスワード変更</button>
       <RouterLink
         v-if="props.isAuthorized"
         :to="{ name: 'logout' }"

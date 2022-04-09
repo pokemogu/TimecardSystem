@@ -153,7 +153,7 @@ export async function revokeRefreshToken(this: DatabaseAccess, account: string, 
     .where('user.account', account)
     .first();
 
-  await this.knex('token').where('user', user.id).del();
+  await this.knex('token').where('user', user.id).andWhere('isQrToken', false).del();
 }
 
 export async function deleteAllExpiredRefreshTokens(this: DatabaseAccess) {

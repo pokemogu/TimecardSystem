@@ -52,12 +52,14 @@ export async function addDevice(this: DatabaseAccess, accessToken: string, devic
     isDevice: true
   });
 
+  /*
   const lastUserResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
   const lastUserId = lastUserResult['LAST_INSERT_ID()'];
 
   const secondsPerDay = 60 * 60 * 24;
   let refreshToken = issueRefreshToken({ account: device.account }, secondsPerDay * 3650);
   await this.knex('token').insert({ user: lastUserId, refreshToken: refreshToken, isQrToken: true });
+  */
 }
 
 export async function updateDevice(this: DatabaseAccess, accessToken: string, device: apiif.DeviceRequestData) {

@@ -197,8 +197,8 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, accessTok
         builder.where('date', '<=', params.to);
       }
 
-      if (params.account) {
-        builder.where('user.account', params.account);
+      if (params.accounts) {
+        builder.whereIn('user.account', params.accounts);
       }
       else {
         builder.where('user.id', authUserInfo.id);

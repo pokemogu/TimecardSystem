@@ -10,7 +10,7 @@ function dateToLocalString(date: Date) {
 ///////////////////////////////////////////////////////////////////////
 
 export async function putRecord(this: DatabaseAccess, accessToken: string, params: {
-  account?: string, type: string, timestamp: Date, device?: string, deviceToken?: string, apply?: number
+  account?: string, type: string, timestamp: Date, deviceAccount?: string, deviceToken?: string, apply?: number
 }) {
 
   // type はデータベースから取得済のキャッシュを利用する
@@ -62,9 +62,9 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
     }
 
     if (!records.some(record => dateToLocalString(record.date) === currentDayString)) {
-      console.log('record: currentDay not found')
+      //console.log('record: currentDay not found')
       if (records.some(record => dateToLocalString(record.date) === beforeDayString)) {
-        console.log('record: beforeDay found')
+        //console.log('record: beforeDay found')
         recordDateString = beforeDayString;
       }
     }
@@ -72,8 +72,30 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
 
   // 打刻機器が指定されている場合は打刻機器IDを取得する
   let deviceId: number | undefined = undefined;
-  if (params.device) {
-    deviceId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('device').where('name', params.device).first()).id;
+  if (params.deviceAccount) {
+    //console.log('params.deviceAccount: ' + params.deviceAccount)
+    deviceId = (await this.knex.select<{ id: number }[]>({ id: 'id' })
+      .from('user')
+      .where('account', params.deviceAccount)
+      .andWhere('isDevice', true)
+      .first()).id;
+    //console.log('deviceId: ' + deviceId)
+  }
+
+  const mergeColumns: string[] = [];
+  switch (params.type) {
+    case 'clockin':
+      Array.prototype.push.apply(mergeColumns, ['clockin', 'clockinDevice', 'clockinApply']);
+      break;
+    case 'break':
+      Array.prototype.push.apply(mergeColumns, ['break', 'breakDevice', 'breakApply']);
+      break;
+    case 'reenter':
+      Array.prototype.push.apply(mergeColumns, ['reenter', 'reenterDevice', 'reenterApply']);
+      break;
+    case 'clockout':
+      Array.prototype.push.apply(mergeColumns, ['clockout', 'clockoutDevice', 'clockoutApply']);
+      break;
   }
 
   await this.knex('record').insert({
@@ -97,7 +119,7 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
     clockoutApply: params.type === 'clockout' ? params.apply : undefined,
   })
     .onConflict(['user', 'date'])
-    .merge([params.type]); // ON DUPLICATE KEY UPDATE
+    .merge(mergeColumns); // ON DUPLICATE KEY UPDATE
 }
 
 export async function getRecords(this: DatabaseAccess, params: {

@@ -434,7 +434,8 @@ export default async function registerHandlers(app: Express, knexconfig: Knex.Co
         account: req.body.account,
         type: req.params.type,
         timestamp: new Date(req.body.timestamp),
-        device: req.body.device
+        deviceAccount: req.body.deviceAccount,
+        deviceToken: req.body.deviceToken
       });
       res.send({
         message: 'ok'

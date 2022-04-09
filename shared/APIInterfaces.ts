@@ -94,7 +94,7 @@ export interface UserAccountCandidatesResponseBody {
 export interface RecordRequestBody {
   account?: string,
   timestamp: string,
-  device?: string,
+  deviceAccount?: string,
   deviceToken?: string
 }
 
@@ -367,7 +367,7 @@ export interface HolidaysResponseBody {
 export interface UserWorkPatternCalendarRequestQuery {
   from?: string,
   to?: string,
-  account?: string,
+  accounts?: string[],
   limit?: number,
   offset?: number
 }

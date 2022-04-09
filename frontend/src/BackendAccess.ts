@@ -131,10 +131,10 @@ export class TokenAccess {
     }
   }
 
-  public async record(recordType: string, timestamp: Date, deviceName?: string, deviceRefreshToken?: string) {
+  public async record(recordType: string, timestamp: Date, deviceAccount?: string, deviceRefreshToken?: string) {
     try {
       return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/record/${recordType}`,
-        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), device: deviceName, deviceToken: deviceRefreshToken },
+        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), deviceAccount: deviceAccount, deviceToken: deviceRefreshToken },
         { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
       )).data;
     } catch (error) {

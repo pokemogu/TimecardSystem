@@ -23,7 +23,7 @@ export const useSessionStore = defineStore({
     async login(account: string, password: string) {
       try {
         const result = await backendAccess.login(account, password);
-        if (result.refreshToken && result.name) {
+        if (result?.refreshToken && result?.name) {
           this.refreshToken = result.refreshToken;
           this.userAccount = account;
           this.userName = result.name;
@@ -48,7 +48,7 @@ export const useSessionStore = defineStore({
           this.refreshToken = refreshToken;
         }
         const result = await backendAccess.getToken(this.refreshToken);
-        if (!result.token) {
+        if (!result?.token) {
           throw new Error('toke not returned');
         }
         return result.token.accessToken;

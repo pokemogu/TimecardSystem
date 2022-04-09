@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import { RouterLink, useRouter } from 'vue-router';
+import { ref, Teleport } from 'vue';
+import { RouterLink, useRouter, } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
+import PasswordChange from '@/components/PasswordChange.vue';
+import DeviceSelect from '@/components/DeviceSelect.vue';
 
 const router = useRouter();
 const store = useSessionStore();
+
+const isPasswordChangeOpened = ref(false);
+const isDeviceSelectOpened = ref(false);
+const selectedDeviceName = ref('');
 
 </script>
 
 <template>
   <div class="container">
+    <Teleport to="body" v-if="isPasswordChangeOpened">
+      <PasswordChange v-model:isOpened="isPasswordChangeOpened"></PasswordChange>
+    </Teleport>
+
+    <Teleport to="body" v-if="isDeviceSelectOpened">
+      <DeviceSelect v-model:isOpened="isDeviceSelectOpened" v-model:deviceName="selectedDeviceName"></DeviceSelect>
+    </Teleport>
+
     <div class="row justify-content-center">
       <div class="col-12 p-0">
         <Header
@@ -83,7 +98,9 @@ const store = useSessionStore();
     </div>
 
     <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
+      <div class="d-grid col-2 gap-2">
+        <button class="btn btn-warning btn-sm" v-on:click="isPasswordChangeOpened = true">パスワード変更</button>
+      </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
           :to="{ name: 'apply-overtime' }"
@@ -114,7 +131,9 @@ const store = useSessionStore();
     </div>
 
     <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
+      <div class="d-grid col-2 gap-2">
+        <button class="btn btn-warning btn-sm" v-on:click="isDeviceSelectOpened = true">端末名設定</button>
+      </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink
           :to="{ name: 'apply-lateness' }"
@@ -160,7 +179,11 @@ const store = useSessionStore();
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-device' }" class="btn btn-warning btn-sm" role="button">打刻端末設定</RouterLink>
+        <RouterLink
+          :to="{ name: 'admin-device' }"
+          class="btn btn-warning btn-sm"
+          role="button"
+        >打刻端末設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>

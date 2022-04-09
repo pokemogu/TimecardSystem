@@ -87,12 +87,14 @@ describe('データアクセステスト', () => {
   describe('一般情報取得テスト', () => {
 
     // デバイス情報取得
+    /*
     test('getDevices', async () => {
       const access = new DatabaseAccess(knex);
       const result = await access.getDevices();
       expect(result).toBeDefined();
       console.log(result);
     });
+    */
 
     test('getDepartments', async () => {
       const access = new DatabaseAccess(knex);
@@ -180,6 +182,19 @@ describe('データアクセステスト', () => {
         const roleMembersforSeizoSHain = await access.getApprovalRoutes(token, undefined, roleMember.id);
         expect(roleMembersforSeizoSHain).toBeDefined();
       }
+    });
+
+
+    test('getUserWorkPatternCalendar', async () => {
+      const access = new DatabaseAccess(knex);
+      const token = await access.issueAccessToken(refreshToken);
+
+      const result = await access.getUserWorkPatternCalendar(token, {
+        accounts: ['USR00225'],
+        from: '2022-04-09',
+        to: '2022-04-09'
+      });
+      console.dir(result, { depth: null });
     });
   });
 
