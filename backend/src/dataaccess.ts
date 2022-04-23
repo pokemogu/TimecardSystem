@@ -5,16 +5,22 @@ import type { Knex } from 'knex';
 import type * as models from 'shared/models';
 import type * as apiif from 'shared/APIInterfaces';
 
-import * as auth from './dataaccess.auth';
-import * as workPattern from './dataaccess.workpattern';
-import * as record from './dataaccess.record';
-import * as user from './dataaccess.user';
-import * as apply from './dataaccess.apply';
-import * as approval from './dataaccess.approval';
-import * as privilege from './dataaccess.privilege';
-import * as holiday from './dataaccess.holiday';
-import * as mail from './dataaccess.mail';
-import * as device from './dataaccess.device';
+import * as auth from './dataaccess/auth';
+import * as workPattern from './dataaccess/workpattern';
+import * as record from './dataaccess/record';
+import * as user from './dataaccess/user';
+import * as apply from './dataaccess/apply';
+import * as approval from './dataaccess/approval';
+import * as privilege from './dataaccess/privilege';
+import * as holiday from './dataaccess/holiday';
+import * as config from './dataaccess/config';
+import * as mail from './dataaccess/mail';
+import * as device from './dataaccess/device';
+
+export interface UserInfo {
+  id: number,
+  account: string
+}
 
 export class DatabaseAccess {
   protected knex: Knex;
@@ -102,7 +108,7 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   // 打刻情報関連 dataaccess.record
   ///////////////////////////////////////////////////////////////////////
-  public putRecord = record.putRecord;
+  public submitRecord = record.submitRecord;
   public getRecords = record.getRecords;
 
   ///////////////////////////////////////////////////////////////////////
@@ -110,7 +116,7 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   public getUsers = user.getUsers;
   public generateAvailableUserAccount = user.generateAvailableUserAccount;
-  public registerUser = user.registerUser;
+  public addUser = user.addUser;
   public deleteUser = user.deleteUser;
   public disableUser = user.disableUser;
 
@@ -118,8 +124,15 @@ export class DatabaseAccess {
   // 申請関連 dataaccess.apply
   ///////////////////////////////////////////////////////////////////////
   public submitApply = apply.submitApply;
+  public getApply = apply.getApply;
+  public getApplyTypeOfApply = apply.getApplyTypeOfApply;
+  public approveApply = apply.approveApply;
   public getApplyTypes = apply.getApplyTypes;
   public addApplyType = apply.addApplyType;
+  protected getEmailsOfApply = apply.getEmailsOfApply;
+  public sendApplyMail = apply.sendApplyMail;
+  public sendApplyRejectedMail = apply.sendApplyRejectedMail;
+  public sendApplyApprovedMail = apply.sendApplyApprovedMail;
   public updateApplyType = apply.updateApplyType;
   public deleteApplyType = apply.deleteApplyType;
   public getApplyOptionTypes = apply.getApplyOptionTypes;
@@ -151,6 +164,13 @@ export class DatabaseAccess {
   public setHoliday = holiday.setHoliday;
   public getHolidays = holiday.getHolidays;
   public deleteHoliday = holiday.deleteHoliday;
+
+  ///////////////////////////////////////////////////////////////////////
+  // システム設定関連
+  ///////////////////////////////////////////////////////////////////////
+  public setSystemConfig = config.setSystemConfig
+  public getSystemConfigValue = config.getSystemConfigValue;
+  public getSystemConfig = config.getSystemConfig;
 
   ///////////////////////////////////////////////////////////////////////
   // メール関連

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, Teleport } from 'vue';
-import { RouterLink, useRouter, } from 'vue-router';
+import { RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
 import DeviceSelect from '@/components/DeviceSelect.vue';
 
-const router = useRouter();
 const store = useSessionStore();
 
 const isPasswordChangeOpened = ref(false);
@@ -28,11 +27,7 @@ const selectedDeviceName = ref('');
 
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="メニュー画面"
-          v-bind:userName="store.userName"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="メニュー画面" v-bind:userName="store.userName"></Header>
       </div>
     </div>
 
@@ -66,21 +61,14 @@ const selectedDeviceName = ref('');
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'work-pattern' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >勤務体系登録</RouterLink>
+        <RouterLink :to="{ name: 'work-pattern' }" class="btn btn-warning btn-sm" role="button">勤務体系登録</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink :to="{ name: 'apply-leave' }" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-holiday-work' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >休日出勤申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-holiday-work' }" class="btn btn-warning btn-sm" role="button">休日出勤申請
+        </RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/approve/all" class="btn btn-warning btn-sm" role="button">全ての申請</RouterLink>
@@ -89,11 +77,7 @@ const selectedDeviceName = ref('');
         <RouterLink to="/admin/vacation" class="btn btn-warning btn-sm" role="button">有給取得状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'admin-workpattern' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >勤務体系設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-workpattern' }" class="btn btn-warning btn-sm" role="button">勤務体系設定</RouterLink>
       </div>
     </div>
 
@@ -102,18 +86,10 @@ const selectedDeviceName = ref('');
         <button class="btn btn-warning btn-sm" v-on:click="isPasswordChangeOpened = true">パスワード変更</button>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-overtime' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >早出・残業申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-overtime' }" class="btn btn-warning btn-sm" role="button">早出・残業申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-makeup-leave' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >代休申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-makeup-leave' }" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink :to="{ name: 'admin-route' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
@@ -122,11 +98,7 @@ const selectedDeviceName = ref('');
         <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'admin-user' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >従業員登録・照会(QR)</RouterLink>
+        <RouterLink :to="{ name: 'admin-user' }" class="btn btn-warning btn-sm" role="button">従業員登録・照会(QR)</RouterLink>
       </div>
     </div>
 
@@ -135,55 +107,32 @@ const selectedDeviceName = ref('');
         <button class="btn btn-warning btn-sm" v-on:click="isDeviceSelectOpened = true">端末名設定</button>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-lateness' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >遅刻申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-lateness' }" class="btn btn-warning btn-sm" role="button">遅刻申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-custom' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >その他申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-custom' }" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'admin-custom-apply' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >申請種類設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-custom-apply' }" class="btn btn-warning btn-sm" role="button">申請種類設定
+        </RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程登録</RouterLink>
+        <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程管理</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'admin-reguser' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >従業員登録</RouterLink>
+        <RouterLink to="/admin/config" class="btn btn-warning btn-sm" role="button">システム設定</RouterLink>
       </div>
     </div>
 
     <div class="row g-2 mt-2">
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'apply-leave-early' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >早退申請</RouterLink>
+        <RouterLink :to="{ name: 'apply-leave-early' }" class="btn btn-warning btn-sm" role="button">早退申請</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2"></div>
       <div class="d-grid col-2 gap-2">
-        <RouterLink
-          :to="{ name: 'admin-device' }"
-          class="btn btn-warning btn-sm"
-          role="button"
-        >打刻端末設定</RouterLink>
+        <RouterLink :to="{ name: 'admin-device' }" class="btn btn-warning btn-sm" role="button">打刻端末設定</RouterLink>
       </div>
       <div class="d-grid col-2 gap-2">
         <RouterLink to="/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>
@@ -203,17 +152,14 @@ const selectedDeviceName = ref('');
       </div>
     </div>
   </div>
-  <!--
-<main>
-    <TheWelcome />
-  </main>
-  -->
 </template>
 
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

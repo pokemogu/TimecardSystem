@@ -6,7 +6,6 @@ import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
 
 import Header from '@/components/Header.vue';
-import { BeepSound } from '@/BeepSound';
 
 import { openRecordDB, openDeviceDB, openUserCacheDB } from '@/RecordDBSchema';
 import RecordWorker from '@/RecordWorker?worker';
@@ -37,9 +36,9 @@ const recordType = ref('clockin');
 const errorName = ref('');
 const headerMessage = ref('');
 
-const userAccount = ref(store.isLoggedIn() ? store.userAccount : '');
-const userName = ref(store.isLoggedIn() ? store.userName : '');
-const status = ref(store.isLoggedIn() ? 'waitForRecord' : 'waitForScan');
+const userAccount = ref('');
+const userName = ref('');
+const status = ref('');
 
 const clockinTime = ref('');
 const breakTime = ref('');
@@ -49,18 +48,61 @@ const onTime = ref('');
 
 let timeout = setTimeout(() => { }, 0);
 
-const initStatus = () => {
+async function initStatus() {
   refreshToken = '';
   userAccount.value = store.isLoggedIn() ? store.userAccount : '';
   userName.value = store.isLoggedIn() ? store.userName : '';
   errorName.value = '';
   status.value = store.isLoggedIn() ? 'waitForRecord' : 'waitForScan';
 
-  clockinTime.value = '';
-  breakTime.value = '';
-  reenterTime.value = '';
-  clockoutTime.value = '';
-  onTime.value = '';
+  // QR打刻画面の場合
+  if (!store.isLoggedIn()) {
+    clockinTime.value = '';
+    breakTime.value = '';
+    reenterTime.value = '';
+    clockoutTime.value = '';
+    onTime.value = '';
+  }
+  // ログイン打刻の場合
+  else {
+    const token = await store.getToken();
+    const access = new backendAccess.TokenAccess(token);
+    const todayStr = dateToStr(new Date());
+
+    // 本日の打刻実績を取得する
+    const records = await access.getRecords({
+      byUserAccount: store.userAccount,
+      from: todayStr,
+      to: todayStr
+    });
+
+    if (records && records.length > 0) {
+      if (records[0].clockin) {
+        clockinTime.value = dateToTimeStr(new Date(records[0].clockin.timestamp));
+      }
+      if (records[0].break) {
+        breakTime.value = dateToTimeStr(new Date(records[0].break.timestamp));
+      }
+      if (records[0].reenter) {
+        reenterTime.value = dateToTimeStr(new Date(records[0].reenter.timestamp));
+      }
+      if (records[0].clockout) {
+        clockoutTime.value = dateToTimeStr(new Date(records[0].clockout.timestamp));
+      }
+    }
+
+    // 本日の勤務形態を取得する
+    const userWorkPattern = await access.getUserWorkPatternCalendar({ from: todayStr, to: todayStr });
+    if (userWorkPattern && userWorkPattern.length > 0) {
+      if (userWorkPattern[0].workPattern) {
+        onTime.value =
+          dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeStart)) + ' 〜 ' + dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeEnd));
+      }
+      else {
+        onTime.value = '勤務予定無し';
+      }
+    }
+  }
 };
 
 const recordTokenCatch = (error: Error) => {
@@ -95,10 +137,8 @@ const thisDeviceName = ref('');
 onMounted(async () => {
 
   try {
-
     // QR打刻画面の場合
     if (!store.isLoggedIn()) {
-
       // バックグラウンドでの打刻送信ワーカーを起動する
       const worker = new RecordWorker();
 
@@ -121,29 +161,21 @@ onMounted(async () => {
         worker.postMessage('ending');
         window.removeEventListener('keypress', onKeyPressed);
       });
-    }
-    else {
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
-      const todayStr = dateToStr(new Date());
-      const userWorkPattern = await access.getUserWorkPatternCalendar({ from: todayStr, to: todayStr });
-      if (userWorkPattern && userWorkPattern.length > 0) {
-        if (userWorkPattern[0].workPattern) {
+
+      // 現在設定されている端末名があれば取得する
+      const db = await openDeviceDB();
+      if (db) {
+        const keys = await db.getAllKeys('timecard-device');
+        if (keys.length > 0) {
+          const data = await db.get('timecard-device', keys[0]);
+          if (data) {
+            thisDeviceName.value = data.name;
+          }
         }
       }
     }
 
-    // 現在設定されている端末名があれば取得する
-    const db = await openDeviceDB();
-    if (db) {
-      const keys = await db.getAllKeys('timecard-device');
-      if (keys.length > 0) {
-        const data = await db.get('timecard-device', keys[0]);
-        if (data) {
-          thisDeviceName.value = data.name;
-        }
-      }
-    }
+    await initStatus();
   }
   catch (error) {
     alert(error);
@@ -262,7 +294,7 @@ async function onDecode(decodedQrcode: string) {
   }, 60000);
 }
 
-function onScanCancel() {
+function onRecordCancel() {
   initStatus();
   clearTimeout(timeout);
 }
@@ -328,7 +360,7 @@ function onScanCancel() {
         </div>
         <div class="row">
           <div
-            v-if="thisDeviceName === ''"
+            v-if="!store.isLoggedIn() && thisDeviceName === ''"
             class="alert h5 alert-warning"
             role="alert"
           >端末名が設定されていません。管理者が本端末でログインしてメニュー画面から端末名を設定してください。</div>
@@ -436,7 +468,7 @@ function onScanCancel() {
           v-if="!store.isLoggedIn()"
           class="btn btn-warning btn-lg"
           id="cancel"
-          @click="onScanCancel"
+          @click="onRecordCancel"
           v-bind:disabled="status !== 'waitForRecord'"
         >取消</button>
       </div>

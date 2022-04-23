@@ -118,22 +118,25 @@ function onSubmit(event: Event) {
     return;
   }
 
-  // 勤務時間帯別時刻チェック
-  for (const pattern of resultWorkPattern.wagePatterns) {
-    if (timeToMinutes(pattern.timeEnd) < timeToMinutes(pattern.timeStart)) {
-      alert(pattern.name + 'の終了時刻が開始時刻より前の時刻になっています。');
+  if (resultWorkPattern.wagePatterns) {
+
+    // 勤務時間帯別時刻チェック
+    for (const pattern of resultWorkPattern.wagePatterns) {
+      if (timeToMinutes(pattern.timeEnd) < timeToMinutes(pattern.timeStart)) {
+        alert(pattern.name + 'の終了時刻が開始時刻より前の時刻になっています。');
+        return;
+      }
+    }
+
+    // 勤務時間帯別名称の重複チェック
+    const dupeList = resultWorkPattern.wagePatterns
+      .map(pattern => pattern.name)
+      .filter((item, index, self) => self.indexOf(item) != index);
+
+    if (dupeList.length > 0) {
+      alert('名称が重複しています。');
       return;
     }
-  }
-
-  // 勤務時間帯別名称の重複チェック
-  const dupeList = resultWorkPattern.wagePatterns
-    .map(pattern => pattern.name)
-    .filter((item, index, self) => self.indexOf(item) != index);
-
-  if (dupeList.length > 0) {
-    alert('名称が重複しています。');
-    return;
   }
 
   emits('update:isOpened', false);
@@ -172,13 +175,8 @@ function onDeleteWagePattern(index: number) {
             <div class="row">
               <label for="workpattern-name" class="col-2 col-form-label text-end">勤務体系名</label>
               <div class="col-3">
-                <input
-                  type="text"
-                  class="form-control"
-                  id="workpattern-name"
-                  v-model="editedWorkPattern.name"
-                  required
-                />
+                <input type="text" class="form-control" id="workpattern-name" v-model="editedWorkPattern.name"
+                  required />
               </div>
               <label for="ontime-start" class="col-1 col-form-label text-end">定時</label>
               <div class="col-6">
@@ -187,23 +185,13 @@ function onDeleteWagePattern(index: number) {
                     <option :value="false" selected>当日</option>
                     <option :value="true">翌日</option>
                   </select>
-                  <input
-                    type="time"
-                    class="form-control"
-                    v-model="editedWorkPattern.onTimeStart"
-                    required
-                  />
+                  <input type="time" class="form-control" v-model="editedWorkPattern.onTimeStart" required />
                   <span class="input-group-text">〜</span>
                   <select class="form-select" v-model="editedWorkPattern.isOnTimeEndNextDay">
                     <option :value="false" selected>当日</option>
                     <option :value="true">翌日</option>
                   </select>
-                  <input
-                    type="time"
-                    class="form-control"
-                    v-model="editedWorkPattern.onTimeEnd"
-                    required
-                  />
+                  <input type="time" class="form-control" v-model="editedWorkPattern.onTimeEnd" required />
                 </div>
               </div>
             </div>
@@ -223,19 +211,11 @@ function onDeleteWagePattern(index: number) {
                     <tbody>
                       <tr v-for="(wagePattern, index) in editedWagePatterns">
                         <td>
-                          <button
-                            type="button"
-                            class="btn btn-danger btn-sm"
-                            v-on:click="onDeleteWagePattern(index)"
-                          >&times;</button>
+                          <button type="button" class="btn btn-danger btn-sm"
+                            v-on:click="onDeleteWagePattern(index)">&times;</button>
                         </td>
                         <td>
-                          <input
-                            type="text"
-                            class="form-control"
-                            v-model="wagePattern.name"
-                            required
-                          />
+                          <input type="text" class="form-control" v-model="wagePattern.name" required />
                         </td>
                         <td>
                           <div class="input-group">
@@ -243,46 +223,26 @@ function onDeleteWagePattern(index: number) {
                               <option :value="false" selected>当日</option>
                               <option :value="true">翌日</option>
                             </select>
-                            <input
-                              type="time"
-                              class="form-control"
-                              v-model="wagePattern.timeStart"
-                              required
-                            />
+                            <input type="time" class="form-control" v-model="wagePattern.timeStart" required />
                             <span class="input-group-text">〜</span>
                             <select class="form-select" v-model="wagePattern.isTimeEndNextDay">
                               <option :value="false" selected>当日</option>
                               <option :value="true">翌日</option>
                             </select>
-                            <input
-                              type="time"
-                              class="form-control"
-                              v-model="wagePattern.timeEnd"
-                              required
-                            />
+                            <input type="time" class="form-control" v-model="wagePattern.timeEnd" required />
                           </div>
                         </td>
                         <td>
                           <div class="input-group">
-                            <input
-                              type="number"
-                              min="0"
-                              class="form-control"
-                              v-model="wagePattern.normalWagePercentage"
-                              required
-                            />
+                            <input type="number" min="0" class="form-control" v-model="wagePattern.normalWagePercentage"
+                              required />
                             <span class="input-group-text">%</span>
                           </div>
                         </td>
                         <td>
                           <div class="input-group">
-                            <input
-                              type="number"
-                              min="0"
-                              class="form-control"
-                              v-model="wagePattern.holidayWagePercentage"
-                              required
-                            />
+                            <input type="number" min="0" class="form-control"
+                              v-model="wagePattern.holidayWagePercentage" required />
                             <span class="input-group-text">%</span>
                           </div>
                         </td>
@@ -291,11 +251,7 @@ function onDeleteWagePattern(index: number) {
                     <tfoot>
                       <tr>
                         <td colspan="2">
-                          <button
-                            type="button"
-                            class="btn btn-primary"
-                            v-on:click="onAddWagePattern"
-                          >追加</button>
+                          <button type="button" class="btn btn-primary" v-on:click="onAddWagePattern">追加</button>
                         </td>
                       </tr>
                     </tfoot>

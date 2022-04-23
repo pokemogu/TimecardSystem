@@ -42,7 +42,8 @@ export async function sendQueuedMails(knex: Knex) {
         to: mail.to,
         cc: mail.cc,
         subject: mail.subject,
-        text: mail.body
+        text: mail.body,
+        replyTo: mail.replyTo
       });
       await access.deleteMail(mail.id);
     }

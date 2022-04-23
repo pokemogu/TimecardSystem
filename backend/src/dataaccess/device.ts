@@ -1,7 +1,5 @@
-import lodash from 'lodash';
 import type * as apiif from 'shared/APIInterfaces';
-import { DatabaseAccess } from './dataaccess';
-import { issueRefreshToken } from './verify';
+import { DatabaseAccess } from '../dataaccess';
 
 ///////////////////////////////////////////////////////////////////////
 // デバイス情報関連

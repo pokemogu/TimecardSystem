@@ -1,7 +1,7 @@
 import lodash from 'lodash';
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
-import type * as models from 'shared/models';
+import createHttpError from 'http-errors';
 
 ///////////////////////////////////////////////////////////////////////
 // 権限情報関連
@@ -17,23 +17,26 @@ export async function registerPrivilege(this: DatabaseAccess, accessToken: strin
 }
 */
 
-export async function getUserPrivilege(this: DatabaseAccess, accessToken: string, idOrAccount: string | number): Promise<models.Privilege> {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function getUserPrivilege(this: DatabaseAccess, account: string) {
 
-  if (typeof idOrAccount === 'string') {
-    return await this.knex.table<models.Privilege>('privilege')
-      .first()
-      .join('user', { 'user.privilege': 'privilege.id' })
-      .where('user.account', idOrAccount)
-      .andWhere('privilege.isSystemPrivilege', false);
-  }
-  else {
-    return await this.knex.table<models.Privilege>('privilege')
-      .first()
-      .join('user', { 'user.privilege': 'privilege.id' })
-      .where('user.id', idOrAccount)
-      .andWhere('privilege.isSystemPrivilege', false);
-  }
+  return await this.knex.select<apiif.PrivilegeResponseData[]>({
+    id: 'privilege', name: 'privilege.name', recordByLogin: 'privilege.recordByLogin',
+    maxApplyLateNum: 'privilege.maxApplyLateNum', maxApplyLateHours: 'privilege.maxApplyLateHours',
+    maxApplyEarlyNum: 'privilege.maxApplyEarlyNum', maxApplyEarlyHours: 'privilege.maxApplyEarlyHours',
+    approve: 'privilege.approve',
+    viewRecord: 'privilege.viewRecord', viewRecordPerDevice: 'privilege.viewRecordPerDevice',
+    configurePrivilege: 'privilege.configurePrivilege', configureWorkPattern: 'privilege.configureWorkPattern',
+    issueQr: 'privilege.issueQr',
+    registerUser: 'privilege.registerUser', registerDevice: 'privilege.registerDevice',
+    viewAllUserInfo: 'privilege.viewAllUserInfo',
+    viewDepartmentUserInfo: 'privilege.viewDepartmentUserInfo',
+    viewSectionUserInfo: 'privilege.viewSectionUserInfo'
+  })
+    .from('privilege')
+    .join('user', { 'user.privilege': 'privilege.id' })
+    .where('user.account', account)
+    .andWhere('privilege.isSystemPrivilege', false)
+    .first();
 }
 /*
 export async function getUserApplyPrivilege(this: DatabaseAccess, accessToken: string, idOrAccount: string | number) {
@@ -78,8 +81,7 @@ export async function getUserApplyPrivilege(this: DatabaseAccess, accessToken: s
   });
 }
 */
-export async function getApplyPrivilege(this: DatabaseAccess, accessToken: string, privilege: number) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function getApplyPrivilege(this: DatabaseAccess, privilege: number) {
 
   const results = await this.knex.select({
     applyTypeId: 'applyType.id', applyTypeName: 'applyType.name', applyTypeDescription: 'applyType.description',
@@ -90,8 +92,6 @@ export async function getApplyPrivilege(this: DatabaseAccess, accessToken: strin
       builder.on('applyPrivilege.type', 'applyType.id');
       builder.andOnIn('applyPrivilege.privilege', [privilege]);
     });
-
-  //console.log(results);
 
   return results.map((result) => {
     return <apiif.ApplyPrivilegeResponseData>{
@@ -104,8 +104,7 @@ export async function getApplyPrivilege(this: DatabaseAccess, accessToken: strin
   });
 }
 
-export async function addPrivilege(this: DatabaseAccess, accessToken: string, privilege: apiif.PrivilageRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function addPrivilege(this: DatabaseAccess, privilege: apiif.PrivilageRequestData) {
 
   const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
   Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
@@ -117,28 +116,29 @@ export async function addPrivilege(this: DatabaseAccess, accessToken: string, pr
   const privilegeLastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
   const privilegeLastId = privilegeLastIdResult['LAST_INSERT_ID()'];
 
-  await this.knex('applyPrivilege').insert(applyPrivileges.map(applyPrivilege => {
-    return {
-      type: applyTypes.find(applyType => applyType.name === applyPrivilege.applyTypeName)?.id,
-      privilege: privilegeLastId,
-      permitted: applyPrivilege.permitted
-    };
-  }));
+  if (privilege.applyPrivileges && privilege.applyPrivileges.length > 0) {
+    await this.knex('applyPrivilege').insert(applyPrivileges.map(applyPrivilege => {
+      return {
+        type: applyTypes.find(applyType => applyType.name === applyPrivilege.applyTypeName)?.id,
+        privilege: privilegeLastId,
+        permitted: applyPrivilege.permitted
+      };
+    }));
+  }
 }
 
-export async function getPrivileges(this: DatabaseAccess, accessToken: string) {
+export async function getPrivileges(this: DatabaseAccess) {
   const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege').where('isSystemPrivilege', false);
 
   for (const result of results) {
     if (result.id) {
-      result.applyPrivileges = await this.getApplyPrivilege(accessToken, result.id);
+      result.applyPrivileges = await this.getApplyPrivilege(result.id);
     }
   }
   return results;
 }
 
-export async function updatePrivilege(this: DatabaseAccess, accessToken: string, privilege: apiif.PrivilageRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function updatePrivilege(this: DatabaseAccess, privilege: apiif.PrivilageRequestData) {
 
   const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
   Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
@@ -161,11 +161,19 @@ export async function updatePrivilege(this: DatabaseAccess, accessToken: string,
   //    .merge(['permitted']); // ON DUPLICATE KEY UPDATE
 }
 
-export async function deletePrivilege(this: DatabaseAccess, accessToken: string, id: number) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-
-  await this.knex.transaction(async (trx) => {
-    await this.knex('applyPrivilege').del().where('privilege', id).transacting(trx);
-    await this.knex('privilege').del().where('id', id).andWhere('isSystemPrivilege', false).transacting(trx);
-  });
+export async function deletePrivilege(this: DatabaseAccess, id: number) {
+  try {
+    await this.knex.transaction(async (trx) => {
+      await this.knex('applyPrivilege').del().where('privilege', id).transacting(trx);
+      await this.knex('privilege').del().where('id', id).andWhere('isSystemPrivilege', false).transacting(trx);
+    });
+  }
+  catch (error: unknown) {
+    if (error.toString().includes('foreign key constraint fails')) {
+      throw createHttpError(403, 'この権限を使用しているユーザーがいる為、削除できません', { internalMessage: (error as Error).message });
+    }
+    else {
+      throw error;
+    }
+  }
 }

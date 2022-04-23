@@ -37,7 +37,7 @@ async function onRouteSubmit() {
       const token = await store.getToken();
       if (token) {
         const access = new backendAccess.TokenAccess(token);
-        await access.apply('makeup-leave', {
+        await access.submitApply('makeup-leave', {
           date: dateFrom.value,
           dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
           dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
@@ -61,38 +61,22 @@ async function onRouteSubmit() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="申請画面"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="申請画面" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isApprovalRouteSelectOpened">
-      <ApprovalRouteSelect
-        v-model:routeName="routeName"
-        v-model:isOpened="isApprovalRouteSelectOpened"
-        v-on:submit="onRouteSubmit"
-      ></ApprovalRouteSelect>
+      <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
+        v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
     </Teleport>
 
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
-          <ApplyForm
-            applyName="代休"
-            applyType="leave-proxy"
-            v-model:dateOptional="dateHolidayWork"
-            dateOptionalType="休出日"
-            v-model:dateFrom="dateFrom"
-            v-model:timeFrom="timeFrom"
-            v-model:timeTo="timeTo"
-            v-model:reason="reason"
-            v-on:submit="onFormSubmit"
-          ></ApplyForm>
+          <ApplyForm applyName="代休" applyType="leave-proxy" v-model:dateOptional="dateHolidayWork"
+            dateOptionalType="休出日" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
+            v-model:reason="reason" v-on:submit="onFormSubmit"></ApplyForm>
         </div>
       </div>
       <div class="col-2">
@@ -108,7 +92,9 @@ async function onRouteSubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

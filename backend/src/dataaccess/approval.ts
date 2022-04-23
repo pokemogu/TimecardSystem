@@ -1,5 +1,5 @@
 import lodash from 'lodash';
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
 import { Console } from 'console';
 
@@ -39,8 +39,7 @@ export async function getApprovalRouteRoles(this: DatabaseAccess) {
  * @param accessToken 実行権限を確認する為の実行者アクセストークン
  * @param route 新規追加する承認ルート情報
  */
-export async function addApprovalRoute(this: DatabaseAccess, accessToken: string, route: apiif.ApprovalRouteRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function addApprovalRoute(this: DatabaseAccess, route: apiif.ApprovalRouteRequestData) {
 
   await this.knex('approvalRoute').insert({
     name: route.name,
@@ -75,8 +74,7 @@ export async function addApprovalRoute(this: DatabaseAccess, accessToken: string
  * @param params 取得する承認ルート情報の検索条件
  * @param routeIdOrName 取得する承認ルート情報のIDあるいは名称
  */
-export async function getApprovalRoutes(this: DatabaseAccess, accessToken: string, params?: { limit: number, offset: number }, routeIdOrName?: number | string) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function getApprovalRoutes(this: DatabaseAccess, params?: { limit: number, offset: number }, routeName?: string) {
 
   return await this.knex.select<apiif.ApprovalRouteResposeData[]>({
     id: 'approvalRoute.id', name: 'approvalRoute.name',
@@ -96,6 +94,11 @@ export async function getApprovalRoutes(this: DatabaseAccess, accessToken: strin
     .leftJoin('user as u3_1', { 'u3_1.id': 'approvalRoute.approvalLevel3MainUser' })
     .leftJoin('user as u3_2', { 'u3_2.id': 'approvalRoute.approvalLevel3SubUser' })
     .leftJoin('user as u4', { 'u4.id': 'approvalRoute.approvalDecisionUser' })
+    .where(function (builder) {
+      if (routeName) {
+        builder.where('approvalRoute.name', routeName);
+      }
+    });
 
   /*
   const roleMembers = await this.knex
@@ -150,8 +153,7 @@ export async function getApprovalRoutes(this: DatabaseAccess, accessToken: strin
  * @param accessToken 実行権限を確認する為の実行者アクセストークン
  * @param route 更新する承認ルート情報内容 idかnameが指定されている必要がある
  */
-export async function updateApprovalRoute(this: DatabaseAccess, accessToken: string, route: apiif.ApprovalRouteResposeData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function updateApprovalRoute(this: DatabaseAccess, route: apiif.ApprovalRouteResposeData) {
 
   /*
   const routeInfo = await this.knex
@@ -205,9 +207,6 @@ export async function updateApprovalRoute(this: DatabaseAccess, accessToken: str
  * @param accessToken 実行権限を確認する為の実行者アクセストークン
  * @param id 削除する承認ルート情報のID
  */
-export async function deleteApprovalRoute(this: DatabaseAccess, accessToken: string, id: number) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-
-  //await this.knex('approvalRouteMember').del().where('route', id);
+export async function deleteApprovalRoute(this: DatabaseAccess, id: number) {
   await this.knex('approvalRoute').del().where('id', id);
 }

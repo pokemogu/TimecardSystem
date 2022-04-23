@@ -1,13 +1,20 @@
 import path from 'path';
 import fs from 'fs';
+
 import express from 'express';
-import knex, { Knex } from 'knex';
+import type { ErrorRequestHandler } from 'express';
+import bearerToken from 'express-bearer-token';
+import createHttpError from 'http-errors';
+
+import { Knex } from 'knex';
+import knexConnect from 'knex';
 
 import { Worker } from 'worker_threads';
 import dotenv from 'dotenv';
 
 import getLogger from './logger';
 import registerHandlers from './webapp';
+import { DatabaseAccess } from './dataaccess';
 
 dotenv.config({
   path: process.env.NODE_ENV
@@ -55,6 +62,7 @@ function execWorker() {
     logger.warn(`[バックグラウンド処理エラー] バックグラウンド処理スレッドでエラーが発生しました。 ${message}`);
   });
 
+  return worker;
 };
 
 execWorker();
@@ -69,6 +77,7 @@ execWorker();
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(bearerToken());
 
 app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -77,9 +86,25 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 
+const knex = knexConnect(knexconfig);
+registerHandlers(app, knex);
+
+// デフォルトエラーハンドラー
+const defaultErrorHanlder: ErrorRequestHandler = (err, req, res, next) => {
+  logger.error(err.toString() + (err.internalMessage ? (' ' + err.internalMessage) : ''));
+  if (err instanceof createHttpError.HttpError) {
+    res.status(err.statusCode).send({ message: err.expose ? err.message : '内部サーバーエラーが発生しました。' });
+  }
+  else {
+    res.status(500).send({ message: '内部サーバーエラーが発生しました。' });
+  }
+};
+app.use(defaultErrorHanlder);
+
 const port = process.env.NODE_PORT || 3010;
 app.listen(port, () => {
   logger.info(`サービスを開始します。ポート番号${port}で起動しました。`);
 });
 
-registerHandlers(app, knexconfig, logger);
+DatabaseAccess.initCache(knex);
+DatabaseAccess.initPrivatePublicKeys(knex).then(function () { });

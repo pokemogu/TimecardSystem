@@ -576,7 +576,10 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     await knex.schema.createTable('systemConfig', function (table) {
       table.string('key').notNullable().unique().primary().comment('設定データID');
       table.string('value').comment('設定データ値');
-      table.string('description').comment('設定データ名称');
+      table.string('title').comment('設定データ名称');
+      table.string('description').comment('設定データ説明');
+      table.boolean('isMultiLine').notNullable().defaultTo(false).comment('設定データ値が複数行になる可能性が有るか');
+      table.boolean('isPassword').notNullable().defaultTo(false).comment('設定データ値はパスワードか');
     });
 
     // ユーザー別設定項目
@@ -587,15 +590,26 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     });
 
     await knex('systemConfig').insert([
-      { key: 'smtpHost', value: '', description: 'メール送信(SMTP)サーバーホスト名/IPアドレス' },
-      { key: 'smtpPort', value: '', description: 'メール送信(SMTP)サーバーポート番号' },
-      { key: 'smtpUsername', value: '', description: 'メール送信(SMTP)サーバーログインユーザー名' },
-      { key: 'smtpPassword', value: '', description: 'メール送信(SMTP)サーバーログインパスワード' },
+      { key: 'smtpHost', value: '', title: 'SMTPホスト名', description: 'メール送信に使用する(SMTP)サーバーのホスト名かIPアドレス' },
+      { key: 'smtpPort', value: '', title: 'SMTPポート番号', description: 'メール送信に使用する(SMTP)サーバーのポート番号' },
+      { key: 'smtpUsername', value: '', title: 'SMTPログインID', description: 'メール送信(SMTP)サーバーログインユーザー名' },
+      { key: 'smtpPassword', value: '', title: 'SMTPパスワード', description: 'メール送信(SMTP)サーバーログインパスワード', isPassword: true },
+      { key: 'fromEmailAddress', value: '', title: 'SMTP送信元メールアドレス', description: 'メール送信(SMTP)時の送信元メールアドレス設定' },
+      { key: 'mailSubjectApply', value: '', title: '申請メール件名', description: '申請時に承認者に送信されるメール件名' },
+      { key: 'mailTemplateApply', value: '', title: '申請メール文', description: '申請時に承認者に送信されるメール文', isMultiLine: true },
+      { key: 'mailSubjectReject', value: '', title: '否認メール件名', description: '申請否認時に起票者に送信されるメール件名' },
+      { key: 'mailTemplateReject', value: '', title: '否認メール文', description: '申請否認時に起票者に送信されるメール文', isMultiLine: true },
+      { key: 'mailSubjectApproved', value: '', title: '承認メール件名', description: '申請承認時に起票者に送信されるメール件名' },
+      { key: 'mailTemplateApproved', value: '', title: '承認メール文', description: '申請承認時に起票者に送信されるメール文', isMultiLine: true },
+      { key: 'mailSubjectRecord', value: '', title: '未打刻メール件名', description: '未打刻者に一斉送信されるメール件名' },
+      { key: 'mailTemplateRecord', value: '', title: '未打刻メール文', description: '未打刻者に一斉送信されるメール文', isMultiLine: true },
+      { key: 'mailSubjectLeave', value: '', title: '有給未取得メール件名', description: '有給未取得者に一斉送信されるメール件名' },
+      { key: 'mailTemplateLeave', value: '', title: '有給未取得メール文', description: '有給未取得者に一斉送信されるメール文', isMultiLine: true },
     ]);
 
     await knex('systemConfig').insert([
-      { key: 'privateKey', value: '', description: 'QRコード認証に必要となる秘密鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)' },
-      { key: 'publicKey', value: '', description: 'QRコード認証に必要となる公開鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)' }
+      { key: 'privateKey', value: '', title: '認証秘密鍵', description: 'QRコード認証に必要となる秘密鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)', isMultiLine: true },
+      { key: 'publicKey', value: '', title: '認証公開鍵', description: 'QRコード認証に必要となる公開鍵(失われると全ての発行済QRコードが使用できなくなるので絶対に修正したり削除しないこと!!!)', isMultiLine: true }
     ])
 
     await knex.schema.createTable('mailQueue', function (table) {
@@ -607,6 +621,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       table.string('subject', 63);
       table.string('body', 1023);
       table.datetime('timestamp');
+      table.string('replyTo');
     });
 
     // 指定された月の全ての日を生成するストアドプロシージャgenerateAllDays

@@ -1,21 +1,22 @@
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
 
 ///////////////////////////////////////////////////////////////////////
 // メールキュー
 ///////////////////////////////////////////////////////////////////////
 
 export async function queueMail(this: DatabaseAccess, params: {
-  from: string, to: string, cc?: string, subject: string, body: string
+  from?: string, to: string, cc?: string, subject: string, body: string, replyTo?: string
 }) {
 
   await this.knex('mailQueue').insert([
     {
-      from: params.from,
+      from: params.from ?? await this.getSystemConfigValue('fromEmailAddress'),
       to: params.to,
       cc: params.cc,
       subject: params.subject,
       body: params.body,
-      timestamp: new Date()
+      timestamp: new Date(),
+      replyTo: params.replyTo
     }
   ]);
 }
@@ -23,10 +24,8 @@ export async function queueMail(this: DatabaseAccess, params: {
 export async function getMails(this: DatabaseAccess) {
 
   return await this.knex
-    .select<{ id: number, from: string, to: string, cc: string, subject: string, body: string, timestamp: Date }[]>
-    (
-      { id: 'id' }, { from: 'from' }, { to: 'to' }, { cc: 'cc' }, { subject: 'subject' }, { body: 'body' }, { timestamp: 'timestamp' }
-    )
+    .select<{ id: number, from: string, to: string, cc: string, subject: string, body: string, timestamp: Date, replyTo: string }[]>
+    ({ id: 'id', from: 'from', to: 'to', cc: 'cc', subject: 'subject', body: 'body', timestamp: 'timestamp', replyTo: 'replyTo' })
     .from('mailQueue');
 }
 

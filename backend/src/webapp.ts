@@ -1,1154 +1,516 @@
-import type { Express, Request, Response } from 'express';
+import type { Express } from 'express';
+import asyncHandler from 'express-async-handler';
+
 import { Knex } from "knex";
-import knexConnect from 'knex';
 import * as apiif from 'shared/APIInterfaces';
 import { DatabaseAccess } from './dataaccess';
+import type { UserInfo } from './dataaccess';
+import { verifyAccessToken } from './verify';
 
-import type { Logger } from './logger';
-
-function extractTokenFromHeader(header: string) {
-  const matches = header.match(/^Bearer ([\w\-]+\.[\w\-]+\.[\w\-]+)$/);
-  if (!matches || matches.length < 1) {
-    return undefined;
+declare global {
+  namespace Express {
+    export interface Request {
+      user?: UserInfo
+    }
   }
-  return matches[1];
 }
 
-export default async function registerHandlers(app: Express, knexconfig: Knex.Config, logger: Logger) {
+export default function registerHandlers(app: Express, knex: Knex) {
 
-  const knex = knexConnect(knexconfig);
-  DatabaseAccess.initCache(knex);
-  await DatabaseAccess.initPrivatePublicKeys(knex);
-
-  app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const users = await access.generateAvailableUserAccount();
-      const user = users[0];
-
-      res.send({
-        message: 'ok',
-        candidates: await access.generateAvailableUserAccount()
-      });
-    } catch (error) {
-      const err = error as Error;
-      res.status(400);
-      res.send({ message: error.message });
+  // アクセストークンがヘッダーにある場合はユーザー情報を取得する
+  app.use(function (req, res, next) {
+    //console.log('req.path=' + req.path);
+    if (req.token) {
+      try {
+        const userInfo = verifyAccessToken(req.token) as UserInfo;
+        req.user = { id: userInfo.id, account: userInfo.account }
+      }
+      catch (error) {
+        if (error.name === 'TokenExpiredError') {
+          res.status(401);
+        }
+        else if (error.name === 'NotBeforeError') {
+          res.status(401);
+        }
+        else if (error.name === 'JsonWebTokenError') {
+          if (error.message === 'invalid token' || error.message === 'jwt malformed') {
+            res.status(400);
+          }
+          else {
+            res.status(401);
+          }
+        }
+        else {
+          res.status(500);
+        }
+        return res.send({ message: error.toString() });
+      }
     }
+    else {
+      // アクセストークンが無い場合
+
+    }
+    next();
   });
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserInfoRequestData>('/api/user', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addUser(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', asyncHandler(async (req, res) => {
+    const access = new DatabaseAccess(knex);
+    const users = await access.getUsers({ byAccounts: [req.params.account] });
 
-      const users = await access.getUsers(token, { byAccount: req.params.account });
-
-      if (users.length === 0) {
-        res.status(404);
-        res.send({
-          message: 'cannot find'
-        });
-      }
-      else {
-        const user = users[0];
-
-        res.send({
-          message: 'ok',
-          info: {
-            id: user.id,
-            available: user.isAvailable,
-            registeredAt: user.registeredAt.toISOString(),
-            account: user.account,
-            name: user.name,
-            email: user.email,
-            phonetic: user.phonetic,
-            department: user.department,
-            section: user.section,
-            qrCodeIssueNum: user.qrCodeIssuedNum,
-            defaultWorkPatternName: user.defaultWorkPatternName,
-            optional1WorkPatternName: user.optional1WorkPatternName,
-            optional2WorkPatternName: user.optional2WorkPatternName
-          }
-        });
-      }
-    } catch (error) {
-      const err = error as Error;
-      res.status(400);
-      res.send({ message: error.message });
-    }
-  });
-
-  app.get<{}, apiif.UserInfosResponseBody, {}, apiif.UserInfoRequestQuery>('/api/user', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const users = await access.getUsers(token, {
-        byId: req.query.id,
-        byAccount: req.query.account,
-        byName: req.query.name,
-        byDepartment: req.query.department,
-        bySection: req.query.section,
-        byPhonetic: req.query.phonetic,
-        registeredFrom: req.query.registeredFrom ? new Date(req.query.registeredFrom) : undefined,
-        registeredTo: req.query.registeredTo ? new Date(req.query.registeredTo) : undefined,
-        isQrCodeIssued: req.query.isQrCodeIssued,
-        limit: req.query.limit,
-        offset: req.query.offset
+    if (users.length === 0) {
+      res.status(404);
+      res.send({
+        message: 'cannot find'
       });
+    }
+    else {
+      const user = users[0];
 
       res.send({
         message: 'ok',
-        infos: users.map<apiif.UserInfoResponseData>((user) => {
-          return {
-            id: user.id,
-            available: user.isAvailable,
-            registeredAt: user.registeredAt.toISOString(),
-            account: user.account,
-            name: user.name,
-            phonetic: user.phonetic,
-            email: user.email,
-            section: user.section,
-            department: user.department,
-            qrCodeIssueNum: user.qrCodeIssuedNum,
-            defaultWorkPatternName: user.defaultWorkPatternName,
-            optional1WorkPatternName: user.optional1WorkPatternName,
-            optional2WorkPatternName: user.optional2WorkPatternName
-          }
-        })
+        info: {
+          id: user.id,
+          available: user.isAvailable,
+          registeredAt: user.registeredAt.toISOString(),
+          account: user.account,
+          name: user.name,
+          email: user.email,
+          phonetic: user.phonetic,
+          department: user.department,
+          section: user.section,
+          qrCodeIssueNum: user.qrCodeIssuedNum,
+          defaultWorkPatternName: user.defaultWorkPatternName,
+          optional1WorkPatternName: user.optional1WorkPatternName,
+          optional2WorkPatternName: user.optional2WorkPatternName
+        }
       });
-    } catch (error) {
-      const err = error as Error;
-      res.status(400);
-      res.send({ message: error.message });
     }
-  });
+  }));
+
+  app.get<{}, apiif.UserInfosResponseBody, {}, apiif.UserInfoRequestQuery>('/api/user', asyncHandler(async (req, res) => {
+    const access = new DatabaseAccess(knex);
+    const users = await access.getUsers({
+      byId: req.query.id,
+      byAccounts: req.query.accounts,
+      byName: req.query.name,
+      byDepartment: req.query.department,
+      bySection: req.query.section,
+      byPhonetic: req.query.phonetic,
+      registeredFrom: req.query.registeredFrom ? new Date(req.query.registeredFrom) : undefined,
+      registeredTo: req.query.registeredTo ? new Date(req.query.registeredTo) : undefined,
+      isQrCodeIssued: req.query.isQrCodeIssued,
+      limit: req.query.limit,
+      offset: req.query.offset
+    });
+
+    res.send({
+      message: 'ok',
+      infos: users.map<apiif.UserInfoResponseData>((user) => {
+        return {
+          id: user.id,
+          available: user.isAvailable,
+          registeredAt: user.registeredAt.toISOString(),
+          account: user.account,
+          name: user.name,
+          phonetic: user.phonetic,
+          email: user.email,
+          section: user.section,
+          department: user.department,
+          qrCodeIssueNum: user.qrCodeIssuedNum,
+          defaultWorkPatternName: user.defaultWorkPatternName,
+          optional1WorkPatternName: user.optional1WorkPatternName,
+          optional2WorkPatternName: user.optional2WorkPatternName
+        }
+      })
+    });
+  }));
+
+  app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', candidates: await new DatabaseAccess(knex).generateAvailableUserAccount() });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 認証関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.IssueTokenResponseBody, apiif.IssueTokenRequestBody>('/api/token/issue', async (req, res) => {
+  app.post<{}, apiif.IssueTokenResponseBody, apiif.IssueTokenRequestBody>('/api/token/issue', asyncHandler(async (req, res) => {
     try {
-      const access = new DatabaseAccess(knex);
-      const token = await access.issueRefreshToken(req.body.account, req.body.password);
-      res.send({
-        message: 'ok',
-        token: token
-      });
+      res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueRefreshToken(req.body.account, req.body.password) });
     }
     catch (error) {
       const err = error as Error;
       if (err.name === 'AuthenticationError') {
-        res.status(401);
-        res.send({ message: err.message });
+        res.status(401).send({ message: err.message });
       }
       else if (err.name === 'UserNotAvailableError') {
-        res.status(403);
-        res.send({ message: err.message });
+        res.status(403).send({ message: err.message });
       }
-      else {
-        res.status(400);
-        res.send({ message: err.message });
-      }
+      else { throw error; }
     }
-  });
+  }));
 
-  app.post<{ account: string }, apiif.IssueTokenResponseBody>('/api/token/issue/:account', async (req, res) => {
+  app.post<{ account: string }, apiif.IssueTokenResponseBody>('/api/token/issue/:account', asyncHandler(async (req, res) => {
     try {
       const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const issuerToken = extractTokenFromHeader(authHeader);
-      if (!issuerToken) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const token = await access.issueQrCodeRefreshToken(issuerToken, req.params.account);
-      res.send({
-        message: 'ok',
-        token: token
-      });
+      const token = await access.issueQrCodeRefreshToken(req.params.account);
+      res.send({ message: 'ok', token: token });
     }
     catch (error) {
       const err = error as Error;
       if (err.name === 'AuthenticationError') {
-        res.status(401);
-        res.send({ message: err.message });
+        res.status(401).send({ message: err.message });
       }
       else if (err.name === 'UserNotAvailableError') {
-        res.status(403);
-        res.send({ message: err.message });
+        res.status(403).send({ message: err.message });
       }
-      else {
-        console.log(error);
-        res.status(400);
-        res.send({ message: err.message });
-      }
+      else { throw error; }
     }
-  });
+  }));
 
-  app.post<{}, apiif.AccessTokenResponseBody, apiif.AccessTokenRequestBody>('/api/token/refresh', async (req, res) => {
+  app.post<{}, apiif.AccessTokenResponseBody, apiif.AccessTokenRequestBody>('/api/token/refresh', asyncHandler(async (req, res) => {
     try {
-      const access = new DatabaseAccess(knex);
-      const token = await access.issueAccessToken(req.body.refreshToken);
       res.send({
         message: 'ok',
-        token: <apiif.AccessTokenResponseData>{ accessToken: token }
+        token: <apiif.AccessTokenResponseData>{
+          accessToken: await new DatabaseAccess(knex).issueAccessToken(req.body.refreshToken)
+        }
       });
     }
     catch (error) {
       const err = error as Error;
       if (err.name === 'AuthenticationError') {
-        res.status(401);
-        res.send({ message: err.message });
+        res.status(401).send({ message: err.message });
       }
       else if (err.name === 'TokenExpiredError') {
-        res.status(403);
-        res.send({ message: err.message });
+        res.status(403).send({ message: err.message });
       }
-      else {
-        res.status(400);
-        res.send({ message: err.message });
-      }
+      else { throw error; }
     }
-  });
+  }));
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.RevokeTokenRequestBody>('/api/token/revoke', async (req, res) => {
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.RevokeTokenRequestBody>('/api/token/revoke', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).revokeRefreshToken(req.body.account, req.body.refreshToken);
+    res.send({ message: 'ok' });
+  }));
+
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ChangePasswordRequestBody>('/api/token/password', asyncHandler(async (req, res) => {
     try {
-      const access = new DatabaseAccess(knex);
-      await access.revokeRefreshToken(req.body.account, req.body.refreshToken);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      const err = error as Error;
-      res.status(400);
-      res.send({ message: err.message });
-    }
-  });
-
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ChangePasswordRequestBody>('/api/token/password', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      await access.changeUserPassword(token, req.body);
-      res.send({
-        message: 'ok'
-      });
+      await new DatabaseAccess(knex).changeUserPassword(req.user, req.body);
+      res.send({ message: 'ok' });
     }
     catch (error) {
       const err = error as Error;
       if (err.name === 'AuthenticationError') {
-        res.status(401);
-        res.send({ message: err.message });
+        res.status(401).send({ message: err.message });
       }
-      else {
-        res.status(400);
-        res.send({ message: error.toString() });
-        console.log(error);
-      }
+      else { throw error; }
     }
-  });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 権限関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addPrivilege(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{ account: string }, apiif.PrivilegeResponseBody>('/api/privilage/:account', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', privileges: [await new DatabaseAccess(knex).getUserPrivilege(req.params.account)] });
+  }));
 
-      await access.addPrivilege(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{}, apiif.PrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/privilage', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', privileges: await new DatabaseAccess(knex).getPrivileges() });
+  }));
 
-  app.get<{}, apiif.PrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/privilage', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.get<{ id: number }, apiif.ApplyPrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/apply-privilage/:id', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', applyPrivileges: await new DatabaseAccess(knex).getApplyPrivilege(req.params.id) });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).updatePrivilege(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const privileges = await access.getPrivileges(token);
-      res.send({
-        message: 'ok',
-        privileges: privileges
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.get<{ id: number }, apiif.ApplyPrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/apply-privilage/:id', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const applyPrivileges = await access.getApplyPrivilege(token, req.params.id);
-      console.log(applyPrivileges)
-      res.send({
-        message: 'ok',
-        applyPrivileges: applyPrivileges
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      await access.updatePrivilege(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-      console.log(error);
-    }
-  });
-
-  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/privilage/:id', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deletePrivilege(token, req.params.id);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/privilage/:id', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deletePrivilege(req.params.id);
+    res.send({ message: 'ok' });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 打刻関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{ type: string }, apiif.MessageOnlyResponseBody, apiif.RecordRequestBody>('/api/record/:type', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{ type: string }, apiif.MessageOnlyResponseBody, apiif.RecordRequestBody>('/api/record/:type', asyncHandler(async (req, res) => {
+    const access = new DatabaseAccess(knex);
+    await access.submitRecord(req.user, {
+      account: req.body.account,
+      type: req.params.type,
+      timestamp: new Date(req.body.timestamp),
+      deviceAccount: req.body.deviceAccount,
+      deviceToken: req.body.deviceToken
+    });
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      await access.putRecord(token, {
-        account: req.body.account,
-        type: req.params.type,
-        timestamp: new Date(req.body.timestamp),
-        deviceAccount: req.body.deviceAccount,
-        deviceToken: req.body.deviceToken
-      });
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      const err = error as Error;
-      res.status(400);
-      res.send({ message: err.message });
-    }
-  });
+  app.get<{}, apiif.RecordResponseBody, {}, apiif.RecordRequestQuery>('/api/record', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', records: await new DatabaseAccess(knex).getRecords(req.query) });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 機器関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addDevice(req.token, req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{}, apiif.DevicesResponseBody>('/api/devices', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', devices: await new DatabaseAccess(knex).getDevicesOld() });
+  }));
 
-      await access.addDevice(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).updateDevice(req.token, req.body);
+    res.send({ message: 'ok' });
+  }));
 
-  app.get<{}, apiif.DevicesResponseBody>('/api/devices', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const devices = await access.getDevicesOld();
-      res.send({
-        message: 'ok',
-        devices: devices
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ account: string }, apiif.MessageOnlyResponseBody>('/api/device/:account', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteDevice(req.token, req.params.account);
+    res.send({ message: 'ok' });
+  }));
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      await access.updateDevice(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-      console.log(error);
-    }
-  });
-
-  app.delete<{ account: string }, apiif.MessageOnlyResponseBody>('/api/device/:account', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteDevice(token, req.params.account);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.get<{ limit: number, offset: number }, apiif.DevicesResponseBody>('/api/device', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const devices = await access.getDevices(token, req.query);
-      res.send({
-        message: 'ok',
-        devices: devices
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{ limit: number, offset: number }, apiif.DevicesResponseBody>('/api/device', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', devices: await new DatabaseAccess(knex).getDevices(req.token, req.query) });
+  }));
 
   app.get<{}, apiif.DepartmentResponseBody>('/api/department', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const departments = await access.getDepartments();
-      res.send({
-        message: 'ok',
-        departments: departments
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
+    res.send({ message: 'ok', departments: await new DatabaseAccess(knex).getDepartments() });
   });
 
-  app.get<{ type: string }, apiif.ApplyOptionsResponseBody>('/api/options/apply/:type', async (req, res) => {
+  app.get<{ type: string }, apiif.ApplyOptionsResponseBody>('/api/options/apply/:type', asyncHandler(async (req, res) => {
     if (!req.params.type) {
-      res.status(400);
-      res.send({ message: 'type not specified' });
-      return;
+      res.status(400).send({ message: 'type not specified' });
+    } else {
+      res.send({ message: 'ok', optionTypes: await new DatabaseAccess(knex).getApplyOptionTypes(req.params.type) });
     }
-    try {
-      const access = new DatabaseAccess(knex);
-      const optionTypes = await access.getApplyOptionTypes(req.params.type);
-      res.send({
-        message: 'ok',
-        optionTypes: optionTypes
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  }));
 
   // 承認ルート役割
   app.get<{}, apiif.ApprovalRouteRoleBody>('/api/apply/role', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const roles = await access.getApprovalRouteRoles();
-      res.send({
-        message: 'ok',
-        roles: roles
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
+    res.send({ message: 'ok', roles: await new DatabaseAccess(knex).getApprovalRouteRoles() });
   });
 
   ///////////////////////////////////////////////////////////////////////
   // 承認ルート関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addApprovalRoute(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{}, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', routes: await new DatabaseAccess(knex).getApprovalRoutes(req.query) });
+  }));
 
-      const routes = await access.addApprovalRoute(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{ name: string }, apiif.ApprovalRouteResponseBody, {}>('/api/apply/route/:name', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', routes: await new DatabaseAccess(knex).getApprovalRoutes(undefined, req.params.name) });
+  }));
 
-  app.get<{}, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).updateApprovalRoute(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.getApprovalRoutes(token, req.query);
-      res.send({
-        message: 'ok',
-        routes: routes
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.get<{ name: string }, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route/:name', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.getApprovalRoutes(token, undefined, req.params.name);
-      res.send({
-        message: 'ok',
-        routes: routes
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.updateApprovalRoute(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-      console.log(error);
-    }
-  });
-
-  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/apply/route/:id', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteApprovalRoute(token, req.params.id);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/apply/route/:id', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteApprovalRoute(req.params.id);
+    res.send({ message: 'ok' });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 申請関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{ applyType: string }, { message: string, id?: number }, apiif.ApplyRequestBody>('/api/apply/:applyType', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{ applyType: string }, { message: string, id?: number }, apiif.ApplyRequestBody>('/api/apply/:applyType', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', id: await new DatabaseAccess(knex).submitApply(req.user, req.params.applyType, req.body) });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{ applyId: number }, apiif.ApplyTypeResponseBody, {}>('/api/apply/applyType/:applyId', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', applyTypes: [await new DatabaseAccess(knex).getApplyTypeOfApply(req.token, req.params.applyId)] });
+  }));
 
-      const id = await access.submitApply(token, req.params.applyType, req.body);
-      console.log(id);
-      res.send({
-        message: 'ok',
-        id: id
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{ applyId: number }, apiif.ApplyResponseBody, {}>('/api/apply/:applyId', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', applies: [await new DatabaseAccess(knex).getApply(req.params.applyId)] });
+  }));
 
-  app.post<{}, { message: string, id?: number }, apiif.ApplyTypeRequestData>('/api/apply-type', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
+  ///////////////////////////////////////////////////////////////////////
+  // 申請承認関連
+  ///////////////////////////////////////////////////////////////////////
 
-      const id = await access.addApplyType(req.body);
-      res.send({
-        message: 'ok',
-        id: id
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody>('/api/approve/:applyId', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).approveApply(req.user, req.params.applyId, true);
+    res.send({ message: 'ok' });
+  }));
 
-  app.get<{}, apiif.ApplyTypeResponseBody, {}, { limit: number, offset: number }>('/api/apply-type', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
+  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody>('/api/reject/:applyId', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).approveApply(req.user, req.params.applyId, false);
+    res.send({ message: 'ok' });
+  }));
 
-      const applyTypes = await access.getApplyTypes();
-      res.send({
-        message: 'ok',
-        applyTypes: applyTypes
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  ///////////////////////////////////////////////////////////////////////
+  // 申請種類関連
+  ///////////////////////////////////////////////////////////////////////
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApplyTypeRequestData>('/api/apply-type', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
+  app.post<{}, { message: string, id?: number }, apiif.ApplyTypeRequestData>('/api/apply-type', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', id: await new DatabaseAccess(knex).addApplyType(req.body) });
+  }));
 
-      const id = await access.updateApplyType(req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{}, apiif.ApplyTypeResponseBody, {}, { limit: number, offset: number }>('/api/apply-type', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', applyTypes: await new DatabaseAccess(knex).getApplyTypes() });
+  }));
 
-  app.delete<{ name: string }, apiif.MessageOnlyResponseBody, {}>('/api/apply-type/:name', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApplyTypeRequestData>('/api/apply-type', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).updateApplyType(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const applyTypes = await access.deleteApplyType(req.params.name);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ name: string }, apiif.MessageOnlyResponseBody, {}>('/api/apply-type/:name', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteApplyType(req.params.name);
+    res.send({ message: 'ok' });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 勤務体系関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addWorkPattern(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{}, apiif.WorkPatternsResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', workPatterns: await new DatabaseAccess(knex).getWorkPatterns(req.query) });
+  }));
 
-      const routes = await access.addWorkPattern(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{ name: string }, apiif.WorkPatternResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern/:name', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', workPattern: await new DatabaseAccess(knex).getWorkPattern(req.params.name, req.query) });
+  }));
 
-  app.get<{}, apiif.WorkPatternsResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.put<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).updateWorkPattern(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/work-pattern/:id', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteWorkPattern(req.params.id);
+    res.send({ message: 'ok' });
+  }));
 
-      const workPatterns = await access.getWorkPatterns(token, req.query);
-      res.send({
-        message: 'ok',
-        workPatterns: workPatterns
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  ///////////////////////////////////////////////////////////////////////
+  // 従業員ごと勤務体系登録関連
+  ///////////////////////////////////////////////////////////////////////
 
-  app.get<{ name: string }, apiif.WorkPatternResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern/:name', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserWorkPatternCalendarRequestData>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).setUserWorkPatternCalendar(req.user, req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{}, apiif.UserWorkPatternCalendarResponseBody, {}, apiif.UserWorkPatternCalendarRequestQuery>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
+    res.send({
+      message: 'ok',
+      userWorkPatternCalendars: await new DatabaseAccess(knex).getUserWorkPatternCalendar(req.user, req.query)
+    });
+  }));
 
-      const workPattern = await access.getWorkPattern(token, req.params.name, req.query);
-      res.send({
-        message: 'ok',
-        workPattern: workPattern
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ date: string, account: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date/:account', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date, req.params.account);
+    res.send({ message: 'ok' });
+  }));
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const id = await access.updateWorkPattern(token, req.body);
-      console.log(id);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/work-pattern/:id', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteWorkPattern(token, req.params.id);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserWorkPatternCalendarRequestData>('/api/work-pattern-calendar', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.setUserWorkPatternCalendar(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.get<{}, apiif.UserWorkPatternCalendarResponseBody, {}, apiif.UserWorkPatternCalendarRequestQuery>('/api/work-pattern-calendar', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const workPatternCalendars = await access.getUserWorkPatternCalendar(token, req.query);
-      res.send({
-        message: 'ok',
-        userWorkPatternCalendars: workPatternCalendars
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.delete<{ date: string, account: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date/:account', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteUserWorkPatternCalendar(token, req.params.date, req.params.account);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
-  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
-
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteUserWorkPatternCalendar(token, req.params.date);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date);
+    res.send({ message: 'ok' });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 休日登録
   ///////////////////////////////////////////////////////////////////////
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.HolidayRequestData>('/api/holiday', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.HolidayRequestData>('/api/holiday', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).setHoliday(req.body);
+    res.send({ message: 'ok' });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
+  app.get<{}, apiif.HolidaysResponseBody, {}, apiif.HolidayRequestQuery>('/api/holiday', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', holidays: await new DatabaseAccess(knex).getHolidays(req.query) });
+  }));
 
-      const routes = await access.setHoliday(token, req.body);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/holiday/:date', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteHoliday(req.params.date);
+    res.send({ message: 'ok' });
+  }));
 
-  app.get<{}, apiif.HolidaysResponseBody, {}, apiif.HolidayRequestQuery>('/api/holiday', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const holidays = await access.getHolidays(req.query);
-      res.send({
-        message: 'ok',
-        holidays: holidays
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  ///////////////////////////////////////////////////////////////////////
+  // システム設定
+  ///////////////////////////////////////////////////////////////////////
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.SystemConfigRequestData>('/api/config', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).setSystemConfig(req.body.key, req.body.value);
+    res.send({ message: 'ok' });
+  }));
 
-  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/holiday/:date', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const authHeader = req.get('Authorization');
-      if (!authHeader) {
-        throw new Error('Authorization header not found');
-      }
+  app.get<{ key: string }, apiif.SystemConfigResponseBody>('/api/config/:key', asyncHandler(async (req, res) => {
+    res.send({
+      message: 'ok',
+      config: [
+        { key: req.params.key, value: await new DatabaseAccess(knex).getSystemConfigValue(req.params.key) }
+      ]
+    });
+  }));
 
-      const token = extractTokenFromHeader(authHeader);
-      if (!token) {
-        throw new Error('invalid Authorization header');
-      }
-
-      const routes = await access.deleteHoliday(token, req.params.date);
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
+  app.get<{}, apiif.SystemConfigResponseBody, {}, apiif.SystemConfigQuery>('/api/config', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', config: await new DatabaseAccess(knex).getSystemConfig(req.query) });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // メール送信
   ///////////////////////////////////////////////////////////////////////
 
+  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody, { url?: string }>('/api/mail/apply/:applyId', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).sendApplyMail(req.params.applyId, req.body.url);
+    res.send({ message: 'ok' });
+  }));
+
+  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody, { url?: string }>('/api/mail/reject/:applyId', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).sendApplyRejectedMail(req.params.applyId, req.body.url);
+    res.send({ message: 'ok' });
+  }));
+
+  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody, { url?: string }>('/api/mail/approve/:applyId', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).sendApplyApprovedMail(req.params.applyId, req.body.url);
+    res.send({ message: 'ok' });
+  }));
+
   app.post<{}, apiif.MessageOnlyResponseBody, {
     from: string, to: string, cc?: string, subject: string, body: string
-  }>('/api/mail', async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      await access.queueMail({
-        to: req.body.to,
-        from: req.body.from,
-        cc: req.body.cc,
-        subject: req.body.subject,
-        body: req.body.body.replace('\\n', '\r\n').replace('\\t', '\t')
-      });
-      res.send({
-        message: 'ok'
-      });
-    }
-    catch (error) {
-      res.status(400);
-      res.send({ message: error.toString() });
-    }
-  });
-
+  }>('/api/mail', asyncHandler(async (req, res) => {
+    const access = new DatabaseAccess(knex);
+    await access.queueMail({
+      to: req.body.to,
+      from: req.body.from,
+      cc: req.body.cc,
+      subject: req.body.subject,
+      body: req.body.body.replace('\\n', '\r\n').replace('\\t', '\t')
+    });
+    res.send({ message: 'ok' });
+  }));
 }

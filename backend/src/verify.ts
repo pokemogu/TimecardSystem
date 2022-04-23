@@ -23,12 +23,12 @@ export function issueRefreshToken(data: string | Object, expirationSeconds: numb
 export function verifyRefreshToken(token: string, data: string | Object = null) {
   const result = jwt.verify(token, jwtRefreshTokenSecret);
   if (data) {
-    const compareResult = lodash.omit(result as object, ['exp', 'iat']);
+    const compareResult = lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
     if (!lodash.isEqual(data, compareResult)) {
       throw Error('verifyRefreshToken data verification failed. does not match.');
     }
   }
-  return result;
+  return lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
 }
 
 export function issueAccessToken(data: string | Object, expirationSeconds: number = 86400) {
@@ -38,10 +38,10 @@ export function issueAccessToken(data: string | Object, expirationSeconds: numbe
 export function verifyAccessToken(token: string, data: string | Object = null) {
   const result = jwt.verify(token, jwtAccessTokenSecret);
   if (data) {
-    const compareResult = lodash.omit(result as object, ['exp', 'iat']);
+    const compareResult = lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
     if (!lodash.isEqual(data, compareResult)) {
       throw Error('verifyRefreshToken data verification failed. does not match.');
     }
   }
-  return result;
+  return lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
 }

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 
 const timeStrToMinutes = function (time: string) {
   const elems = time.split(':', 2);
@@ -15,7 +15,6 @@ const timeStrToMinutes = function (time: string) {
   }
 }
 
-const route = useRoute();
 const store = useSessionStore();
 
 const dateType = ref('apply-date-spot');
@@ -33,18 +32,7 @@ interface ApplyFormProps {
   applyTypeOptions2?: { name: string, description: string }[],
   isApplyTypeOptionsDropdown?: boolean,
 
-  appliedUserName?: string,
-  appliedUserSectionName?: string,
-  timestamp?: string,
-
-  approvedLevel1UserName?: string,
-  approvedLevel1Timestamp?: string,
-  approvedLevel2UserName?: string,
-  approvedLevel2Timestamp?: string,
-  approvedLevel3UserName?: string,
-  approvedLevel3Timestamp?: string,
-  approvedDecisionUserName?: string,
-  approvedDecisionTimestamp?: string,
+  apply?: apiif.ApplyResponseData,
 
   dateOptional?: string,
   dateOptionalType?: string,
@@ -92,6 +80,8 @@ onMounted(async () => {
   if (props.applyTypeOptions2 && props.applyTypeOptions2.length > 0) {
     applyTypeValue2.value = props.applyTypeOptions2[0].name;
   }
+
+  console.log(props.apply);
 
   try {
     if (store.isLoggedIn()) {
@@ -173,6 +163,7 @@ function onSubmit() {
   }
 
   emits('update:applyTypeValue1', applyTypeValue1.value);
+  emits('update:applyTypeValue1', applyTypeValue1.value);
   emits('submit');
 }
 
@@ -187,7 +178,7 @@ function onSubmit() {
   <div class="row">
     <div class="col-2">
       <div class="row">
-        <div class="col">
+        <div v-if="props.apply" class="col">
           <div class="card border-dark">
             <div class="card-header m-0 p-1 bg-dark text-white">申請</div>
             <div class="card-body m-0 p-1">
@@ -198,22 +189,68 @@ function onSubmit() {
           <div class="card border-dark">
             <div class="card-header m-0 p-1 bg-dark text-white">承認1</div>
             <div class="card-body m-0 p-1">
-              <p class="card-text fs-6 m-0">&nbsp;</p>
-              <p class="card-title fs-6 m-0">&nbsp;</p>
+              <p class="card-text fs-6 m-0">
+                <span v-if="props.apply?.approvedLevel1Timestamp">
+                  {{ new Date(props.apply.approvedLevel1Timestamp).toLocaleDateString() }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
+              <p class="card-title fs-6 m-0">
+                <span v-if="props.apply?.approvedLevel1User">
+                  {{ props.apply.approvedLevel1User.name }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
             </div>
           </div>
           <div class="card border-dark">
             <div class="card-header m-0 p-1 bg-dark text-white">承認2</div>
             <div class="card-body m-0 p-1">
-              <p class="card-text fs-6 m-0">&nbsp;</p>
-              <p class="card-title fs-6 m-0">&nbsp;</p>
+              <p class="card-text fs-6 m-0"> <span v-if="props.apply?.approvedLevel2Timestamp">
+                  {{ new Date(props.apply.approvedLevel2Timestamp).toLocaleDateString() }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
+              <p class="card-title fs-6 m-0">
+                <span v-if="props.apply?.approvedLevel2User">
+                  {{ props.apply.approvedLevel2User.name }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
+            </div>
+          </div>
+          <div class="card border-dark">
+            <div class="card-header m-0 p-1 bg-dark text-white">承認3</div>
+            <div class="card-body m-0 p-1">
+              <p class="card-text fs-6 m-0">
+                <span v-if="props.apply?.approvedLevel3Timestamp">
+                  {{ new Date(props.apply.approvedLevel3Timestamp).toLocaleDateString() }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
+              <p class="card-title fs-6 m-0">
+                <span v-if="props.apply?.approvedLevel3User">
+                  {{ props.apply.approvedLevel3User.name }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
             </div>
           </div>
           <div class="card border-dark">
             <div class="card-header m-0 p-1 bg-dark text-white">決済</div>
             <div class="card-body m-0 p-1">
-              <p class="card-text fs-6 m-0">&nbsp;</p>
-              <p class="card-title fs-6 m-0">&nbsp;</p>
+              <p class="card-text fs-6 m-0">
+                <span v-if="props.apply?.approvedDecisionTimestamp">
+                  {{ new Date(props.apply.approvedDecisionTimestamp).toLocaleDateString() }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
+              <p class="card-title fs-6 m-0">
+                <span v-if="props.apply?.approvedDecisionUser">
+                  {{ props.apply.approvedDecisionUser.name }}
+                </span>
+                <span>&nbsp;</span>
+              </p>
             </div>
           </div>
         </div>
@@ -226,15 +263,11 @@ function onSubmit() {
         <div class="col-6">
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">申請日</div>
-            <div
-              class="col-9 bg-white text-black border border-dark"
-            >{{ new Date().toLocaleDateString() }}</div>
+            <div class="col-9 bg-white text-black border border-dark">{{ new Date().toLocaleDateString() }}</div>
           </div>
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">所属部署</div>
-            <div
-              class="col-9 bg-white text-black border border-dark"
-            >{{ userDepartment }} {{ userSection }}</div>
+            <div class="col-9 bg-white text-black border border-dark">{{ userDepartment }} {{ userSection }}</div>
           </div>
           <div class="row">
             <div class="col-3 bg-dark text-white border border-dark">氏名</div>
@@ -265,49 +298,28 @@ function onSubmit() {
         <div v-if="props.applyTypeOptions1" class="row">
           <div class="col-2 bg-dark text-white border border-dark">種類</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
-            <div
-              v-if="isApplyTypeOptionsDropdown !== true"
-              v-for="(option, index) in props.applyTypeOptions1"
-              class="form-check form-check-inline"
-            >
-              <input
-                class="form-check-input"
-                type="radio"
-                name="apply-type-option1"
-                v-bind:id="'apply-type-option1-' + option.name"
-                v-bind:value="option.name"
-                v-bind:checked="index === 0"
-                v-on:change="onChangeApplyType1"
-                v-model="applyTypeValue1"
-              />
-              <label
-                class="form-check-label"
-                v-bind:for="'apply-type-option1-' + option.name"
-              >{{ option.description }}</label>
+            <div v-if="isApplyTypeOptionsDropdown !== true" v-for="(option, index) in props.applyTypeOptions1"
+              class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="apply-type-option1"
+                v-bind:id="'apply-type-option1-' + option.name" v-bind:value="option.name" v-bind:checked="index === 0"
+                v-on:change="onChangeApplyType1" v-model="applyTypeValue1" />
+              <label class="form-check-label" v-bind:for="'apply-type-option1-' + option.name">{{
+                option.description
+              }}</label>
             </div>
 
             <select v-else class="form-select" v-model="applyTypeValue1" required>
               <option value disabled>申請種類を選択してください</option>
-              <option
-                v-for="(option, index) in props.applyTypeOptions1"
-                :value="option.name"
-              >{{ option.description }}</option>
+              <option v-for="(option, index) in props.applyTypeOptions1" :value="option.name">{{ option.description }}
+              </option>
             </select>
           </div>
         </div>
-        <div
-          v-if="props.dateOptional !== undefined && props.dateOptionalType !== undefined"
-          class="row"
-        >
+        <div v-if="props.dateOptional !== undefined && props.dateOptionalType !== undefined" class="row">
           <div class="col-2 bg-dark text-white border border-dark">{{ props.dateOptionalType }}</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
-            <input
-              type="date"
-              class="form-control"
-              v-bind:value="props.dateOptional"
-              v-on:change="onChangeDateOptional"
-              required
-            />
+            <input type="date" class="form-control" v-bind:value="props.dateOptional" v-on:change="onChangeDateOptional"
+              required />
           </div>
         </div>
         <div class="row">
@@ -315,45 +327,21 @@ function onSubmit() {
           <div class="col-9 bg-white text-black border border-dark p-2">
             <div class="input-group">
               <div v-if="props.isDateToOptional === true" class="form-check form-check-inline">
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  v-model="dateType"
-                  id="apply-date-spot"
-                  value="apply-date-spot"
-                />
+                <input class="form-check-input" type="radio" v-model="dateType" id="apply-date-spot"
+                  value="apply-date-spot" />
                 <label class="form-check-label" for="apply-date-spot">日付</label>
               </div>
               <div v-if="props.isDateToOptional === true" class="form-check form-check-inline">
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  v-model="dateType"
-                  name="apply-date-type"
-                  id="apply-date-period"
-                  value="apply-date-period"
-                />
+                <input class="form-check-input" type="radio" v-model="dateType" name="apply-date-type"
+                  id="apply-date-period" value="apply-date-period" />
                 <label class="form-check-label" for="apply-date-period">期間</label>
               </div>
-              <input
-                type="date"
-                class="form-control"
-                v-bind:value="props.dateFrom"
-                v-on:change="onChangeDateFrom"
-                required
-              />
-              <span
-                v-if="props.dateTo !== undefined && dateType === 'apply-date-period'"
-                class="input-group-text"
-              >〜</span>
-              <input
-                v-if="props.dateTo !== undefined && dateType === 'apply-date-period'"
-                type="date"
-                class="form-control"
-                v-bind:value="props.dateTo"
-                v-on:change="onChangeDateTo"
-                required
-              />
+              <input type="date" class="form-control" v-bind:value="props.dateFrom" v-on:change="onChangeDateFrom"
+                required />
+              <span v-if="props.dateTo !== undefined && dateType === 'apply-date-period'"
+                class="input-group-text">〜</span>
+              <input v-if="props.dateTo !== undefined && dateType === 'apply-date-period'" type="date"
+                class="form-control" v-bind:value="props.dateTo" v-on:change="onChangeDateTo" required />
             </div>
           </div>
         </div>
@@ -361,23 +349,13 @@ function onSubmit() {
           <div class="col-2 bg-dark text-white border border-dark">時刻</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
             <div class="input-group">
-              <div
-                v-for="(option, index) in props.applyTypeOptions2"
-                class="form-check form-check-inline"
-              >
-                <input
-                  class="form-check-input"
-                  type="radio"
-                  name="apply-type-option2"
-                  v-bind:id="'apply-type-option2-' + option.name"
-                  v-bind:value="option.name"
-                  v-bind:checked="index === 0"
-                  v-on:change="onChangeApplyType2"
-                />
-                <label
-                  class="form-check-label"
-                  v-bind:for="'apply-type-option2-' + option.name"
-                >{{ option.description }}</label>
+              <div v-for="(option, index) in props.applyTypeOptions2" class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="apply-type-option2"
+                  v-bind:id="'apply-type-option2-' + option.name" v-bind:value="option.name"
+                  v-bind:checked="index === 0" v-on:change="onChangeApplyType2" />
+                <label class="form-check-label" v-bind:for="'apply-type-option2-' + option.name">{{
+                  option.description
+                }}</label>
               </div>
               <!--
               <select class="form-select" v-if="isDateFromSpanningDay === true">
@@ -385,36 +363,19 @@ function onSubmit() {
                 <option :value="true">翌日</option>
               </select>
               -->
-              <input
-                v-if="props.timeFrom !== undefined"
-                v-bind:value="props.timeFrom"
-                v-on:change="onChangeTimeFrom"
-                type="time"
-                class="form-control"
-                required
-              />
+              <input v-if="props.timeFrom !== undefined" v-bind:value="props.timeFrom" v-on:change="onChangeTimeFrom"
+                type="time" class="form-control" required />
               <span v-if="props.timeTo !== undefined" class="input-group-text">〜</span>
-              <input
-                v-if="props.timeTo !== undefined"
-                type="time"
-                class="form-control"
-                v-bind:value="props.timeTo"
-                v-on:change="onChangeTimeTo"
-                required
-              />
+              <input v-if="props.timeTo !== undefined" type="time" class="form-control" v-bind:value="props.timeTo"
+                v-on:change="onChangeTimeTo" required />
             </div>
           </div>
         </div>
         <div class="row" v-if="props.reason !== undefined">
           <div class="col-2 bg-dark text-white border border-dark">理由</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
-            <textarea
-              class="form-control"
-              rows="3"
-              cols="32"
-              v-on:change="onChangeReason"
-              v-bind:required="props.applyType !== 'leave' || props.applyTypeValue1 !== 'paid'"
-            ></textarea>
+            <textarea class="form-control" rows="3" cols="32" v-on:change="onChangeReason"
+              v-bind:required="props.applyType !== 'leave' || props.applyTypeValue1 !== 'paid'"></textarea>
           </div>
         </div>
         <div class="row" v-if="props.contact !== undefined">
@@ -441,7 +402,9 @@ function onSubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

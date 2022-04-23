@@ -1,16 +1,15 @@
-import lodash from 'lodash';
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
-import type * as models from 'shared/models';
+import { hashPassword } from '../verify';
 
 ///////////////////////////////////////////////////////////////////////
 // ユーザー情報関連
 ///////////////////////////////////////////////////////////////////////
 
-export async function getUsers(this: DatabaseAccess, accessToken: string, params: {
+export async function getUsers(this: DatabaseAccess, params?: {
   byId?: number,
   isAvailable?: boolean,
-  byAccount?: string,
+  byAccounts?: string[],
   byName?: string,
   byPhonetic?: string,
   bySection?: string,
@@ -37,7 +36,7 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     optional1WorkPatternName: string,
     optional2WorkPatternName: string
   };
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+
   const result = await this.knex
     .select<RecordResult[]>
     (
@@ -58,44 +57,44 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     .leftJoin('workPattern as w3', { 'w3.id': 'user.optional2WorkPattern' })
     .where(function (builder) {
       builder.where('isDevice', false);
-      if (params.byId) {
+      if (params?.byId) {
         builder.where('user.id', params.byId);
       }
 
-      if (params.isAvailable === false) {
-        builder.where('user.available', false);
-      }
-      else {
-        builder.where('user.available', true);
-      }
+      //if (params.isAvailable === false) {
+      //  builder.where('user.available', false);
+      //}
+      //else {
+      builder.where('user.available', params?.isAvailable ?? true);
+      //}
 
-      if (params.byAccount) {
-        builder.where('user.account', params.byAccount);
+      if (params?.byAccounts) {
+        builder.whereIn('user.account', params.byAccounts);
       }
-      if (params.byName) {
+      if (params?.byName) {
         builder.where('user.name', 'like', `%${params.byName}%`);
       }
-      if (params.byPhonetic) {
+      if (params?.byPhonetic) {
         builder.where('user.phonetic', 'like', `%${params.byPhonetic}%`);
       }
-      if (params.bySection) {
+      if (params?.bySection) {
         builder.where('section.name', 'like', `%${params.bySection}%`);
       }
-      if (params.byDepartment) {
+      if (params?.byDepartment) {
         builder.where('department.name', 'like', `%${params.byDepartment}%`);
       }
-      if (params.registeredFrom && params.registeredTo) {
+      if (params?.registeredFrom && params?.registeredTo) {
         builder.whereBetween('registeredAt', [params.registeredFrom, params.registeredTo]);
       }
-      else if (params.registeredFrom) {
+      else if (params?.registeredFrom) {
         builder.where('registeredAt', '>=', params.registeredFrom);
       }
-      else if (params.registeredTo) {
+      else if (params?.registeredTo) {
         builder.where('registeredAt', '<=', params.registeredTo);
       }
     })
     .modify(function (builder) {
-      if (params.isQrCodeIssued !== undefined && params.isQrCodeIssued !== null) {
+      if (params?.isQrCodeIssued !== undefined && params?.isQrCodeIssued !== null) {
         if (params.isQrCodeIssued.toString() === 'true') {
           builder.having('qrCodeIssuedNum', '>', 0);
         }
@@ -107,10 +106,10 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
     })
     .groupBy('user.id')
     .modify(function (builder) {
-      if (params.limit) {
+      if (params?.limit) {
         builder.limit(params.limit);
       }
-      if (params.offset) {
+      if (params?.offset) {
         builder.offset(params.offset);
       }
     })
@@ -120,11 +119,7 @@ export async function getUsers(this: DatabaseAccess, accessToken: string, params
 }
 
 export async function generateAvailableUserAccount(this: DatabaseAccess) {
-  const result = await this.knex
-    .select<{ account: string }[]>
-    (
-      { account: 'account' }
-    )
+  const result = await this.knex.select<{ account: string }[]>({ account: 'account' })
     .from('user')
     .where('isDevice', false);
 
@@ -158,39 +153,73 @@ export async function generateAvailableUserAccount(this: DatabaseAccess) {
   return candidates.map(candidate => candidate.prefix + candidate.id.toString().padStart(candidate.length, '0'));
 }
 
-export async function registerUser(this: DatabaseAccess, accessToken: string, userData: models.User, password: string, params?: {
-  department?: string, section?: string, privilege?: string
-}) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function addUser(this: DatabaseAccess, userInfo: apiif.UserInfoRequestData) {
 
-  const user = lodash.omit(userData, ['id']);
-  //user.password = hashPassword(password);
+  const privileges = await this.getPrivileges();
+  const privilegeId = privileges.find(privilege => privilege.name === userInfo.privilegeName)?.id;
 
-  if (params) {
+  let departmentId: number = null;
+  let sectionId: number = null;
 
-  } else {
+  if (userInfo.department) {
+    const department = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' })
+      .from('department')
+      .where('name', userInfo.department)
+      .first();
 
+    if (department) {
+      departmentId = department.id;
+
+      if (userInfo.section) {
+        const section = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' })
+          .from('section')
+          .where('name', userInfo.section)
+          .andWhere('department', departmentId)
+          .first();
+
+        if (section) {
+          sectionId = section.id;
+        }
+        else {
+          await this.knex('section').insert({ name: userInfo.section, department: departmentId });
+          const lastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+          sectionId = lastIdResult['LAST_INSERT_ID()'];
+        }
+      }
+    }
+    else {
+      await this.knex('department').insert({ name: userInfo.department });
+      let lastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+      departmentId = lastIdResult['LAST_INSERT_ID()'];
+
+      await this.knex('section').insert({ name: userInfo.section, department: departmentId });
+      lastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+      sectionId = lastIdResult['LAST_INSERT_ID()'];
+    }
   }
 
-  await this.knex('user').insert(user);
+  const workPatterns = await this.getWorkPatterns();
+
+  await this.knex('user').insert({
+    registeredAt: new Date(), account: userInfo.account, name: userInfo.name, email: userInfo.email, phonetic: userInfo.phonetic,
+    available: true,
+    privilege: privilegeId, section: sectionId,
+    defaultWorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.defaultWorkPatternName)?.id,
+    optional1WorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.optional1WorkPatternName)?.id,
+    optional2WorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.optional2WorkPatternName)?.id,
+    password: hashPassword(userInfo.password)
+  });
+
 }
 
-export async function deleteUser(this: DatabaseAccess, idOrAccount: number | string) {
-
-  if (typeof idOrAccount === 'string') {
-    await this.knex('user').del().where('account', idOrAccount);
-  }
-  else {
-    await this.knex('user').del().where('id', idOrAccount);
-  }
+export async function deleteUser(this: DatabaseAccess, account: string) {
+  await this.knex('user').del().where('account', account).andWhere('isDevice', false);
 }
 
-export async function disableUser(this: DatabaseAccess, idOrAccount: number | string) {
+export async function disableUser(this: DatabaseAccess, account: string) {
+  await this.knex('user').update({ available: false }).where('account', account).andWhere('isDevice', false);
+}
 
-  if (typeof idOrAccount === 'string') {
-    await this.knex('user').update({ available: false }).where('account', idOrAccount);
-  }
-  else {
-    await this.knex('user').update({ available: false }).where('id', idOrAccount);
-  }
+export async function enableUser(this: DatabaseAccess, account: string) {
+  await this.knex('user').update({ available: true }).where('account', account).andWhere('isDevice', false);
 }

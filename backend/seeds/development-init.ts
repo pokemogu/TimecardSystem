@@ -1046,4 +1046,16 @@ export async function seed(knex: Knex): Promise<void> {
   await knex('systemConfig').update({ value: '2525' }).where('key', 'smtpPort');
   await knex('systemConfig').update({ value: 'f4d144bc16e53b' }).where('key', 'smtpUsername');
   await knex('systemConfig').update({ value: '6ae992dd9335f9' }).where('key', 'smtpPassword');
+
+  await knex('systemConfig').update({ value: 'from@example.com' }).where('key', 'fromEmailAddress');
+  await knex('systemConfig').update({ value: '申請の承認依頼メール' }).where('key', 'mailSubjectApply');
+  await knex('systemConfig').update({ value: '以下の申請について承認お願い致します。' }).where('key', 'mailTemplateApply');
+  await knex('systemConfig').update({ value: '申請の否認通知メール' }).where('key', 'mailSubjectReject');
+  await knex('systemConfig').update({ value: '以下の申請について否認されましたのでご確認お願い致します。' }).where('key', 'mailTemplateReject');
+  await knex('systemConfig').update({ value: '申請の承認通知メール' }).where('key', 'mailSubjectApproved');
+  await knex('systemConfig').update({ value: '以下の申請について承認されましたのでご確認お願い致します。' }).where('key', 'mailTemplateApproved');
+  await knex('systemConfig').update({ value: '未打刻通知メール' }).where('key', 'mailSubjectRecord');
+  await knex('systemConfig').update({ value: '本日の打刻が完了していませんので至急打刻をお願い致します。' }).where('key', 'mailTemplateRecord');
+  await knex('systemConfig').update({ value: '有給未取得メール' }).where('key', 'mailSubjectLeave');
+  await knex('systemConfig').update({ value: '未取得の有給がありますので取得をお願い致します。' }).where('key', 'mailTemplateLeave');
 };

@@ -48,7 +48,7 @@ export interface RevokeTokenRequestBody {
 
 export interface UserInfoRequestQuery {
   id?: number,
-  account?: string,
+  accounts?: string[],
   name?: string,
   phonetic?: string,
   department?: string,
@@ -81,6 +81,20 @@ export interface UserInfoResponseData {
   optional2WorkPatternName?: string
 }
 
+export interface UserInfoRequestData {
+  account: string,
+  name?: string,
+  phonetic?: string,
+  email?: string,
+  section?: string,
+  department?: string,
+  privilegeName?: string,
+  defaultWorkPatternName?: string,
+  optional1WorkPatternName?: string,
+  optional2WorkPatternName?: string,
+  password: string
+}
+
 export interface UserInfoResponseBody {
   message: string,
   info?: UserInfoResponseData
@@ -99,6 +113,56 @@ export interface RecordRequestBody {
 }
 
 export type RecordRequestPathParams = Record<'recordType', string>;
+
+export interface RecordRequestQuery {
+  byUserAccount?: string,
+  byUserName?: string,
+  bySection?: string,
+  byDepartment?: string,
+  byDevice?: string,
+  sortBy?: 'byUserAccount' | 'byUserName' | 'bySection' | 'byDepartment',
+  sortDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
+  from?: string,
+  to?: string,
+  sortDateDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
+  limit?: number,
+  offset?: number
+}
+
+export interface RecordResponseData {
+  userAccount: string,
+  userName: string,
+  date: string,
+  clockin?: {
+    timestamp: string,
+    deviceAccount: string,
+    deviceName: string,
+    applyId: number
+  },
+  break?: {
+    timestamp: string,
+    deviceAccount: string,
+    deviceName: string,
+    applyId: number
+  },
+  reenter?: {
+    timestamp: string,
+    deviceAccount: string,
+    deviceName: string,
+    applyId: number
+  },
+  clockout?: {
+    timestamp: string,
+    deviceAccount: string,
+    deviceName: string,
+    applyId: number
+  }
+}
+
+export interface RecordResponseBody {
+  message: string,
+  records?: RecordResponseData[]
+}
 
 export interface DevicesRequestBody {
   name: string
@@ -195,7 +259,7 @@ export interface ApplyResponseData {
   timestamp: string,
   type: ApplyTypeResponseData,
 
-  targetedUser: UserInfoResponseData,
+  targetUser: UserInfoResponseData,
   appliedUser?: UserInfoResponseData,
 
   approvedLevel1User?: UserInfoResponseData,
@@ -217,6 +281,7 @@ export interface ApplyResponseData {
   }[],
   reason?: string,
   contact?: string,
+  routeName: string,
   isApproved?: boolean
 }
 
@@ -272,7 +337,7 @@ export interface WorkPatternResponseData {
   name: string,
   onTimeStart: string,
   onTimeEnd: string,
-  wagePatterns: {
+  wagePatterns?: {
     id?: number,
     name: string,
     timeStart: string,
@@ -288,17 +353,17 @@ export interface WorkPatternResponseBody {
   message: string,
   workPattern?: WorkPatternResponseData
 }
-
+/*
 export interface WorkPatternsResponseData {
   id: number,
   name: string,
   onTimeStart: string,
   onTimeEnd: string
 }
-
+*/
 export interface WorkPatternsResponseBody {
   message: string,
-  workPatterns?: WorkPatternsResponseData[]
+  workPatterns?: WorkPatternResponseData[]
 }
 
 export interface PrivilegeResponseData {
@@ -365,18 +430,29 @@ export interface HolidaysResponseBody {
 }
 
 export interface UserWorkPatternCalendarRequestQuery {
-  from?: string,
-  to?: string,
+  from: string,
+  to: string,
   accounts?: string[],
   limit?: number,
   offset?: number
+}
+
+export interface UserWorkPatternCalendarResponseData1 {
+  id?: number,
+  date: string,
+  user: UserInfoResponseData,
+  workPattern: WorkPatternResponseData | null
 }
 
 export interface UserWorkPatternCalendarResponseData {
   id?: number,
   date: string,
   user: UserInfoResponseData,
-  workPattern: WorkPatternsResponseData | null
+  workPattern: {
+    name: string,
+    onDateTimeStart: string,
+    onDateTimeEnd: string
+  } | null
 }
 
 export interface UserWorkPatternCalendarRequestData {
@@ -388,4 +464,26 @@ export interface UserWorkPatternCalendarRequestData {
 export interface UserWorkPatternCalendarResponseBody {
   message: string,
   userWorkPatternCalendars?: UserWorkPatternCalendarResponseData[]
+}
+
+export interface SystemConfigQuery {
+  key?: string,
+  limit?: number,
+  offset?: number
+}
+
+export interface SystemConfigResponseData {
+  key: string,
+  value: string,
+  title?: string,
+  description?: string,
+  isMultiLine?: boolean,
+  isPassword?: boolean
+}
+
+export type SystemConfigRequestData = SystemConfigResponseData;
+
+export interface SystemConfigResponseBody {
+  message: string,
+  config?: SystemConfigResponseData[]
 }

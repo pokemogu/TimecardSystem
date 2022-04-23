@@ -1,6 +1,8 @@
-import { DatabaseAccess } from './dataaccess';
-import * as verifier from './verify';
+import { DatabaseAccess } from '../dataaccess';
+import type { UserInfo } from '../dataaccess';
+import * as verifier from '../verify';
 import type * as apiif from 'shared/APIInterfaces';
+import createHttpError from 'http-errors';
 
 ///////////////////////////////////////////////////////////////////////
 // 認証関連
@@ -19,26 +21,20 @@ export async function issueRefreshToken(this: DatabaseAccess, account: string, p
     .first();
 
   if (!user) {
-    const error = new Error('password verification failed.');
-    error.name = 'AuthenticationError';
-    throw error;
+    throw new createHttpError.Unauthorized('IDかパスワードが間違っています');
   }
 
   if (!verifier.verifyPassword(user.password, password)) {
-    const error = new Error('password verification failed.');
-    error.name = 'AuthenticationError';
-    throw error;
+    throw new createHttpError.Unauthorized('IDかパスワードが間違っています');
   }
 
   if (!user.available) {
-    const error = new Error('user is not available.');
-    error.name = 'UserNotAvailableError';
-    throw error;
+    throw new createHttpError.NotFound('指定されたユーザーは存在しません');
   }
 
   // 通常のトークン期限は1日
   const secondsPerDay = 60 * 60 * 24;
-  const token = verifier.issueRefreshToken({ account: account }, secondsPerDay);
+  const token = verifier.issueRefreshToken({ id: user.id, account: user.account }, secondsPerDay);
   await this.knex('token').insert({
     user: user.id,
     refreshToken: token,
@@ -48,8 +44,9 @@ export async function issueRefreshToken(this: DatabaseAccess, account: string, p
   return { refreshToken: token, name: user.name, department: user.department, section: user.section };
 }
 
-export async function issueQrCodeRefreshToken(this: DatabaseAccess, accessToken: string, account: string): Promise<apiif.IssueTokenResponseData> {
+export async function issueQrCodeRefreshToken(this: DatabaseAccess, account: string): Promise<apiif.IssueTokenResponseData> {
 
+  /*
   const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
   const privilege = await this.getUserPrivilege(accessToken, authUserInfo.id);
 
@@ -59,6 +56,7 @@ export async function issueQrCodeRefreshToken(this: DatabaseAccess, accessToken:
     error.name = 'PermissionDeniedError';
     throw error;
   }
+  */
 
   // 部門や部署に所属していない可能性があるのでLEFT JOINとする。
   const user = await this.knex.select<{
@@ -71,14 +69,12 @@ export async function issueQrCodeRefreshToken(this: DatabaseAccess, accessToken:
     .first()
 
   if (!user.available) {
-    const error = new Error('user is not available.');
-    error.name = 'UserNotAvailableError';
-    throw error;
+    throw new createHttpError.NotFound('指定されたユーザーは存在しません');
   }
 
   // QRコード用のトークン期限は10年とする
   const secondsPerDay = 60 * 60 * 24;
-  const refreshToken = verifier.issueRefreshToken({ account: account }, secondsPerDay * 3650);
+  const refreshToken = verifier.issueRefreshToken({ id: user.id, account: user.account }, secondsPerDay * 3650);
   await this.knex('token').insert({
     user: user.id,
     refreshToken: refreshToken,
@@ -89,8 +85,8 @@ export async function issueQrCodeRefreshToken(this: DatabaseAccess, accessToken:
 }
 
 export async function issueAccessToken(this: DatabaseAccess, token: string) {
-  const tokenData = await this.knex.select<{ account: string, tokenId: number, refreshToken: string }>(
-    { account: 'user.account', tokenId: 'token.id', refreshToken: 'token.refreshToken' }
+  const tokenData = await this.knex.select<{ userId: number, account: string, tokenId: number, refreshToken: string }>(
+    { userId: 'user.id', account: 'user.account', tokenId: 'token.id', refreshToken: 'token.refreshToken' }
   )
     .from('user')
     .join('token', { 'user.id': 'token.user' })
@@ -98,16 +94,14 @@ export async function issueAccessToken(this: DatabaseAccess, token: string) {
     .first();
 
   if (!tokenData) {
-    const error = new Error('refresh token does not exist.');
-    error.name = 'AuthenticationError';
-    throw error;
+    throw new createHttpError.Unauthorized('ログインが必要です');
   }
 
-  if (!verifier.verifyRefreshToken(token, { account: tokenData.account })) {
+  if (!verifier.verifyRefreshToken(token, <UserInfo>{ id: tokenData.userId, account: tokenData.account })) {
     throw new Error('refresh token verification failed.');
   }
 
-  const accessToken = verifier.issueAccessToken({ account: tokenData.account }, 60);
+  const accessToken = verifier.issueAccessToken(<UserInfo>{ id: tokenData.userId, account: tokenData.account }, 60);
   await this.knex('token').update({
     accessToken: accessToken
   })
@@ -116,42 +110,25 @@ export async function issueAccessToken(this: DatabaseAccess, token: string) {
   return accessToken;
 }
 
-export async function getUserInfoFromAccessToken(this: DatabaseAccess, token: string): Promise<{
-  id: number,
-  account: string,
-  section: number,
-  email: string,
-  phonetic: string,
-  privilege: number
-}> {
-  const userData = await this.knex.select<{ id: number, account: string, section: number, email: string, phonetic: string, privilege: number }>(
-    { id: 'user.id', account: 'user.account', section: 'user.section', email: 'user.email', phonetic: 'user.phonetic', privilege: 'user.privilege' }
-  )
-    .from('user')
-    .join('token', { 'user.id': 'token.user' })
-    .where('token.accessToken', token)
-    .first();
-
-  if (!userData) {
-    throw new Error('access token does not exist');
-  }
-
-  if (!verifier.verifyAccessToken(token, { account: userData.account })) {
+export async function getUserInfoFromAccessToken(this: DatabaseAccess, token: string) {
+  const userInfo = verifier.verifyAccessToken(token) as UserInfo;
+  if (!userInfo || userInfo.id === undefined || userInfo.account === undefined) {
     throw new Error('access token verification failed.');
   }
 
-  return userData;
+  return userInfo;
 }
 
 export async function revokeRefreshToken(this: DatabaseAccess, account: string, token: string) {
-  if (!verifier.verifyRefreshToken(token, { account: account })) {
-    throw new Error('refresh token verification failed.');
-  }
 
   const user = await this.knex.select<{ id: number }>({ id: 'user.id' })
     .from('user')
     .where('user.account', account)
     .first();
+
+  if (!verifier.verifyRefreshToken(token, <UserInfo>{ id: user.id, account: account })) {
+    throw new Error('refresh token verification failed.');
+  }
 
   await this.knex('token').where('user', user.id).andWhere('isQrToken', false).del();
 }
@@ -177,10 +154,7 @@ export async function deleteAllExpiredRefreshTokens(this: DatabaseAccess) {
   }
 }
 
-export async function changeUserPassword(this: DatabaseAccess, accessToken: string, params: {
-  account?: string, oldPassword: string, newPassword: string
-}) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function changeUserPassword(this: DatabaseAccess, userInfo: UserInfo, params: apiif.ChangePasswordRequestBody) {
   const targetUserInfo =
     await this.knex.select<{ id: number, password: string }[]>({ id: 'id', password: 'password' })
       .from('user')
@@ -189,15 +163,13 @@ export async function changeUserPassword(this: DatabaseAccess, accessToken: stri
           builder.where('account', params.account);
         }
         else {
-          builder.where('id', authUserInfo.id);
+          builder.where('id', userInfo.id);
         }
       })
       .first();
 
   if (!verifier.verifyPassword(targetUserInfo.password, params.oldPassword)) {
-    const error = new Error('password verification failed.');
-    error.name = 'AuthenticationError';
-    throw error;
+    throw new createHttpError.Unauthorized('パスワードが間違っています');
   }
 
   await this.knex('user').update({

@@ -18,6 +18,7 @@ const router = useRouter();
 const store = useSessionStore();
 
 const userInfos = ref<apiif.UserInfoResponseData[]>([]);
+const selectedUserInfo = ref<apiif.UserInfoRequestData>({ account: '' });
 const checks = ref<boolean[]>([]);
 const isModalOpened = ref(false);
 
@@ -52,7 +53,7 @@ const updateUserList = async () => {
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
       const infos = await tokenAccess.getUserInfos({
-        byAccount: accountSearch.value !== '' ? accountSearch.value : undefined,
+        byAccounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
         byName: nameSearch.value !== '' ? nameSearch.value : undefined,
         byDepartment: departmentSearch.value !== '' ? departmentSearch.value : undefined,
         bySection: sectionSearch.value !== '' ? sectionSearch.value : undefined,
@@ -133,37 +134,22 @@ function onPageForward() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="従業員登録・照会(QRコード発行)"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="従業員登録・照会(QRコード発行)" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <UserEdit v-model:isOpened="isModalOpened"></UserEdit>
+      <UserEdit v-model:isOpened="isModalOpened" v-model:userInfo="selectedUserInfo"></UserEdit>
     </Teleport>
 
     <div class="row justify-content-end p-2">
       <div class="d-grid gap-2 col-2">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-user"
-          v-on:click="isModalOpened = true"
-        >従業員ID追加</button>
+        <button type="button" class="btn btn-primary" id="new-user" v-on:click="isModalOpened = true">従業員ID追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="issue-qr"
-          v-on:click="onIssueQrCode"
-          v-bind:disabled="checks.every(check => check === false)"
-        >チェックした従業員のQRコード発行</button>
+        <button type="button" class="btn btn-primary" id="issue-qr" v-on:click="onIssueQrCode"
+          v-bind:disabled="checks.every(check => check === false)">チェックした従業員のQRコード発行</button>
       </div>
       <div class="col-md-6">
         <div class="input-group">
@@ -193,40 +179,20 @@ function onPageForward() {
               </th>
               <th scope="col"></th>
               <th scope="col">
-                <input
-                  class="form-control form-control-sm"
-                  type="text"
-                  size="3"
-                  v-model="accountSearch"
-                  placeholder="完全一致"
-                />
+                <input class="form-control form-control-sm" type="text" size="3" v-model="accountSearch"
+                  placeholder="完全一致" />
               </th>
               <th scope="col">
-                <input
-                  class="form-control form-control-sm"
-                  type="text"
-                  size="3"
-                  v-model="nameSearch"
-                  placeholder="部分一致"
-                />
+                <input class="form-control form-control-sm" type="text" size="3" v-model="nameSearch"
+                  placeholder="部分一致" />
               </th>
               <th scope="col">
-                <input
-                  class="form-control form-control-sm"
-                  type="text"
-                  size="3"
-                  v-model="departmentSearch"
-                  placeholder="部分一致"
-                />
+                <input class="form-control form-control-sm" type="text" size="3" v-model="departmentSearch"
+                  placeholder="部分一致" />
               </th>
               <th scope="col">
-                <input
-                  class="form-control form-control-sm"
-                  type="text"
-                  size="3"
-                  v-model="sectionSearch"
-                  placeholder="部分一致"
-                />
+                <input class="form-control form-control-sm" type="text" size="3" v-model="sectionSearch"
+                  placeholder="部分一致" />
               </th>
               <th scope="col">
                 <select class="form-select form-select-sm" v-model="statusSearch">
@@ -240,18 +206,12 @@ function onPageForward() {
           <tbody>
             <tr v-for="(user, index) in userInfos.slice(0, limit)">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[index]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index" v-model="checks[index]" />
               </th>
               <td>{{ new Date(user.registeredAt ?? '').toLocaleDateString() }}</td>
               <td>
-                <RouterLink
-                  :to="{ name: 'admin-reguser', params: { account: user.account } }"
-                >{{ user.account }}</RouterLink>
+                <RouterLink :to="{ name: 'admin-reguser', params: { account: user.account } }">{{ user.account }}
+                </RouterLink>
               </td>
               <td>{{ user.name }}</td>
               <td>{{ user.department }}</td>
@@ -288,7 +248,9 @@ function onPageForward() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;
@@ -298,6 +260,7 @@ body {
   border-bottom-color: orange !important;
   color: black !important;
 }
+
 /*
 .nav-item {
   background: navajowhite !important;

@@ -8,7 +8,6 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import WorkPatternCalendarEdit from '@/components/WorkPatternCalendarEdit.vue';
-import { def } from '@vue/shared';
 
 function dateToStr(date: Date) {
   return date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
@@ -19,7 +18,6 @@ const route = useRoute();
 const store = useSessionStore();
 
 const isModalOpened = ref(false);
-const selectedHoliday = ref<apiif.HolidayResponseData>({ date: '', name: '' });
 const holidayInfos = ref<apiif.HolidayResponseData[]>([]);
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref((new Date().getMonth()) + 1);
@@ -55,6 +53,7 @@ async function updateTable() {
       if (userWorkPatternInfo) {
         userWorkPatternCalendars.value.splice(0);
         Array.prototype.push.apply(userWorkPatternCalendars.value, userWorkPatternInfo);
+        console.log(userWorkPatternCalendars.value);
       }
     }
 
@@ -103,18 +102,6 @@ watch(selectedYear, async () => {
 watch(selectedMonth, async () => {
   await updateTable();
 });
-
-async function onPageBack() {
-  const backTo = offset.value - limit.value;
-  offset.value = backTo > 0 ? backTo : 0;
-  await updateTable();
-}
-
-async function onPageForward() {
-  const forwardTo = offset.value + limit.value;
-  offset.value = forwardTo > 0 ? forwardTo : 0;
-  await updateTable();
-}
 
 async function onWorkPatternCalendarClick(date: Date) {
   const workPatternName = getWorkPatternNameOfDay(date);
@@ -193,22 +180,10 @@ function getDayOfWeekName(date: Date) {
 }
 
 function getWorkPatternNameOfDay(date: Date) {
-  const matchedWorkPattern = userWorkPatternCalendars.value.find(calendar => {
-    const dateWorkPattern = new Date(calendar.date);
-    if (dateWorkPattern.getTime() === date.getTime()) {
-      return calendar;
-    }
-  });
+  const dateStr = dateToStr(date);
+  const matchedWorkPattern = userWorkPatternCalendars.value.find(calendar => dateStr === calendar.date);
 
-  if (matchedWorkPattern) {
-    return matchedWorkPattern.workPattern === null ? '' : matchedWorkPattern.workPattern.name;
-  }
-
-  if (isHoliday(date)) {
-    return '';
-  }
-
-  return defaultWorkPattern.value?.name;
+  return matchedWorkPattern?.workPattern === null ? '' : matchedWorkPattern?.workPattern.name;
 }
 
 </script>

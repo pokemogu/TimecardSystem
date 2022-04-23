@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 
 const props = defineProps<{
-  isOpened: boolean
+  isOpened: boolean,
+  userInfo: apiif.UserInfoRequestData
 }>();
 
 const emits = defineEmits<{
@@ -23,7 +25,9 @@ const privilegeNames = ref<string[]>([]);
 const workPatternNames = ref<string[]>([]);
 
 const account = ref(route.params.account ? route.params.account as string : '');
-const isExistingAccount = ref(route.params.account ? true : false);
+const isNewAccount = ref(route.params.account ? false : true);
+
+const userInfo = ref<apiif.UserInfoRequestData>(props.userInfo);
 
 const departmentList = ref<{
   name: string
@@ -86,22 +90,22 @@ async function onGenerateAccount() {
 }
 
 async function onSubmit() {
-  if (isExistingAccount.value === true) {
-    if (confirm('この内容で修正しますか？')) {
+  if (isNewAccount.value === true) {
+    if (!confirm('この内容で登録しますか？')) {
+      emits('update:isOpened', false);
     }
   }
   else {
-    if (confirm('この内容で登録しますか？')) {
+    if (!confirm('この内容で修正しますか？')) {
+      emits('update:isOpened', false);
     }
   }
-
-  router.push({ name: 'admin-users' });
 }
 
 async function onDeleteAccount() {
   if (confirm('本当にこの従業員を削除しますか? ※従業員を削除してもシステム上の理由により社員No IDは再利用できません')) {
     alert('従業員の削除が完了しました。');
-    router.push({ name: 'admin-users' });
+    emits('update:isOpened', false);
   }
 }
 
@@ -127,38 +131,19 @@ function onClose(event: Event) {
                   <label for="user-id" class="col-3 col-form-label">社員No</label>
                   <div class="col-9">
                     <div class="input-group">
-                      <input
-                        type="text"
-                        id="user-id"
-                        class="form-control"
-                        pattern="^[0-9A-Za-z]+$"
-                        title="半角英数字のみ入力可能です"
-                        v-bind:disabled="isExistingAccount"
-                        v-model="account"
-                        required
-                      />
-                      <button
-                        class="btn btn-outline-secondary"
-                        type="button"
-                        id="button-addon2"
-                        v-on:click="onGenerateAccount"
-                        v-show="!isExistingAccount"
-                        title="英字で始まり数字で終わるパターンのIDを既存IDを元に自動生成します(例: USR00100)。該当するパターンの既存IDが存在しない場合は自動生成できませんので手動入力してください。"
-                      >AUTO</button>
+                      <input type="text" id="user-id" class="form-control" pattern="^[0-9A-Za-z]+$"
+                        title="半角英数字のみ入力可能です" v-bind:disabled="!isNewAccount" v-model="account" required />
+                      <button class="btn btn-outline-secondary" type="button" id="button-addon2"
+                        v-on:click="onGenerateAccount" v-show="isNewAccount"
+                        title="英字で始まり数字で終わるパターンのIDを既存IDを元に自動生成します(例: USR00100)。該当するパターンの既存IDが存在しない場合は自動生成できませんので手動入力してください。">AUTO</button>
                     </div>
                   </div>
                 </div>
                 <div class="row m-1">
                   <label for="user-department" class="col-3 col-form-label">部門</label>
                   <div class="col-9">
-                    <input
-                      type="text"
-                      class="form-control"
-                      list="user-department-list"
-                      id="user-department"
-                      v-model="department"
-                      required
-                    />
+                    <input type="text" class="form-control" list="user-department-list" id="user-department"
+                      v-model="department" autocomplete="off" required />
                     <datalist id="user-department-list">
                       <option v-for="(item, index) in departmentList" v-bind:value="item.name"></option>
                     </datalist>
@@ -167,19 +152,12 @@ function onClose(event: Event) {
                 <div class="row m-1">
                   <label for="user-section" class="col-3 col-form-label">所属</label>
                   <div class="col-9">
-                    <input
-                      type="text"
-                      class="form-control"
-                      list="user-section-list"
-                      id="user-section"
-                      v-model="section"
-                      required
-                    />
+                    <input type="text" class="form-control" list="user-section-list" id="user-section" v-model="section"
+                      autocomplete="off" required />
                     <datalist id="user-section-list">
                       <option
                         v-for="(item, index) in departmentList.find(selectedDepartment => selectedDepartment.name === department)?.sections"
-                        v-bind:value="item.name"
-                      ></option>
+                        v-bind:value="item.name"></option>
                     </datalist>
                   </div>
                 </div>
@@ -192,16 +170,17 @@ function onClose(event: Event) {
                 <div class="row m-1">
                   <label for="user-phonetic" class="col-3 col-form-label">フリガナ</label>
                   <div class="col-9">
-                    <input
-                      type="text"
-                      id="user-phonetic"
-                      class="form-control"
-                      pattern="^[ァ-ンヴー|　| ]+$"
-                      title="カタカナのみ入力可能です"
-                      required
-                    />
+                    <input type="text" id="user-phonetic" class="form-control" pattern="^[ァ-ンヴー|　| ]+$"
+                      title="カタカナのみ入力可能です" />
                   </div>
                 </div>
+                <div class="row m-1">
+                  <label for="user-email" class="col-4 col-form-label">メールアドレス</label>
+                  <div class="col-8">
+                    <input type="email" id="user-email" class="form-control" />
+                  </div>
+                </div>
+                <!--
                 <div class="row m-1">
                   <div class="col-3">明細</div>
                   <div class="col-9">
@@ -238,6 +217,7 @@ function onClose(event: Event) {
                     </div>
                   </div>
                 </div>
+                -->
               </div>
               <div class="col-6 bg-white">
                 <div class="row m-1">
@@ -245,10 +225,8 @@ function onClose(event: Event) {
                   <div class="col-9">
                     <select class="form-select" id="user-privilege">
                       <option selected disabled>権限を選択してください</option>
-                      <option
-                        v-for="privilegeName in privilegeNames"
-                        :value="privilegeName"
-                      >{{ privilegeName }}</option>
+                      <option v-for="privilegeName in privilegeNames" :value="privilegeName">{{ privilegeName }}
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -295,35 +273,18 @@ function onClose(event: Event) {
                   <label for="user-paid-leave-total" class="col-6 col-form-label">有給日数</label>
                   <div class="col-6">
                     <div class="input-group">
-                      <input
-                        type="number"
-                        id="user-paid-leave-days"
-                        class="form-control"
-                        value="0"
-                        min="0"
-                      />
+                      <input type="number" id="user-paid-leave-days" class="form-control" value="0" min="0" />
                       <span class="input-group-text">日</span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="row justify-content-center m-1">
-              <div class="d-grid col-6 gap-2">
-                <input
-                  type="submit"
-                  class="btn btn-warning btn-lg"
-                  :value="isExistingAccount ? '修正' : '登録'"
-                />
-              </div>
-              <div class="d-grid col-2 gap-2" v-if="isExistingAccount">
-                <input
-                  type="button"
-                  class="btn btn-danger btn-lg"
-                  value="従業員削除"
-                  v-on:click="onDeleteAccount"
-                />
-              </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
+              <input type="submit" class="btn btn-warning" :value="isNewAccount ? '登録' : '修正'" />
+              <input v-if="!isNewAccount" type="button" class="btn btn-danger" value="従業員削除"
+                v-on:click="onDeleteAccount" />
             </div>
           </div>
         </div>

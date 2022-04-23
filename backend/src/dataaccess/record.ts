@@ -1,4 +1,5 @@
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
+import type { UserInfo } from '../dataaccess';
 import type * as apiif from 'shared/APIInterfaces';
 
 function dateToLocalString(date: Date) {
@@ -9,7 +10,7 @@ function dateToLocalString(date: Date) {
 // 打刻情報関連
 ///////////////////////////////////////////////////////////////////////
 
-export async function putRecord(this: DatabaseAccess, accessToken: string, params: {
+export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, params: {
   account?: string, type: string, timestamp: Date, deviceAccount?: string, deviceToken?: string, apply?: number
 }) {
 
@@ -17,8 +18,6 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
   if (!(params.type in DatabaseAccess.recordTypeCache)) {
     throw new Error('invalid type');
   }
-
-  const userInfo = await this.getUserInfoFromAccessToken(accessToken);
 
   let userId = -1;
   if (params.account) {
@@ -57,9 +56,9 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
       .andWhere('clockin', 'is not', null)
       .andWhereBetween('date', [beforeDayString, currentDayString]);
 
-    for (const record of records) {
-      console.log(dateToLocalString(record.date));
-    }
+    //for (const record of records) {
+    //  console.log(dateToLocalString(record.date));
+    //}
 
     if (!records.some(record => dateToLocalString(record.date) === currentDayString)) {
       //console.log('record: currentDay not found')
@@ -122,45 +121,52 @@ export async function putRecord(this: DatabaseAccess, accessToken: string, param
     .merge(mergeColumns); // ON DUPLICATE KEY UPDATE
 }
 
-export async function getRecords(this: DatabaseAccess, params: {
-  byUserAccount?: string,
-  byUserName?: string,
-  bySection?: string,
-  byDepartment?: string,
-  byDevice?: string,
-  sortBy?: 'byUserAccount' | 'byUserName' | 'bySection' | 'byDepartment',
-  sortDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
-  from?: Date,
-  to?: Date,
-  sortDateDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
-  limit?: number,
-  offset?: number
-}) {
+export async function getRecords(this: DatabaseAccess, params: apiif.RecordRequestQuery) {
+
   type RecordResult = {
     id: number,
-    type: string,
-    typeDescription: string,
-    timestamp: Date,
     userAccount: string,
     userName: string,
-    department?: string,
-    section?: string
+    department: string,
+    section: string
+    date: Date,
+
+    clockin: Date | null,
+    clockinDeviceAccount: string | null,
+    clockinDeviceName: string | null,
+    clockinApplyId: number | null,
+
+    breakDeviceAccount: string | null,
+    break: Date | null,
+    breakDeviceName: string | null,
+    breakApplyId: number | null,
+
+    reenterDeviceAccount: string | null,
+    reenter: Date | null,
+    reenterDeviceName: string | null,
+    reenterApplyId: number | null,
+
+    clockout: Date | null,
+    clockoutDeviceAccount: string | null,
+    clockoutDeviceName: string | null,
+    clockoutApplyId: number | null,
   };
 
-  const result = await this.knex
+  const results = await this.knex
     .select<RecordResult[]>
-    (
-      { id: 'record.id' }, { date: 'record.date' }, { clockin: 'record.clockin' }, { break: 'record.break' }, { reenter: 'record.reenter' }, { clockout: 'record.clockout' },
-      { clockinDevice: 'd1.name' }, { breakDevice: 'd2.name' }, { reenterDevice: 'd3.name' }, { clockoutDevice: 'd4.name' },
-      { clockinApply: 'record.clockinApply' }, { breakApply: 'record.breakApply' }, { reenterApply: 'record.reenterApply' }, { clockoutApply: 'record.clockoutApply' },
-      { userAccount: 'user.account' }, { userName: 'user.name' }, { department: 'department.name' }, { section: 'section.name' }
-    )
+    ({
+      id: 'record.id', date: 'record.date', clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
+      clockinDeviceAccount: 'd1.account', breakDeviceAccount: 'd2.account', reenterDeviceAccount: 'd3.account', clockoutDeviceAccount: 'd4.account',
+      clockinDeviceName: 'd1.name', breakDeviceName: 'd2.name', reenterDeviceName: 'd3.name', clockoutDeviceName: 'd4.name',
+      clockinApplyId: 'record.clockinApply', breakApplyId: 'record.breakApply', reenterApplyId: 'record.reenterApply', clockoutApplyId: 'record.clockoutApply',
+      userAccount: 'user.account', userName: 'user.name', department: 'department.name', section: 'section.name'
+    })
     .from('record')
     .join('user', { 'user.id': 'record.user' })
-    .leftJoin('device as d1', { 'd1.id': 'record.clockinDevice' })
-    .leftJoin('device as d2', { 'd2.id': 'record.breakDevice' })
-    .leftJoin('device as d3', { 'd3.id': 'record.reenterDevice' })
-    .leftJoin('device as d4', { 'd4.id': 'record.clockoutDevice' })
+    .leftJoin('user as d1', { 'd1.id': 'record.clockinDevice' })
+    .leftJoin('user as d2', { 'd2.id': 'record.breakDevice' })
+    .leftJoin('user as d3', { 'd3.id': 'record.reenterDevice' })
+    .leftJoin('user as d4', { 'd4.id': 'record.clockoutDevice' })
     .leftJoin('section', { 'section.id': 'user.section' })
     .leftJoin('department', { 'department.id': 'section.department' })
     .where(function (builder) {
@@ -205,7 +211,37 @@ export async function getRecords(this: DatabaseAccess, params: {
       if (params.offset) {
         builder.offset(params.offset);
       }
-    });
+    }) as RecordResult[];
 
-  return result;
+  return results.map<apiif.RecordResponseData>(result => {
+    return {
+      userAccount: result.userAccount,
+      userName: result.userName,
+      date: dateToLocalString(result.date),
+      clockin: result.clockin ? {
+        timestamp: result.clockin.toISOString(),
+        deviceAccount: result.clockinDeviceAccount,
+        deviceName: result.clockinDeviceName,
+        applyId: result.clockinApplyId
+      } : undefined,
+      break: result.break ? {
+        timestamp: result.break.toISOString(),
+        deviceAccount: result.breakDeviceAccount,
+        deviceName: result.breakDeviceName,
+        applyId: result.breakApplyId
+      } : undefined,
+      reenter: result.reenter ? {
+        timestamp: result.reenter.toISOString(),
+        deviceAccount: result.reenterDeviceAccount,
+        deviceName: result.reenterDeviceName,
+        applyId: result.reenterApplyId
+      } : undefined,
+      clockout: result.clockout ? {
+        timestamp: result.clockout.toISOString(),
+        deviceAccount: result.clockoutDeviceAccount,
+        deviceName: result.clockoutDeviceName,
+        applyId: result.clockoutApplyId
+      } : undefined,
+    }
+  });
 }

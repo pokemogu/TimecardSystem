@@ -2,12 +2,10 @@ import { Knex } from "knex";
 
 export async function seed(knex: Knex): Promise<void> {
 
-  await knex('device').del();
   await knex("user").del();
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
-  await knex('role').del();
 
   // 部署情報
   await knex('department').insert([
@@ -39,20 +37,12 @@ export async function seed(knex: Knex): Promise<void> {
     { department: departmentNone, name: '[部署なし]' },
   ]);
 
-  // 端末情報
-  await knex('device').insert([
-    { name: "打刻端末1" },
-    { name: "打刻端末2" },
-    { name: "打刻端末3" },
-    { name: "打刻端末4" },
-    { name: "打刻端末5" },
-    { name: "打刻端末6" },
-    { name: "打刻端末7" },
-    { name: "打刻端末8" },
-  ]);
-
   // 権限情報
   await knex('privilege').insert([
+    {
+      name: '__SYSTEM_DEVICE_PRIVILEGE__', isSystemPrivilege: true,
+      viewRecord: true, viewAllUserInfo: true
+    },
     {
       name: '部署管理者',
       recordByLogin: true, applyRecord: true, applyVacation: true, applyHalfDayVacation: true, applyMakeupVacation: true,
@@ -91,22 +81,30 @@ export async function seed(knex: Knex): Promise<void> {
     },
   ]);
 
-  // 承認権限情報
-  await knex('role').insert([
-    { name: '承認者1(主)', level: 1 },
-    { name: '承認者1(副)', level: 1 },
-    { name: '承認者2(主)', level: 2 },
-    { name: '承認者2(副)', level: 2 },
-    { name: '承認者3(主)', level: 3 },
-    { name: '承認者3(副)', level: 3 },
-    { name: '決済者', level: 10 },
+  const privileges = await knex.select<{ id: number, name: string }[]>().from('privilege');
+
+  // 端末情報
+  const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
+  await knex('user').insert([
+    { available: true, registeredAt: new Date(), account: 'DKK00001', name: "打刻端末1", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00002', name: "打刻端末2", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00003', name: "打刻端末3", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00004', name: "打刻端末4", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00005', name: "打刻端末5", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00006', name: "打刻端末6", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00007', name: "打刻端末7", privilege: privilegeIdDevice, isDevice: true },
+    { available: true, registeredAt: new Date(), account: 'DKK00008', name: "打刻端末8", privilege: privilegeIdDevice, isDevice: true },
   ]);
 
-  // 承認権限レベル名称
-  await knex('roleLevel').insert([
-    { name: '承認1', level: 1 },
-    { name: '承認2', level: 2 },
-    { name: '承認3', level: 3 },
-    { name: '決済', level: 10 },
-  ]);
+  // その他情報
+  await knex('systemConfig').update({ value: '申請の承認依頼メール' }).where('key', 'mailSubjectApply');
+  await knex('systemConfig').update({ value: '以下の申請について承認お願い致します。' }).where('key', 'mailTemplateApply');
+  await knex('systemConfig').update({ value: '申請の否認通知メール' }).where('key', 'mailSubjectReject');
+  await knex('systemConfig').update({ value: '以下の申請について否認されましたのでご確認お願い致します。' }).where('key', 'mailTemplateReject');
+  await knex('systemConfig').update({ value: '申請の承認通知メール' }).where('key', 'mailSubjectApproved');
+  await knex('systemConfig').update({ value: '以下の申請について承認されましたのでご確認お願い致します。' }).where('key', 'mailTemplateApproved');
+  await knex('systemConfig').update({ value: '未打刻通知メール' }).where('key', 'mailSubjectRecord');
+  await knex('systemConfig').update({ value: '本日の打刻が完了していませんので至急打刻をお願い致します。' }).where('key', 'mailTemplateRecord');
+  await knex('systemConfig').update({ value: '有給未取得メール' }).where('key', 'mailSubjectLeave');
+  await knex('systemConfig').update({ value: '未取得の有給がありますので取得をお願い致します。' }).where('key', 'mailTemplateLeave');
 };

@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router';
 import { nextTick } from 'vue';
 
 import { useSessionStore } from '@/stores/session';
+import * as backendAccess from '@/BackendAccess';
 
 const appName = '勤怠管理システム';
 
@@ -40,6 +41,27 @@ const router = createRouter({
       beforeEnter: async (to, from) => {
         const store = useSessionStore();
         await store.logout();
+        return { name: 'home' };
+      }
+    },
+    {
+      path: '/approve/:id',
+      name: 'approve',
+      component: () => { },
+      beforeEnter: async (to, from) => {
+        const store = useSessionStore();
+        const token = await store.getToken();
+        if (token) {
+          const access = new backendAccess.TokenAccess(token);
+          const applyId = parseInt(to.params.id as string);
+          const type = await access.getApplyTypeOfApply(applyId);
+          if (type) {
+            return `/apply/${type.name}/${applyId}`;
+          }
+          //console.log(types);
+          //const applies = await access.getApply(applyId);
+          //console.log(applies);
+        }
         return { name: 'home' };
       }
     },
@@ -203,13 +225,13 @@ const router = createRouter({
     {
       path: '/admin/user/:account',
       name: 'admin-user',
-      component: () => import('@/views/UserView.vue'),
+      component: () => import('@/views/OldUserView.vue'),
       meta: { title: `${appName} - 従業員照会` }
     },
     {
       path: '/admin/user',
       name: 'admin-reguser',
-      component: () => import('@/views/UserView.vue'),
+      component: () => import('@/views/OldUserView.vue'),
       meta: { title: `${appName} - 従業員登録` }
     },
     {
@@ -253,6 +275,12 @@ const router = createRouter({
       name: 'admin-device',
       component: () => import('@/views/DeviceView.vue'),
       meta: { title: `${appName} - 打刻端末設定` },
+    },
+    {
+      path: '/admin/config',
+      name: 'admin-config',
+      component: () => import('@/views/SystemConfigView.vue'),
+      meta: { title: `${appName} - システム設定` },
     },
     {
       path: '/approval/:id',

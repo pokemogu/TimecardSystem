@@ -1,13 +1,11 @@
 import type * as apiif from 'shared/APIInterfaces';
-import { DatabaseAccess } from './dataaccess';
+import { DatabaseAccess } from '../dataaccess';
 
 ///////////////////////////////////////////////////////////////////////
 // 休日登録管理
 ///////////////////////////////////////////////////////////////////////
 
-export async function setHoliday(this: DatabaseAccess, accessToken: string, holiday: apiif.HolidayRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-
+export async function setHoliday(this: DatabaseAccess, holiday: apiif.HolidayRequestData) {
   await this.knex('holiday').insert({ date: new Date(holiday.date), name: holiday.name })
     .onConflict(['date']).merge(['name']); // ON DUPLICATE KEY UPDATE
 }
@@ -44,8 +42,6 @@ export async function getHolidays(this: DatabaseAccess, params: apiif.HolidayReq
   })
 }
 
-export async function deleteHoliday(this: DatabaseAccess, accessToken: string, date: string) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
-
+export async function deleteHoliday(this: DatabaseAccess, date: string) {
   await this.knex('holiday').where('date', date).del();
 }
