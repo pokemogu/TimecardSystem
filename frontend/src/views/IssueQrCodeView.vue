@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { useRouter, RouterLink } from 'vue-router';
+import { ref, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import lodash from 'lodash';
@@ -33,9 +33,9 @@ const departmentSearch = ref('');
 const sectionSearch = ref('');
 const statusSearch = ref('');
 
-const UpdateOnSearch = function () {
+const UpdateOnSearch = async function () {
   offset.value = 0;
-  updateUserList();
+  await updateUserList();
 }
 
 watch(dateFrom, lodash.debounce(UpdateOnSearch, 200));
@@ -76,7 +76,9 @@ const updateUserList = async () => {
   }
 }
 
-updateUserList();
+onMounted(async () => {
+  await updateUserList();
+})
 
 async function onIssueQrCode() {
   const userInfoforQrCode: {
@@ -110,22 +112,24 @@ async function onIssueQrCode() {
   }
   if (userInfoforQrCode.length > 0) {
     generateQrCodePDF(userInfoforQrCode).then(() => {
+      alert('QRコードの発行が完了しました。発行されたQRコードが各打刻端末で使用できるのは1時間後となります。');
     });
   }
+
   checks.value = [];
-  updateUserList();
+  await updateUserList();
 }
 
-function onPageBack() {
+async function onPageBack() {
   const backTo = offset.value - limit.value;
   offset.value = backTo > 0 ? backTo : 0;
-  updateUserList();
+  await updateUserList();
 }
 
-function onPageForward() {
+async function onPageForward() {
   const forwardTo = offset.value + limit.value;
   offset.value = forwardTo > 0 ? forwardTo : 0;
-  updateUserList();
+  await updateUserList();
 }
 
 </script>
@@ -210,8 +214,11 @@ function onPageForward() {
               </th>
               <td>{{ new Date(user.registeredAt ?? '').toLocaleDateString() }}</td>
               <td>
+                <!--
                 <RouterLink :to="{ name: 'admin-reguser', params: { account: user.account } }">{{ user.account }}
                 </RouterLink>
+                -->
+                {{ user.account }}
               </td>
               <td>{{ user.name }}</td>
               <td>{{ user.department }}</td>
@@ -261,28 +268,6 @@ body {
   color: black !important;
 }
 
-/*
-.nav-item {
-  background: navajowhite !important;
-}
-
-.nav-item:active {
-  background: navajowhite !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-}
-
-.nav-pills .nav-link:active {
-  background-color: orange !important;
-  border-left-color: orange !important;
-  border-right-color: orange !important;
-  border-top-color: orange !important;
-  border-bottom-color: orange !important;
-  color: black !important;
-}
-*/
 .nav-tabs .nav-item .nav-link {
   background-color: navajowhite !important;
   border-left-color: orange !important;

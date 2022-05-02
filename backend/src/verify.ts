@@ -2,8 +2,9 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import lodash from 'lodash';
 
-const jwtAccessTokenSecret = hashPassword('NuhahraethieShooy5hee7zeidu8ieK3');
-const jwtRefreshTokenSecret = 'Iha`k$ah8tee$z_o!uf6ib0UiL3oot1rieD=o)Xoh;Qu7Ahg>i-yoo4ahshoo"pe';
+const jwtTokenSecret = hashPassword('NuhahraethieShooy5hee7zeidu8ieK3');
+let jwtTokenPrivateKey = '';
+let jwtTokenPublicKey = '';
 
 export function hashPassword(password: string) {
   const salt = crypto.randomBytes(16).toString('hex');
@@ -16,6 +17,7 @@ export function verifyPassword(hash: string, password: string) {
   return challengeHash === currentHash;
 }
 
+/*
 export function issueRefreshToken(data: string | Object, expirationSeconds: number = 86400) {
   return jwt.sign(data, jwtRefreshTokenSecret, { expiresIn: expirationSeconds });
 }
@@ -30,13 +32,31 @@ export function verifyRefreshToken(token: string, data: string | Object = null) 
   }
   return lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
 }
+*/
 
-export function issueAccessToken(data: string | Object, expirationSeconds: number = 86400) {
-  return jwt.sign(data, jwtAccessTokenSecret, { expiresIn: expirationSeconds });
+export function generateKeyPair() {
+  return crypto.generateKeyPairSync('ec', {
+    namedCurve: 'P-256',
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem', }
+  });
 }
 
-export function verifyAccessToken(token: string, data: string | Object = null) {
-  const result = jwt.verify(token, jwtAccessTokenSecret);
+export function setJsonWebTokenKey(privateKey: string, publicKey: string) {
+  jwtTokenPrivateKey = privateKey;
+  jwtTokenPublicKey = publicKey;
+}
+
+export function issueJsonWebToken(data: string | Object, expirationSeconds: number = 86400) {
+  return jwt.sign(
+    data,
+    (jwtTokenPrivateKey !== '' && jwtTokenPublicKey !== '') ? jwtTokenPrivateKey : jwtTokenSecret,
+    { algorithm: 'ES256', expiresIn: expirationSeconds }
+  );
+}
+
+export function verifyJsonWebToken(token: string, data: string | Object = null) {
+  const result = jwt.verify(token, (jwtTokenPrivateKey !== '' && jwtTokenPublicKey !== '') ? jwtTokenPublicKey : jwtTokenSecret);
   if (data) {
     const compareResult = lodash.omit(result as object, ['iss', 'sub', 'aud', 'exp', 'nbf', 'iat', 'jti']);
     if (!lodash.isEqual(data, compareResult)) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+
 import { ref, onMounted } from 'vue';
 
 import { useSessionStore } from '@/stores/session';
@@ -22,7 +23,7 @@ const userName = ref('');
 const userDepartment = ref('');
 const userSection = ref('');
 
-interface ApplyFormProps {
+const props = defineProps<{
   applyName: string,
   applyType: string,
 
@@ -44,10 +45,10 @@ interface ApplyFormProps {
   timeTo?: string,
   reason?: string,
   contact?: string
-}
-const props = defineProps<ApplyFormProps>();
+}>();
 
 const applyTypeValue1 = ref(props.applyTypeValue1 ?? '');
+const applyTypeValue2 = ref(props.applyTypeValue2 ?? '');
 const dateFrom = ref(props.dateFrom ?? '');
 const dateTo = ref(props.dateTo ?? '');
 const timeFrom = ref(props.timeFrom ?? '');
@@ -163,9 +164,12 @@ function onSubmit() {
   }
 
   emits('update:applyTypeValue1', applyTypeValue1.value);
-  emits('update:applyTypeValue1', applyTypeValue1.value);
+  emits('update:applyTypeValue2', applyTypeValue2.value);
+  emits('update:dateFrom', dateFrom.value);
+  emits('update:dateTo', dateTo.value);
   emits('submit');
 }
+
 
 </script>
 
@@ -304,7 +308,7 @@ function onSubmit() {
                 v-bind:id="'apply-type-option1-' + option.name" v-bind:value="option.name" v-bind:checked="index === 0"
                 v-on:change="onChangeApplyType1" v-model="applyTypeValue1" />
               <label class="form-check-label" v-bind:for="'apply-type-option1-' + option.name">{{
-                option.description
+                  option.description
               }}</label>
             </div>
 
@@ -354,7 +358,7 @@ function onSubmit() {
                   v-bind:id="'apply-type-option2-' + option.name" v-bind:value="option.name"
                   v-bind:checked="index === 0" v-on:change="onChangeApplyType2" />
                 <label class="form-check-label" v-bind:for="'apply-type-option2-' + option.name">{{
-                  option.description
+                    option.description
                 }}</label>
               </div>
               <!--

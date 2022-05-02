@@ -4,7 +4,8 @@ import { DatabaseAccess } from '../dataaccess';
 ///////////////////////////////////////////////////////////////////////
 // デバイス情報関連
 ///////////////////////////////////////////////////////////////////////
-export async function getDevices(this: DatabaseAccess, accessToken: string, params?: { limit?: number, offset?: number }) {
+export async function getDevices(this: DatabaseAccess, params?: { limit?: number, offset?: number }) {
+
   return (await this.knex.select<apiif.DeviceResponseData[]>
     ({ id: 'id', account: 'account', name: 'name' })
     .from('user')
@@ -21,7 +22,8 @@ export async function getDevices(this: DatabaseAccess, accessToken: string, para
     .orderBy('user.registeredAt', 'desc')) as apiif.DeviceResponseData[];
 }
 
-export async function getDeviceRefreshToken(this: DatabaseAccess, accessToken: string, deviceAccout: string) {
+export async function getDeviceRefreshToken(this: DatabaseAccess, deviceAccout: string) {
+
   const result = await this.knex.select<{ refreshToken: string }[]>
     ({ refreshToken: 'token.refreshToken' })
     .from('user')
@@ -34,8 +36,7 @@ export async function getDeviceRefreshToken(this: DatabaseAccess, accessToken: s
   return result.refreshToken as string;
 }
 
-export async function addDevice(this: DatabaseAccess, accessToken: string, device: apiif.DeviceRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function addDevice(this: DatabaseAccess, device: apiif.DeviceRequestData) {
 
   const privilegeIdDevice = (await this.knex.select<{ id: number }[]>({ id: 'id' })
     .from('privilege')
@@ -49,19 +50,9 @@ export async function addDevice(this: DatabaseAccess, accessToken: string, devic
     privilege: privilegeIdDevice,
     isDevice: true
   });
-
-  /*
-  const lastUserResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
-  const lastUserId = lastUserResult['LAST_INSERT_ID()'];
-
-  const secondsPerDay = 60 * 60 * 24;
-  let refreshToken = issueRefreshToken({ account: device.account }, secondsPerDay * 3650);
-  await this.knex('token').insert({ user: lastUserId, refreshToken: refreshToken, isQrToken: true });
-  */
 }
 
-export async function updateDevice(this: DatabaseAccess, accessToken: string, device: apiif.DeviceRequestData) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function updateDevice(this: DatabaseAccess, device: apiif.DeviceRequestData) {
 
   await this.knex('user')
     .where('account', device.account)
@@ -70,8 +61,7 @@ export async function updateDevice(this: DatabaseAccess, accessToken: string, de
     .update({ name: device.name });
 }
 
-export async function deleteDevice(this: DatabaseAccess, accessToken: string, deviceAccount: string) {
-  const authUserInfo = await this.getUserInfoFromAccessToken(accessToken);
+export async function deleteDevice(this: DatabaseAccess, deviceAccount: string) {
 
   const deviceUserId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', deviceAccount).first()).id;
 

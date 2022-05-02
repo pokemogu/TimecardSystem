@@ -13,12 +13,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-/*
   server: {
+    port: 3999
+    /*
     https: {
       key: fs.readFileSync('./privkey.pem'),
       cert: fs.readFileSync('./cert.pem')
     }
+    */
   }
-*/
 })

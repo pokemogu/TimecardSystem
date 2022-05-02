@@ -16,10 +16,12 @@ import getLogger from './logger';
 import registerHandlers from './webapp';
 import { DatabaseAccess } from './dataaccess';
 
+import detectTSNode from 'detect-ts-node';
+
 dotenv.config({
   path: process.env.NODE_ENV
-    ? (fs.existsSync("./.env." + process.env.NODE_ENV) ? ("./.env." + process.env.NODE_ENV) : "./.env")
-    : "./.env"
+    ? (fs.existsSync(path.join('.', '.env.') + process.env.NODE_ENV) ? (path.join('.', '.env.') + process.env.NODE_ENV) : path.join('.', '.env'))
+    : path.join('.', '.env')
 });
 const logger = getLogger('timecard');
 
@@ -46,13 +48,23 @@ else {
   };
 }
 
+// ts-node配下で動作している場合はworker_thread(worker_wrapper.js)で特殊な処理が必要となるため
+// ts-node配下で動作しているかどうか検知が必要となる。
+// detect-ts-nodeパッケージで検知する。
+//
+// なおts-node-dev配下で動作している場合はデフォルトでTS_NODE_DEVという環境変数がセットされるので
+// このような検知処理は不要
+if (detectTSNode) {
+  process.env.TS_NODE = 'true';
+}
+
 function execWorker() {
 
   const worker = new Worker(path.join(__dirname, './worker_wrapper.js'), {
     workerData: knexconfig,
     // ts-node-devではWorker threadがそのままでは正常に起動しない問題への対処
     // worker側tsファイルは自動トランスパイルされないので注意
-    execArgv: []
+    execArgv: process.env.TS_NODE_DEV ? [] : undefined
   });
   worker.on('exit', (exitCode) => {
     logger.warn(`[バックグラウンド処理警告] バックグラウンド処理スレッドが終了しました。終了コードは${exitCode}です。再起動します。`);
@@ -67,6 +79,9 @@ function execWorker() {
 
 execWorker();
 
+// KnexでMySQLを使用する際にKnexでのboolean型はMySQLではTINYINT型としてスキーマ作成されるが、
+// そのデータをKnexで取得する際にTINYINT型からboolean型に自動的に変換されないので、
+// ここで変換定義する。
 (knexconfig.connection as any).typeCast = function (field: any, next: any) {
   if (field.type === 'TINY' && field.length === 1) {
     return (field.string() === '1'); // 1 = true, 0 = false
@@ -91,7 +106,13 @@ registerHandlers(app, knex);
 
 // デフォルトエラーハンドラー
 const defaultErrorHanlder: ErrorRequestHandler = (err, req, res, next) => {
-  logger.error(err.toString() + (err.internalMessage ? (' ' + err.internalMessage) : ''));
+
+  logger.error(
+    err.toString() +
+      (err.internalMessage ? (' ' + err.internalMessage) : '') +
+      (err instanceof Error) ? ('\n' + (err as Error).stack) : ''
+  );
+
   if (err instanceof createHttpError.HttpError) {
     res.status(err.statusCode).send({ message: err.expose ? err.message : '内部サーバーエラーが発生しました。' });
   }
@@ -101,10 +122,23 @@ const defaultErrorHanlder: ErrorRequestHandler = (err, req, res, next) => {
 };
 app.use(defaultErrorHanlder);
 
-const port = process.env.NODE_PORT || 3010;
-app.listen(port, () => {
-  logger.info(`サービスを開始します。ポート番号${port}で起動しました。`);
-});
+const port = process.env.NODE_PORT ? parseInt(process.env.NODE_PORT) : 3000;
+const backlog = process.env.NODE_BACKLOG ? parseInt(process.env.NODE_BACKLOG) : 20;
+const listenHost = process.env.NODE_HOST || 'localhost';
 
 DatabaseAccess.initCache(knex);
-DatabaseAccess.initPrivatePublicKeys(knex).then(function () { });
+DatabaseAccess.initPrivatePublicKeys(knex)
+  .then(function () {
+
+    app.listen(port, listenHost, backlog, () => {
+      logger.info(`サービスを開始します。ポート番号${port}で起動しました。`);
+    }).on('error', function (err) {
+      logger.error('Express JSの開始に失敗しました。' + err.toString());
+      process.exit(255);
+    });
+
+  })
+  .catch(function (err) {
+    logger.error('アクセストークン署名用の鍵の初期化処理に失敗しました。' + err.toString());
+    process.exit(255);
+  });

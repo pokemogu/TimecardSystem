@@ -5,7 +5,8 @@ import { Knex } from "knex";
 import * as apiif from 'shared/APIInterfaces';
 import { DatabaseAccess } from './dataaccess';
 import type { UserInfo } from './dataaccess';
-import { verifyAccessToken } from './verify';
+import { verifyJsonWebToken } from './verify';
+import createHttpError from 'http-errors';
 
 declare global {
   namespace Express {
@@ -21,45 +22,59 @@ export default function registerHandlers(app: Express, knex: Knex) {
   app.use(function (req, res, next) {
     //console.log('req.path=' + req.path);
     if (req.token) {
+      console.log(req.token);
       try {
-        const userInfo = verifyAccessToken(req.token) as UserInfo;
+        const userInfo = verifyJsonWebToken(req.token) as UserInfo;
         req.user = { id: userInfo.id, account: userInfo.account }
       }
       catch (error) {
-        if (error.name === 'TokenExpiredError') {
-          res.status(401);
-        }
-        else if (error.name === 'NotBeforeError') {
-          res.status(401);
-        }
-        else if (error.name === 'JsonWebTokenError') {
-          if (error.message === 'invalid token' || error.message === 'jwt malformed') {
-            res.status(400);
+        if (error instanceof Error) {
+          if (error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
+            //throw new createHttpError.Unauthorized(error.toString());
+            throw createHttpError(401, error.message, { internalMessage: error.toString() });
           }
-          else {
-            res.status(401);
+          else if (error.name === 'JsonWebTokenError') {
+            //throw new createHttpError.BadRequest(error.toString());
+            throw createHttpError(400, error.message, { internalMessage: error.toString() });
           }
         }
-        else {
-          res.status(500);
-        }
-        return res.send({ message: error.toString() });
+        throw createHttpError(500, { internalMessage: error.toString() });
       }
-    }
-    else {
-      // アクセストークンが無い場合
-
     }
     next();
   });
+
+  // NODE_AUDITが有効な場合は監査ログを記録する
+  if (process.env.NODE_AUDIT && (process.env.NODE_AUDIT.toLowerCase() === 'true' || process.env.NODE_AUDIT === '1')) {
+    if (knex.schema.hasTable('auditLog')) {
+      app.use(asyncHandler(async (req, res, next) => {
+        if (req.method !== 'OPTIONS') {
+          await knex('auditLog').insert({
+            timestamp: new Date(),
+            account: req.user ? req.user.account : undefined,
+            method: req.method,
+            path: req.path,
+            params: req.params ? JSON.stringify(req.params).substring(0, 254) : undefined,
+            query: req.query ? JSON.stringify(req.query).substring(0, 254) : undefined,
+            body: req.body ? JSON.stringify(req.body).substring(0, 1022) : undefined
+          });
+        }
+        next();
+      }));
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserInfoRequestData>('/api/user', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addUser(req.body);
+  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserInfoRequestData[]>('/api/user', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).addUsers(req.body);
     res.send({ message: 'ok' });
+  }));
+
+  app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', asyncHandler(async (req, res) => {
+    res.send({ message: 'ok', candidates: await new DatabaseAccess(knex).generateAvailableUserAccount() });
   }));
 
   app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', asyncHandler(async (req, res) => {
@@ -134,67 +149,25 @@ export default function registerHandlers(app: Express, knex: Knex) {
     });
   }));
 
-  app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', candidates: await new DatabaseAccess(knex).generateAvailableUserAccount() });
-  }));
-
   ///////////////////////////////////////////////////////////////////////
   // 認証関連
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, apiif.IssueTokenResponseBody, apiif.IssueTokenRequestBody>('/api/token/issue', asyncHandler(async (req, res) => {
-    try {
-      res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueRefreshToken(req.body.account, req.body.password) });
-    }
-    catch (error) {
-      const err = error as Error;
-      if (err.name === 'AuthenticationError') {
-        res.status(401).send({ message: err.message });
-      }
-      else if (err.name === 'UserNotAvailableError') {
-        res.status(403).send({ message: err.message });
-      }
-      else { throw error; }
-    }
+    res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueRefreshToken(req.body.account, req.body.password) });
   }));
 
   app.post<{ account: string }, apiif.IssueTokenResponseBody>('/api/token/issue/:account', asyncHandler(async (req, res) => {
-    try {
-      const access = new DatabaseAccess(knex);
-      const token = await access.issueQrCodeRefreshToken(req.params.account);
-      res.send({ message: 'ok', token: token });
-    }
-    catch (error) {
-      const err = error as Error;
-      if (err.name === 'AuthenticationError') {
-        res.status(401).send({ message: err.message });
-      }
-      else if (err.name === 'UserNotAvailableError') {
-        res.status(403).send({ message: err.message });
-      }
-      else { throw error; }
-    }
+    res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueQrCodeRefreshToken(req.params.account) });
   }));
 
   app.post<{}, apiif.AccessTokenResponseBody, apiif.AccessTokenRequestBody>('/api/token/refresh', asyncHandler(async (req, res) => {
-    try {
-      res.send({
-        message: 'ok',
-        token: <apiif.AccessTokenResponseData>{
-          accessToken: await new DatabaseAccess(knex).issueAccessToken(req.body.refreshToken)
-        }
-      });
-    }
-    catch (error) {
-      const err = error as Error;
-      if (err.name === 'AuthenticationError') {
-        res.status(401).send({ message: err.message });
+    res.send({
+      message: 'ok',
+      token: <apiif.AccessTokenResponseData>{
+        accessToken: await new DatabaseAccess(knex).issueAccessToken(req.body.refreshToken)
       }
-      else if (err.name === 'TokenExpiredError') {
-        res.status(403).send({ message: err.message });
-      }
-      else { throw error; }
-    }
+    });
   }));
 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.RevokeTokenRequestBody>('/api/token/revoke', asyncHandler(async (req, res) => {
@@ -203,17 +176,8 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.put<{}, apiif.MessageOnlyResponseBody, apiif.ChangePasswordRequestBody>('/api/token/password', asyncHandler(async (req, res) => {
-    try {
-      await new DatabaseAccess(knex).changeUserPassword(req.user, req.body);
-      res.send({ message: 'ok' });
-    }
-    catch (error) {
-      const err = error as Error;
-      if (err.name === 'AuthenticationError') {
-        res.status(401).send({ message: err.message });
-      }
-      else { throw error; }
-    }
+    await new DatabaseAccess(knex).changeUserPassword(req.user, req.body);
+    res.send({ message: 'ok' });
   }));
 
   ///////////////////////////////////////////////////////////////////////
@@ -272,7 +236,7 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addDevice(req.token, req.body);
+    await new DatabaseAccess(knex).addDevice(req.body);
     res.send({ message: 'ok' });
   }));
 
@@ -281,17 +245,17 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.put<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).updateDevice(req.token, req.body);
+    await new DatabaseAccess(knex).updateDevice(req.body);
     res.send({ message: 'ok' });
   }));
 
   app.delete<{ account: string }, apiif.MessageOnlyResponseBody>('/api/device/:account', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).deleteDevice(req.token, req.params.account);
+    await new DatabaseAccess(knex).deleteDevice(req.params.account);
     res.send({ message: 'ok' });
   }));
 
   app.get<{ limit: number, offset: number }, apiif.DevicesResponseBody>('/api/device', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', devices: await new DatabaseAccess(knex).getDevices(req.token, req.query) });
+    res.send({ message: 'ok', devices: await new DatabaseAccess(knex).getDevices(req.query) });
   }));
 
   app.get<{}, apiif.DepartmentResponseBody>('/api/department', async (req, res) => {
@@ -307,9 +271,9 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   // 承認ルート役割
-  app.get<{}, apiif.ApprovalRouteRoleBody>('/api/apply/role', async (req, res) => {
+  app.get<{}, apiif.ApprovalRouteRoleBody>('/api/apply/role', asyncHandler(async (req, res) => {
     res.send({ message: 'ok', roles: await new DatabaseAccess(knex).getApprovalRouteRoles() });
-  });
+  }));
 
   ///////////////////////////////////////////////////////////////////////
   // 承認ルート関連

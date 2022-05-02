@@ -89,10 +89,11 @@ async function recordSenderJob() {
       postMessage({ type: 'error', message: error });
     }
 
-    const userCacheDb = await openUserCacheDB();
+    //const userCacheDb = await openUserCacheDB();
     //console.log(await userCacheDb.getAll('timecard-user-cache'));
 
     if (recordKeys.length > 0) {
+      // 未送信の打刻を送信する
       for (const key of recordKeys) {
         try { // 有るユーザーの打刻送信が失敗したとしても他のユーザーの打刻送信は継続する
 
@@ -116,19 +117,41 @@ async function recordSenderJob() {
         }
       }
     }
-
   } catch (error) {
     console.log(error);
     postMessage({ type: 'error', message: error });
   }
 }
 
-const interval = setInterval(recordSenderJob, 5000);
+async function recordCacheDeleteJob() {
+  try {
+    const recordDb = await openRecordDB();
+    const recordKeys = await recordDb.getAllKeys('timecard-record');
+
+    // 送信済打刻で2日が経過したものは削除する
+    for (const key of recordKeys) {
+      const recordData = await recordDb.get('timecard-record', key);
+      if (recordData && recordData.isSent === true) {
+        const minuteDiff = Math.floor((new Date().getTime() - recordData.timestamp.getTime()) / (1000 * 60));
+        if (minuteDiff > (60 * 24 * 2)) {
+          await recordDb.delete('timecard-record', key);
+        }
+      }
+    }
+  } catch (error) {
+    console.log(error);
+    postMessage({ type: 'error', message: error });
+  }
+}
+
+const intervalRecordSender = setInterval(recordSenderJob, 5 * 1000);
+const intervalRecordCacheDelete = setInterval(recordCacheDeleteJob, 60 * 60 * 1000);
 
 onmessage = function (event) {
   console.log(event.data);
   if ((event.data as string) === 'ending') {
-    clearInterval(interval);
-    setTimeout(recordSenderJob, 10000);
+    clearInterval(intervalRecordSender);
+    setTimeout(recordSenderJob, 10000); // 未送信の打刻を最後に送信する
+    clearInterval(intervalRecordCacheDelete);
   }
 }

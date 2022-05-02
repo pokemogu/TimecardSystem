@@ -239,6 +239,14 @@ async function onDecode(decodedQrcode: string) {
           onTime.value = '勤務予定無し';
         }
       }
+      else {
+        status.value = 'error';
+        errorName.value = 'UserNotFoundError';
+
+        clearTimeout(timeout);
+        timeout = setTimeout(initStatus, 3000);
+        return;
+      }
       userCacheDb.close();
 
       const recordDb = await openRecordDB();
@@ -305,14 +313,10 @@ function onRecordCancel() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="打刻画面"
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="打刻画面"
           v-bind:customButton2="store.isLoggedIn() ? 'メニュー画面' : 'ログイン画面'"
           v-on:customButton2="store.isLoggedIn() ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
-          :customMessage="headerMessage"
-          :deviceName="thisDeviceName"
-        ></Header>
+          :customMessage="headerMessage" :deviceName="thisDeviceName"></Header>
       </div>
     </div>
 
@@ -320,33 +324,32 @@ function onRecordCancel() {
       <div class="col-4 m-2">
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">出勤記録</div>
-          <p
-            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
-          >{{ clockinTime !== '' ? clockinTime : '--:--' }}</p>
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ clockinTime !== '' ? clockinTime :
+              '--:--'
+          }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">外出記録</div>
-          <p
-            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
-          >{{ breakTime !== '' ? breakTime : '--:--' }}</p>
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ breakTime !== '' ? breakTime : '--:--'
+          }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">再入記録</div>
-          <p
-            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
-          >{{ reenterTime !== '' ? reenterTime : '--:--' }}</p>
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ reenterTime !== '' ? reenterTime :
+              '--:--'
+          }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">退勤記録</div>
-          <p
-            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
-          >{{ clockoutTime !== '' ? clockoutTime : '--:--' }}</p>
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ clockoutTime !== '' ? clockoutTime :
+              '--:--'
+          }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">勤務予定</div>
-          <p
-            class="col p-2 h5 bg-white shadow-sm align-middle font-monospace"
-          >{{ onTime !== '' ? onTime : '--:-- 〜 --:--' }}</p>
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">
+            {{ onTime !== '' ? onTime : '--:-- 〜 --:--' }}
+          </p>
         </div>
       </div>
       <div class="col-6">
@@ -359,45 +362,24 @@ function onRecordCancel() {
           </div>
         </div>
         <div class="row">
-          <div
-            v-if="!store.isLoggedIn() && thisDeviceName === ''"
-            class="alert h5 alert-warning"
-            role="alert"
-          >端末名が設定されていません。管理者が本端末でログインしてメニュー画面から端末名を設定してください。</div>
-          <div
-            v-else-if="status === 'waitForAuth'"
-            class="alert h5 alert-primary"
-            role="alert"
-          >QRコードが確認できました。ユーザー情報確認中です。</div>
-          <div
-            v-else-if="status === 'waitForRecord'"
-            class="alert h5 alert-primary"
-            role="alert"
-          >ユーザー情報が確認できました。打刻してください。</div>
-          <div
-            v-else-if="status === 'recordCompleted'"
-            class="alert h5 alert-success"
-            role="alert"
-          >打刻が完了しました。</div>
-          <div
-            v-else-if="status === 'waitForScan'"
-            class="alert h5 alert-light"
-            role="alert"
-          >QRコードをかざしてスキャンしてください。</div>
-          <div
-            v-else-if="status === 'error' && errorName === 'TokenAuthFailedError'"
-            class="alert h5 alert-danger"
-            role="alert"
-          >ユーザー認証に失敗しました。管理者にお問い合わせください。</div>
+          <div v-if="!store.isLoggedIn() && thisDeviceName === ''" class="alert h5 alert-warning" role="alert">
+            端末名が設定されていません。管理者が本端末でログインしてメニュー画面から端末名を設定してください。</div>
+          <div v-else-if="status === 'waitForAuth'" class="alert h5 alert-primary" role="alert">
+            QRコードが確認できました。ユーザー情報確認中です。</div>
+          <div v-else-if="status === 'waitForRecord'" class="alert h5 alert-primary" role="alert">
+            ユーザー情報が確認できました。打刻してください。</div>
+          <div v-else-if="status === 'recordCompleted'" class="alert h5 alert-success" role="alert">打刻が完了しました。</div>
+          <div v-else-if="status === 'waitForScan'" class="alert h5 alert-light" role="alert">QRコードをかざしてスキャンしてください。
+          </div>
+          <div v-else-if="status === 'error' && errorName === 'TokenAuthFailedError'" class="alert h5 alert-danger"
+            role="alert">ユーザー認証に失敗しました。管理者にお問い合わせください。</div>
+          <div v-else-if="status === 'error' && errorName === 'UserNotFoundError'" class="alert h5 alert-danger"
+            role="alert">無効なQRコードです。管理者にお問い合わせください。</div>
         </div>
 
         <div class="row">
-          <button
-            type="button"
-            class="btn btn-warning btn-lg"
-            @click="onRecord"
-            v-bind:disabled="status !== 'waitForRecord'"
-          >
+          <button type="button" class="btn btn-warning btn-lg" @click="onRecord"
+            v-bind:disabled="status !== 'waitForRecord'">
             <span v-if="recordType === 'clockin'">出勤</span>
             <span v-else-if="recordType === 'clockout'">退勤</span>
             <span v-else-if="recordType === 'break'">外出</span>
@@ -416,61 +398,28 @@ function onRecordCancel() {
 
     <div class="row justify-content-center">
       <div class="d-grid gap-2 col-2">
-        <input
-          type="radio"
-          class="btn-check"
-          name="record-type"
-          id="clockin"
-          @click="recordType = 'clockin'"
-          autocomplete="off"
-          v-bind:checked="recordType === 'clockin'"
-        />
+        <input type="radio" class="btn-check" name="record-type" id="clockin" @click="recordType = 'clockin'"
+          autocomplete="off" v-bind:checked="recordType === 'clockin'" />
         <label class="btn btn-outline-warning btn-lg" for="clockin">出勤</label>
       </div>
       <div class="d-grid gap-2 col-2">
-        <input
-          type="radio"
-          class="btn-check"
-          name="record-type"
-          id="clockout"
-          @click="recordType = 'clockout'"
-          autocomplete="off"
-          v-bind:checked="recordType === 'clockout'"
-        />
+        <input type="radio" class="btn-check" name="record-type" id="clockout" @click="recordType = 'clockout'"
+          autocomplete="off" v-bind:checked="recordType === 'clockout'" />
         <label class="btn btn-outline-warning btn-lg" for="clockout">退勤</label>
       </div>
       <div class="d-grid gap-2 col-2">
-        <input
-          type="radio"
-          class="btn-check"
-          name="record-type"
-          id="break"
-          @click="recordType = 'break'"
-          autocomplete="off"
-          v-bind:checked="recordType === 'break'"
-        />
+        <input type="radio" class="btn-check" name="record-type" id="break" @click="recordType = 'break'"
+          autocomplete="off" v-bind:checked="recordType === 'break'" />
         <label class="btn btn-outline-warning btn-lg" for="break">外出</label>
       </div>
       <div class="d-grid gap-2 col-2">
-        <input
-          type="radio"
-          class="btn-check"
-          name="record-type"
-          id="reenter"
-          @click="recordType = 'reenter'"
-          autocomplete="off"
-          v-bind:checked="recordType === 'reenter'"
-        />
+        <input type="radio" class="btn-check" name="record-type" id="reenter" @click="recordType = 'reenter'"
+          autocomplete="off" v-bind:checked="recordType === 'reenter'" />
         <label class="btn btn-outline-warning btn-lg" for="reenter">再入</label>
       </div>
       <div class="d-grid gap-2 col-2">
-        <button
-          v-if="!store.isLoggedIn()"
-          class="btn btn-warning btn-lg"
-          id="cancel"
-          @click="onRecordCancel"
-          v-bind:disabled="status !== 'waitForRecord'"
-        >取消</button>
+        <button v-if="!store.isLoggedIn()" class="btn btn-warning btn-lg" id="cancel" @click="onRecordCancel"
+          v-bind:disabled="status !== 'waitForRecord'">取消</button>
       </div>
     </div>
   </div>
@@ -479,7 +428,9 @@ function onRecordCancel() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

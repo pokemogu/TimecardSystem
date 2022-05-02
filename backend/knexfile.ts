@@ -1,5 +1,7 @@
-import { Knex } from "knex";
-import dotenv from "dotenv";
+//import { Knex } from "knex";
+//const dotenv = require('dotenv');
+import dotenv from 'dotenv';
+//const fs = require('fs');
 import * as fs from "fs";
 
 dotenv.config({
@@ -10,15 +12,16 @@ dotenv.config({
 
 // Update with your config settings.
 
-const config: { [key: string]: Knex.Config } = {
+//const config: { [key: string]: Knex.Config } = {
+const config = {
   /*
-    development: {
-      client: "sqlite3",
-      connection: {
-        filename: "./timecard.sqlite"
-      }
-    },
-  */
+  development: {
+    client: "sqlite3",
+    connection: {
+      filename: "./timecard.sqlite"
+    }
+  },
+*/
   development: {
     client: process.env.DB_TYPE || "sqlite3",
     connection: {

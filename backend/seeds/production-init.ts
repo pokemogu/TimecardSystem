@@ -1,11 +1,12 @@
 import { Knex } from "knex";
 
-export async function seed(knex: Knex): Promise<void> {
+export async function seed(knex: Knex) {
 
   await knex("user").del();
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
+  await knex('systemConfig').del();
 
   // 部署情報
   await knex('department').insert([

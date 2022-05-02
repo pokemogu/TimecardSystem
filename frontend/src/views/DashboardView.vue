@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, Teleport } from 'vue';
+import type { Ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
@@ -7,11 +8,97 @@ import Header from '@/components/Header.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
 import DeviceSelect from '@/components/DeviceSelect.vue';
 
+const MAX_MENU_PER_COLUMN = 6;
+
 const store = useSessionStore();
 
 const isPasswordChangeOpened = ref(false);
 const isDeviceSelectOpened = ref(false);
 const selectedDeviceName = ref('');
+
+interface DashboardMenu {
+  description: string, linkName?: string, buttonRef?: Ref<boolean>
+};
+
+const recordMenus: DashboardMenu[] = [];
+const applyMenus: DashboardMenu[] = [];
+const applyMenusPerCol: DashboardMenu[][] = [];
+const approvalMenus: DashboardMenu[] = [];
+const adminMenus: DashboardMenu[] = [];
+const adminMenusPerCol: DashboardMenu[][] = [];
+
+// 打刻メニューの登録
+if (store.privilege?.recordByLogin) { recordMenus.push({ description: 'タイムカード', linkName: 'record' }); }
+recordMenus.push({ description: '勤務体系登録', linkName: 'work-pattern' });
+recordMenus.push({ description: 'パスワード変更', buttonRef: isPasswordChangeOpened });
+if (store.privilege?.registerDevice) { recordMenus.push({ description: '端末名設定', buttonRef: isDeviceSelectOpened }); }
+
+// 申請メニューの登録
+const applyPrivileges = store.privilege?.applyPrivileges;
+if (applyPrivileges) {
+  const applyPermitted = (name: string) => {
+    return applyPrivileges.find(privilege => privilege.applyTypeName === name)?.permitted === true;
+  }
+  if (applyPermitted('record')) { applyMenus.push({ description: '打刻申請', linkName: 'apply-record' }); }
+  if (applyPermitted('leave')) { applyMenus.push({ description: '休暇申請', linkName: 'apply-leave' }); }
+  if (applyPermitted('overtime')) { applyMenus.push({ description: '早出・残業申請', linkName: 'apply-overtime' }); }
+  if (applyPermitted('lateness')) { applyMenus.push({ description: '遅刻申請', linkName: 'apply-lateness' }); }
+  if (applyPermitted('leave-early')) { applyMenus.push({ description: '早退申請', linkName: 'apply-leave-early' }); }
+  if (applyPermitted('break')) { applyMenus.push({ description: '外出申請', linkName: 'apply-break' }); }
+  if (applyPermitted('holiday-work')) { applyMenus.push({ description: '休日出勤申請', linkName: 'apply-holiday-work' }); }
+  if (applyPermitted('makeup-leave')) { applyMenus.push({ description: '代休申請', linkName: 'apply-makeup-leave' }); }
+  if (applyPrivileges.some(applyPrivilege => (applyPrivilege.isSystemType === false) && (applyPrivilege.permitted === true))) {
+    applyMenus.push({ description: 'その他申請', linkName: 'apply-custom' });
+  }
+}
+
+for (let i = 0, j = -1; i < applyMenus.length; i++) {
+  if ((i % MAX_MENU_PER_COLUMN) === 0) {
+    applyMenusPerCol.push([]);
+    j++;
+  }
+  applyMenusPerCol[j].push(applyMenus[i]);
+}
+console.log(applyMenusPerCol);
+
+// 承認メニューの登録
+if (store.privilege?.approve) {
+  approvalMenus.push({ description: '未承認一覧', linkName: 'approval-pending' });
+  approvalMenus.push({ description: '全ての申請', linkName: 'approval-all' });
+}
+if (store.privilege?.configurePrivilege) {
+  approvalMenus.push({ description: 'ルート設定', linkName: 'admin-route' });
+  approvalMenus.push({ description: '申請種類設定', linkName: 'admin-custom-apply' });
+}
+
+// 管理メニューの登録
+if (store.privilege?.viewRecord) { adminMenus.push({ description: '未打刻一覧', linkName: 'view-record' }); }
+if (store.privilege?.viewAllUserInfo || store.privilege?.viewDepartmentUserInfo || store.privilege?.viewSectionUserInfo) {
+  adminMenus.push({ description: '有給取得状況', linkName: 'view-leave' });
+  adminMenus.push({ description: '残業状況', linkName: 'view-overtime' });
+  adminMenus.push({ description: '勤務実態照会', linkName: 'view-work' });
+}
+if (store.privilege?.viewRecordPerDevice) { adminMenus.push({ description: '簡易工程管理', linkName: 'view-device-record' }); }
+if (store.privilege?.registerDevice) { adminMenus.push({ description: '打刻端末設定', linkName: 'admin-device' }); }
+if (store.privilege?.approve) { adminMenus.push({ description: '一括申請機能', linkName: 'apply-bulk' }); }
+if (store.privilege?.configurePrivilege) { adminMenus.push({ description: '権限設定', linkName: 'admin-privilege' }); }
+if (store.privilege?.configureWorkPattern) { adminMenus.push({ description: '勤務体系設定', linkName: 'admin-workpattern' }); }
+if (store.privilege?.issueQr || store.privilege?.registerUser) {
+  adminMenus.push({ description: '従業員登録・照会(QR)', linkName: 'admin-user' });
+}
+if (store.privilege?.configurePrivilege) {
+  adminMenus.push({ description: 'システム設定', linkName: 'admin-config' });
+  adminMenus.push({ description: '休日登録', linkName: 'admin-holiday' });
+}
+
+for (let i = 0, j = -1; i < adminMenus.length; i++) {
+  if ((i % MAX_MENU_PER_COLUMN) === 0) {
+    adminMenusPerCol.push([]);
+    j++;
+  }
+  adminMenusPerCol[j].push(adminMenus[i]);
+}
+console.log(adminMenusPerCol);
 
 </script>
 
@@ -30,126 +117,80 @@ const selectedDeviceName = ref('');
         <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="メニュー画面" v-bind:userName="store.userName"></Header>
       </div>
     </div>
+    <div class="row justify-content-start">
 
-    <div class="row">
-      <div class="col-2">打刻</div>
-      <div class="col-4">各種申請</div>
-      <div class="col-2">承認</div>
-      <div class="col-4">管理機能</div>
-    </div>
+      <div class="col-2">
+        <div class="row">
+          <p>打刻</p>
+        </div>
+        <div class="row">
+          <div class="col p-0">
+            <div class="d-flex flex-column">
+              <div v-for="(item, index) in recordMenus" class="p-1 d-grid">
+                <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"
+                  role="button">{{ item.description }}</RouterLink>
+                <button v-else-if="item.buttonRef" class="btn btn-warning btn-sm"
+                  v-on:click="item.buttonRef ? item.buttonRef.value = true : null">{{ item.description }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'record' }" class="btn btn-warning btn-sm" role="button">タイムカード</RouterLink>
+      <div class="col-4">
+        <div class="row">
+          <p>申請</p>
+        </div>
+        <div class="row">
+          <div v-for="(applyMenusInCol, index) in applyMenusPerCol" class="col p-0">
+            <div class="d-flex flex-column">
+              <div v-for="(item, index) in applyMenusInCol" class="p-1 d-grid">
+                <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"
+                  role="button">{{ item.description }}</RouterLink>
+                <button v-else-if="item.buttonRef" class="btn btn-warning btn-sm"
+                  v-on:click="item.buttonRef ? item.buttonRef.value = true : null">{{ item.description }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-record' }" class="btn btn-warning btn-sm" role="button">打刻申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-break' }" class="btn btn-warning btn-sm" role="button">外出申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/approval/pending" class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/unrecorded" class="btn btn-warning btn-sm" role="button">未打刻一覧</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/privilege" class="btn btn-warning btn-sm" role="button">権限設定</RouterLink>
-      </div>
-    </div>
 
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'work-pattern' }" class="btn btn-warning btn-sm" role="button">勤務体系登録</RouterLink>
+      <div class="col-2">
+        <div class="row">
+          <p>承認</p>
+        </div>
+        <div class="row">
+          <div class="col p-0">
+            <div class="d-flex flex-column">
+              <div v-for="(item, index) in approvalMenus" class="p-1 d-grid">
+                <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"
+                  role="button">{{ item.description }}</RouterLink>
+                <button v-else-if="item.buttonRef" class="btn btn-warning btn-sm"
+                  v-on:click="item.buttonRef ? item.buttonRef.value = true : null">{{ item.description }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-leave' }" class="btn btn-warning btn-sm" role="button">休暇申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-holiday-work' }" class="btn btn-warning btn-sm" role="button">休日出勤申請
-        </RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/approve/all" class="btn btn-warning btn-sm" role="button">全ての申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/vacation" class="btn btn-warning btn-sm" role="button">有給取得状況</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-workpattern' }" class="btn btn-warning btn-sm" role="button">勤務体系設定</RouterLink>
-      </div>
-    </div>
 
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2">
-        <button class="btn btn-warning btn-sm" v-on:click="isPasswordChangeOpened = true">パスワード変更</button>
+      <div class="col-4">
+        <div class="row">
+          <p>管理</p>
+        </div>
+        <div class="row">
+          <div v-for="(adminMenusInCol, index) in adminMenusPerCol" class="col p-0">
+            <div class="d-flex flex-column">
+              <div v-for="(item, index) in adminMenusInCol" class="p-1 d-grid">
+                <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"
+                  role="button">{{ item.description }}</RouterLink>
+                <button v-else-if="item.buttonRef" class="btn btn-warning btn-sm"
+                  v-on:click="item.buttonRef ? item.buttonRef.value = true : null">{{ item.description }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-overtime' }" class="btn btn-warning btn-sm" role="button">早出・残業申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-makeup-leave' }" class="btn btn-warning btn-sm" role="button">代休申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-route' }" class="btn btn-warning btn-sm" role="button">ルート設定</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/overtime" class="btn btn-warning btn-sm" role="button">残業状況</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-user' }" class="btn btn-warning btn-sm" role="button">従業員登録・照会(QR)</RouterLink>
-      </div>
-    </div>
 
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2">
-        <button class="btn btn-warning btn-sm" v-on:click="isDeviceSelectOpened = true">端末名設定</button>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-lateness' }" class="btn btn-warning btn-sm" role="button">遅刻申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-custom' }" class="btn btn-warning btn-sm" role="button">その他申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-custom-apply' }" class="btn btn-warning btn-sm" role="button">申請種類設定
-        </RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/regproc" class="btn btn-warning btn-sm" role="button">簡易工程管理</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/config" class="btn btn-warning btn-sm" role="button">システム設定</RouterLink>
-      </div>
-    </div>
-
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'apply-leave-early' }" class="btn btn-warning btn-sm" role="button">早退申請</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink :to="{ name: 'admin-device' }" class="btn btn-warning btn-sm" role="button">打刻端末設定</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/duties" class="btn btn-warning btn-sm" role="button">勤務実態照会</RouterLink>
-      </div>
-    </div>
-
-    <div class="row g-2 mt-2">
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2"></div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/bulkapply" class="btn btn-warning btn-sm" role="button">一括申請機能</RouterLink>
-      </div>
-      <div class="d-grid col-2 gap-2">
-        <RouterLink to="/admin/holiday" class="btn btn-warning btn-sm" role="button">休日登録</RouterLink>
-      </div>
     </div>
   </div>
 </template>

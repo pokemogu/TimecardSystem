@@ -92,7 +92,7 @@ export interface UserInfoRequestData {
   defaultWorkPatternName?: string,
   optional1WorkPatternName?: string,
   optional2WorkPatternName?: string,
-  password: string
+  password?: string
 }
 
 export interface UserInfoResponseBody {

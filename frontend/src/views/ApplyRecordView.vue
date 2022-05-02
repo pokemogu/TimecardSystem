@@ -14,6 +14,8 @@ const router = useRouter();
 const route = useRoute();
 const store = useSessionStore();
 
+// 権限チェック
+
 const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
 const applyTypeValue1 = ref('');
 const applyTypeOptions2 = ref<{ name: string, description: string }[]>([]);
@@ -62,7 +64,6 @@ async function onFormSubmit() {
 }
 
 async function onRouteSubmit() {
-  console.log('applyTypeValue1: ' + applyTypeValue1.value);
   try {
     if (store.isLoggedIn()) {
       const token = await store.getToken();
@@ -79,31 +80,6 @@ async function onRouteSubmit() {
           reason: reason.value,
           route: routeName.value
         });
-
-        /*
-          const routeInfo = await access.getApprovalRoute(routeName.value);
-          if (routeInfo) {
-            const smallestLevelRole = routeInfo.roles.reduce((prev, cur) => prev.level < cur.level ? prev : cur);
-            const emails: string[] = [];
-            for (const user of smallestLevelRole.users) {
-              console.log(user.account);
-              const userInfo = await access.getUserInfo(user.account);
-              if (userInfo) {
-                emails.push(userInfo.email);
-              }
-            }
-  
-            const mailBody =
-              `以下の通り申請致しますのでご承認お願い致します。
-  
-  ${window.location.origin}/approve/${applyId}`
-  
-            location.href =
-              'mailto: ' + emails.join(', ') +
-              '?subject=打刻申請の承認依頼' +
-              '&body=' + encodeURIComponent(mailBody.replace('\n', '\r\n'));
-          }
-          */
 
         router.push({ name: 'dashboard' });
       }

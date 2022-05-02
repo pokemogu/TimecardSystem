@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
-import { useRouter, RouterLink } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
@@ -14,8 +14,6 @@ const store = useSessionStore();
 const isApprovalRouteSelected = ref(false);
 const selectedRoute = ref<apiif.ApprovalRouteResposeData>({ name: '', roles: [] });
 
-const roleNamesLinear = ref<string[]>([]);
-const roleMembersLinear = ref<Record<string, string[]>>({});
 const routeInfos = ref<apiif.ApprovalRouteResposeData[]>([]);
 const checks = ref<Record<string, boolean>>({});
 
@@ -38,19 +36,10 @@ async function updateTable() {
   catch (error) {
     alert(error);
   }
-
 }
 
 onMounted(async () => {
-  const result = await backendAccess.getApprovalRouteRoles();
-  if (result) {
-    roleNamesLinear.value.splice(0);
-    for (const role of result) {
-      Array.prototype.push.apply(roleNamesLinear.value, role.names);
-    }
-
-    await updateTable();
-  }
+  await updateTable();
 });
 
 async function onPageBack() {
@@ -124,61 +113,32 @@ async function onSubmit() {
   await updateTable();
 }
 
-function sliceDictionary(dict: Record<string, string[]>, limit: number) {
-  const newDict: Record<string, string[]> = {};
-  for (const key in dict) {
-    if (limit <= 0) {
-      break;
-    }
-    newDict[key] = dict[key];
-    limit--;
-  }
-  return newDict;
-}
-
 </script>
 
 <template>
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="承認ルート設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="承認ルート設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Suspense>
       <Teleport to="body" v-if="isApprovalRouteSelected">
-        <ApprovalRoute
-          v-model:route="selectedRoute"
-          v-model:isOpened="isApprovalRouteSelected"
-          v-on:submit="onSubmit"
-        ></ApprovalRoute>
+        <ApprovalRoute v-model:route="selectedRoute" v-model:isOpened="isApprovalRouteSelected" v-on:submit="onSubmit">
+        </ApprovalRoute>
       </Teleport>
     </Suspense>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onRouteClick()"
-        >新規承認ルート作成</button>
+        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onRouteClick()">新規承認ルート作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onRouteDelete()"
-        >チェックした承認ルートを削除</button>
+          v-on:click="onRouteDelete()">チェックした承認ルートを削除</button>
       </div>
     </div>
 
@@ -202,19 +162,10 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           <tbody>
             <tr v-for="(item, index) in routeInfos">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[item.name]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index" v-model="checks[item.name]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onRouteClick(item.name)"
-                >{{ item.name }}</button>
+                <button type="button" class="btn btn-link" v-on:click="onRouteClick(item.name)">{{ item.name }}</button>
               </td>
               <td>{{ item.approvalLevel1MainUserName }}</td>
               <td>{{ item.approvalLevel1SubUserName }}</td>
@@ -254,7 +205,9 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

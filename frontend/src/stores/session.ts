@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 
 export const useSessionStore = defineStore({
   id: 'timecard-system-session',
@@ -9,7 +10,8 @@ export const useSessionStore = defineStore({
     userAccount: '',
     userName: '',
     userDepartment: '',
-    userSection: ''
+    userSection: '',
+    privilege: <apiif.PrivilegeResponseData | null>null
   }),
   getters: {
     token: (state) => state.refreshToken
@@ -19,6 +21,10 @@ export const useSessionStore = defineStore({
       this.refreshToken = '';
       this.userAccount = '';
       this.userName = '';
+      this.userAccount = '';
+      this.userDepartment = '';
+      this.userSection = '';
+      this.privilege = null;
     },
     async login(account: string, password: string) {
       try {
@@ -27,6 +33,13 @@ export const useSessionStore = defineStore({
           this.refreshToken = result.refreshToken;
           this.userAccount = account;
           this.userName = result.name;
+
+          const accessToken = await this.getToken();
+          const access = new backendAccess.TokenAccess(accessToken);
+          const privilege = await access.getUserPrivilege(this.userAccount);
+          if (privilege) {
+            this.privilege = privilege;
+          }
           return true;
         }
         else {
@@ -49,7 +62,7 @@ export const useSessionStore = defineStore({
         }
         const result = await backendAccess.getToken(this.refreshToken);
         if (!result?.token) {
-          throw new Error('toke not returned');
+          throw new Error('token not returned');
         }
         return result.token.accessToken;
       } catch (error) {

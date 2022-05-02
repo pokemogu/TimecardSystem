@@ -1,10 +1,10 @@
-const path = require('path');
+﻿const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
 const readlineSync = require('readline-sync');
 
-const backendAppPath = path.join(__dirname, 'node_modules', 'timecard-app-backend');
+const backendAppPath = path.join(__dirname, 'backend');
 if (!fs.existsSync(backendAppPath)) {
   readlineSync.question(
     'エラー: アプリケーションフォルダ ' + backendAppPath + ' が見つかりません。エンターキーを押して終了してください。',
@@ -28,6 +28,15 @@ if (fs.existsSync(dotEnvBackendAppPath)) {
 
 
 // デフォルト値をセットする
+if (!('NODE_HOST' in config)) {
+  config['NODE_HOST'] = 'localhost';
+}
+if (!('NODE_PORT' in config)) {
+  config['NODE_PORT'] = '3000';
+}
+if (!('NODE_BACKLOG' in config)) {
+  config['NODE_BACKLOG'] = '20';
+}
 if (!('DB_HOST' in config)) {
   config['DB_HOST'] = 'localhost';
 }
@@ -40,16 +49,31 @@ if (!('DB_NAME' in config)) {
 if (!('DB_ROOT_USER' in config)) {
   config['DB_ROOT_USER'] = 'root';
 }
-if (!('DATABASE_PASSWORD' in config)) {
+if (!('DB_ROOT_PASSWORD' in config)) {
   config['DB_ROOT_PASSWORD'] = '';
 }
 
 while (true) {
 
-  if (!readlineSync.keyInYNStrict('アプリケーションが使用するデータベースサーバーの設定を行ないます。続けますか?')) {
+  if (!readlineSync.keyInYNStrict('アプリケーションサーバーの設定を行ないます。続けますか?')) {
     process.exit(0);
   }
   console.log('\n以下の質問に対して設定値を入力してエンターキーを押してください。何も入力せずにエンターキーを押すと()で囲まれた値に設定されます。\n');
+
+  config['NODE_HOST'] = readlineSync.question(
+    'アプリケーションサーバーが接続を受けるホスト名あるいはIPアドレスを入力してエンターキーを押してください($<defaultInput>): ',
+    { defaultInput: config['NODE_HOST'] }
+  );
+
+  config['NODE_PORT'] = readlineSync.question(
+    'アプリケーションサーバーが接続を受けるポート番号を入力してエンターキーを押してください($<defaultInput>): ',
+    { defaultInput: config['NODE_PORT'] }
+  );
+
+  config['NODE_BACKLOG'] = readlineSync.question(
+    'アプリケーションサーバーが許可する最大接続数を入力してエンターキーを押してください($<defaultInput>): ',
+    { defaultInput: config['NODE_BACKLOG'] }
+  );
 
   config['DB_HOST'] = readlineSync.question(
     'データベースサーバーのホスト名あるいはIPアドレスを入力してエンターキーを押してください($<defaultInput>): ',

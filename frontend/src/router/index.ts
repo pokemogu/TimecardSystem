@@ -6,6 +6,30 @@ import * as backendAccess from '@/BackendAccess';
 
 const appName = '勤怠管理システム';
 
+const verifyApprove = (redirectTo: string = 'dashboard') => {
+  const store = useSessionStore();
+  if (!store.privilege) {
+    return { name: redirectTo };
+  }
+  else {
+    return store.privilege.approve === true;
+  }
+}
+
+const verifyApplyPrivilege = (applyType: string, redirectTo: string = 'dashboard') => {
+  const store = useSessionStore();
+  if (!store.privilege?.applyPrivileges) {
+    return { name: redirectTo };
+  }
+  else {
+    const applyPrivilege = store.privilege.applyPrivileges.find(applyPrivilege => applyPrivilege.applyTypeName === applyType);
+    if (applyPrivilege && applyPrivilege.permitted === false) {
+      return { name: redirectTo };
+    }
+  }
+  return true;
+};
+
 const router = createRouter({
   //history: createWebHistory(import.meta.env.BASE_URL),
   history: createWebHashHistory(),
@@ -49,6 +73,7 @@ const router = createRouter({
       name: 'approve',
       component: () => { },
       beforeEnter: async (to, from) => {
+        // 指定されたIDの申請の種類を取得して、適切な申請種類のビューにリダイレクトする
         const store = useSessionStore();
         const token = await store.getToken();
         if (token) {
@@ -58,9 +83,6 @@ const router = createRouter({
           if (type) {
             return `/apply/${type.name}/${applyId}`;
           }
-          //console.log(types);
-          //const applies = await access.getApply(applyId);
-          //console.log(applies);
         }
         return { name: 'home' };
       }
@@ -70,26 +92,30 @@ const router = createRouter({
       path: '/apply/record',
       name: 'apply-record',
       component: () => import('@/views/ApplyRecordView.vue'),
-      meta: { title: `${appName} - 打刻申請` }
+      meta: { title: `${appName} - 打刻申請` },
+      beforeEnter: () => { return verifyApplyPrivilege('record') }
     },
     {
       path: '/apply/record/:id',
       name: 'apply-record-view',
       component: () => import('@/views/ApplyRecordView.vue'),
-      meta: { title: `${appName} - 打刻申請` }
+      meta: { title: `${appName} - 打刻申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('record') }
     },
     // 休暇申請
     {
       path: '/apply/leave',
       name: 'apply-leave',
       component: () => import('@/views/ApplyLeaveView.vue'),
-      meta: { title: `${appName} - 休暇申請` }
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApplyPrivilege('leave') }
     },
     {
       path: '/apply/leave/:id',
       name: 'apply-leave-view',
       component: () => import('@/views/ApplyLeaveView.vue'),
-      meta: { title: `${appName} - 休暇申請` }
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('leave') }
     },
     // 早出・残業申請
     {
@@ -220,8 +246,15 @@ const router = createRouter({
       path: '/approval/pending',
       name: 'approval-pending',
       component: () => import('@/views/ApproveView.vue'),
-      meta: { title: `${appName} - 承認一覧画面` }
+      meta: { title: `${appName} - 未承認一覧` }
     },
+    {
+      path: '/approval/pending',
+      name: 'approval-all',
+      component: () => { },
+      meta: { title: `${appName} - 全ての申請` }
+    },
+    // 管理関連
     {
       path: '/admin/user/:account',
       name: 'admin-user',
@@ -229,10 +262,40 @@ const router = createRouter({
       meta: { title: `${appName} - 従業員照会` }
     },
     {
-      path: '/admin/user',
-      name: 'admin-reguser',
-      component: () => import('@/views/OldUserView.vue'),
-      meta: { title: `${appName} - 従業員登録` }
+      path: '/view/record',
+      name: 'view-record',
+      component: () => { },
+      meta: { title: `${appName} - 未打刻一覧` }
+    },
+    {
+      path: '/view/leave',
+      name: 'view-leave',
+      component: () => { },
+      meta: { title: `${appName} - 有給取得状況` }
+    },
+    {
+      path: '/view/overtime',
+      name: 'view-overtime',
+      component: () => { },
+      meta: { title: `${appName} - 簡易工程管理` }
+    },
+    {
+      path: '/apply/bulk',
+      name: 'apply-bulk',
+      component: () => { },
+      meta: { title: `${appName} - 一括申請機能` }
+    },
+    {
+      path: '/view/work',
+      name: 'view-work',
+      component: () => { },
+      meta: { title: `${appName} - 勤務実態照会` }
+    },
+    {
+      path: '/view/device-record',
+      name: 'view-device-record',
+      component: () => { },
+      meta: { title: `${appName} - 勤務実態照会` }
     },
     {
       path: '/admin/users',

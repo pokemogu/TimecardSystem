@@ -94,119 +94,63 @@ function onSubmit(event: Event) {
             <div class="row justify-content-start">
               <label for="privilage-name" class="col-1 col-form-label text-end">権限名</label>
               <div class="col-3">
-                <input
-                  type="text"
-                  class="form-control"
-                  id="privilage-name"
-                  v-model="privilege.name"
-                  required
-                />
+                <input type="text" class="form-control" id="privilage-name" v-model="privilege.name" required />
               </div>
             </div>
             <div class="row">
               <div class="d-flex align-content-start flex-wrap">
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="record-by-pc"
-                    v-model="privilege.recordByLogin"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="record-by-pc"
+                    v-model="privilege.recordByLogin" />
                   <label class="form-check-label" for="record-by-pc">打刻でPC使用可否</label>
                 </div>
 
-                <div
-                  class="form-check form-switch m-2"
-                  v-for="(item, index) in privilege.applyPrivileges"
-                >
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    :id="'apply-' + item.applyTypeName"
-                    v-model="item.permitted"
-                  />
-                  <label
-                    class="form-check-label"
-                    :for="'apply-' + item.applyTypeName"
-                  >{{ item.applyTypeDescription }}申請可否</label>
+                <div class="form-check form-switch m-2" v-for="(item, index) in privilege.applyPrivileges">
+                  <input class="form-check-input" type="checkbox" role="switch" :id="'apply-' + item.applyTypeName"
+                    v-model="item.permitted" />
+                  <label class="form-check-label" :for="'apply-' + item.applyTypeName">{{ item.applyTypeDescription
+                  }}申請可否</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="approve"
-                    v-model="privilege.approve"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="approve"
+                    v-model="privilege.approve" />
                   <label class="form-check-label" for="approve">申請承認可否</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="view-record-per-device"
-                    v-model="privilege.viewRecordPerDevice"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="view-record-per-device"
+                    v-model="privilege.viewRecordPerDevice" />
                   <label class="form-check-label" for="view-record-per-device">簡易工程管理</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="configure-privilege"
-                    v-model="privilege.configurePrivilege"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="configure-privilege"
+                    v-model="privilege.configurePrivilege" />
                   <label class="form-check-label" for="configure-privilege">権限設定</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="configure-workpattern"
-                    v-model="privilege.configureWorkPattern"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="configure-workpattern"
+                    v-model="privilege.configureWorkPattern" />
                   <label class="form-check-label" for="configure-workpattern">勤務体系設定</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="register-user"
-                    v-model="privilege.registerUser"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="register-user"
+                    v-model="privilege.registerUser" />
                   <label class="form-check-label" for="register-user">従業員登録</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="issue-qr"
-                    v-model="privilege.issueQr"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="issue-qr"
+                    v-model="privilege.issueQr" />
                   <label class="form-check-label" for="issue-qr">QR発行</label>
                 </div>
 
                 <div class="form-check form-switch m-2">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="register-device"
-                    v-model="privilege.registerDevice"
-                  />
+                  <input class="form-check-input" type="checkbox" role="switch" id="register-device"
+                    v-model="privilege.registerDevice" />
                   <label class="form-check-label" for="register-device">端末名設定</label>
                 </div>
               </div>
@@ -228,19 +172,9 @@ function onSubmit(event: Event) {
                 <div class="col-4">
                   <div class="input-group">
                     <span class="input-group-text">月</span>
-                    <input
-                      type="number"
-                      min="0"
-                      class="form-control"
-                      v-model="privilege.maxApplyLateNum"
-                    />
+                    <input type="number" min="0" class="form-control" v-model="privilege.maxApplyLateNum" />
                     <span class="input-group-text">回</span>
-                    <input
-                      type="number"
-                      min="0"
-                      class="form-control"
-                      v-model="privilege.maxApplyLateHours"
-                    />
+                    <input type="number" min="0" class="form-control" v-model="privilege.maxApplyLateHours" />
                     <span class="input-group-text">時間</span>
                   </div>
                 </div>
@@ -248,19 +182,9 @@ function onSubmit(event: Event) {
                 <div class="col-4">
                   <div class="input-group">
                     <span class="input-group-text">月</span>
-                    <input
-                      type="number"
-                      min="0"
-                      class="form-control"
-                      v-model="privilege.maxApplyEarlyNum"
-                    />
+                    <input type="number" min="0" class="form-control" v-model="privilege.maxApplyEarlyNum" />
                     <span class="input-group-text">回</span>
-                    <input
-                      type="number"
-                      min="0"
-                      class="form-control"
-                      v-model="privilege.maxApplyEarlyHours"
-                    />
+                    <input type="number" min="0" class="form-control" v-model="privilege.maxApplyEarlyHours" />
                     <span class="input-group-text">時間</span>
                   </div>
                 </div>
@@ -268,6 +192,7 @@ function onSubmit(event: Event) {
             </div>
           </div>
           <div class="modal-footer">
+            <p class="text-danger">権限設定の変更は現在ログイン中の従業員については反映されません。次回のログイン時に反映されます。</p>
             <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
             <button type="submit" class="btn btn-primary">設定</button>
           </div>

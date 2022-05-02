@@ -1,7 +1,7 @@
 import mysql2 from 'mysql2/promise';
 import { Knex } from 'knex';
 import knexConnect from 'knex';
-import { hashPassword } from './verify';
+import { generateKeyPair, setJsonWebTokenKey } from './verify';
 import { DatabaseAccess } from "./dataaccess";
 
 const testSuperUserAccount = '____TEST_SUPER_USER_NAME___';
@@ -15,18 +15,18 @@ const testSuperWorkPatternName = '____TEST_SUPER_USER_WORKPATTERN___';
 
 describe('データアクセス', () => {
 
+  const generateRandomString = () => { return Math.random().toString(32).substring(2) };
+
   let knexconfig: Knex.Config = {};
   let knex: Knex;
   let refreshToken: string = '';
 
-  const dbName = 'timecard_' + Math.random().toString(32).substring(2);
-  const dbUser = Math.random().toString(32).substring(2);
-  const dbPass = Math.random().toString(32).substring(2);
+  const dbName = 'timecard_' + generateRandomString();
+  const dbUser = generateRandomString();
+  const dbPass = generateRandomString();
 
   // 初期化
   beforeAll(async () => {
-
-    console.log('beforeAll1: ' + new Date().toISOString());
     // テスト用データベースの作成
     const conn = await mysql2.createConnection({
       host: process.env.DB_HOST || 'localhost',
@@ -62,45 +62,18 @@ describe('データアクセス', () => {
       };
     }
 
-    // テスト用特権ユーザーの作成
+    const { privateKey, publicKey } = generateKeyPair();
+    setJsonWebTokenKey(privateKey, publicKey);
+
+    // DDL適用
     knex = knexConnect(knexconfig);
-    //if (!knex.schema.hasTable('user') || !knex.schema.hasTable('record') || !knex.schema.hasTable('apply')) {
-    await knex.migrate.latest();
-    //}
+    await knex.migrate.latest(); // 全DDL適用なので非常に時間かかる
 
-    const access = new DatabaseAccess(knex);
-    /*
-    await access.addPrivilege({
-      name: testSuperPrivilegeName,
-      recordByLogin: true, approve: true,
-      viewRecord: true, viewRecordPerDevice: true,
-      viewSectionUserInfo: true, viewDepartmentUserInfo: true, viewAllUserInfo: true,
-      configurePrivilege: true, configureWorkPattern: true,
-      issueQr: true, registerUser: true, registerDevice: true
-    });
-
-    await access.addWorkPattern({
-      name: testSuperUserDefaultWorkPattern,
-      onTimeStart: '08:30',
-      onTimeEnd: '17:30'
-    });
-
-    await access.addUser({
-      account: testSuperUserAccount, password: testSuperUserPassword,
-      email: 'adm99999@sample.com', name: testSuperUserName, phonetic: testSuperUserPhonetic,
-      privilegeName: testSuperPrivilegeName, defaultWorkPatternName: testSuperUserDefaultWorkPattern
-    });
-
-    // 特権ユーザーのログイン
-    const tokenInfo = await access.issueRefreshToken(testSuperUserAccount, testSuperUserPassword);
-    refreshToken = tokenInfo.refreshToken;
-    */
+    console.log('全体-beforeAll ' + new Date().toISOString());
   });
 
   // 後始末
   afterAll(async () => {
-    await knex.destroy();
-
     // テスト用データベースの削除
     const conn = await mysql2.createConnection({
       host: process.env.DB_HOST || 'localhost',
@@ -110,15 +83,14 @@ describe('データアクセス', () => {
     });
     await conn.execute(`DROP USER '${dbUser}'@'%'`);
     await conn.execute(`DROP DATABASE ${dbName}`);
-    console.log('afterAll: ' + new Date().toISOString());
   });
 
   test('事前の基本テスト(権限、勤務体系、ユーザー)', async () => {
-    const testUserAccount = Math.random().toString(32).substring(2);
-    const testUserPassword = Math.random().toString(32).substring(2);
-    const testEmail = Math.random().toString(32).substring(2) + '@' + Math.random().toString(32).substring(2) + '.com';
-    const testWorkPatternName = Math.random().toString(32).substring(2);
-    const testPrivilegeName = Math.random().toString(32).substring(2);
+    const testUserAccount = generateRandomString();
+    const testUserPassword = generateRandomString();
+    const testEmail = generateRandomString() + '@' + generateRandomString() + '.com';
+    const testWorkPatternName = generateRandomString();
+    const testPrivilegeName = generateRandomString();
 
     const access = new DatabaseAccess(knex);
 
@@ -152,11 +124,11 @@ describe('データアクセス', () => {
     expect(workPatterns.some(workPattern => workPattern.name === testWorkPatternName)).toBeTruthy();
 
     // ユーザーを新規追加する
-    await expect(access.addUser({
+    await expect(access.addUsers([{
       account: testUserAccount, password: testUserPassword,
       email: testEmail, name: '山田 太郎', phonetic: 'ヤマダ タロウ',
       privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName
-    })).resolves.not.toThrow();
+    }])).resolves.not.toThrow();
 
     // ユーザーが追加されていることを確認する
     const users = await access.getUsers();
@@ -218,48 +190,6 @@ describe('データアクセス', () => {
       });
     });
 
-    // 権限関連
-    test('getPrivileges', async () => {
-      const access = new DatabaseAccess(knex);
-      //const applyPrivileges = await access.getUserApplyPrivilege(token, testSuperUserAccount)
-      //console.log(applyPrivileges);
-      //expect(applyPrivileges).toBeDefined();
-      //console.log(await access.getUserApplyPrivilege(token, 1));
-      //console.log(await access.getUserApplyPrivilege(token, 301));
-
-      //console.log(await access.getApplyPrivilege(token, 1));
-      //console.log(await access.getApplyPrivilege(token, 2));
-      //console.log(await access.getApplyPrivilege(token, 3));
-      //console.log(await access.getApplyPrivilege(token, 4));
-      const privilege = await access.getUserPrivilege(testSuperUserAccount);
-      //console.log(await access.getApplyPrivilege(token, 6));
-      //console.log(await access.getApplyPrivilege(token, 7));
-      //console.log(await access.getApplyPrivilege(token, 8));
-    });
-
-    // 承認ルート関連
-    test('getRoles', async () => {
-      const access = new DatabaseAccess(knex);
-      const roles = await access.getApprovalRouteRoles();
-      expect(roles).toBeDefined();
-    });
-
-    test('addApprovalRouteMembers', async () => {
-      /*
-            const access = new DatabaseAccess(knex);
-            const token = await access.issueAccessToken(refreshToken);
-      
-            const roleMembers = await access.getApprovalRoutes(token);
-            console.dir(roleMembers, { depth: null });
-            expect(roleMembers).toBeDefined();
-      
-            for (const roleMember of roleMembers) {
-              const roleMembersforSeizoSHain = await access.getApprovalRoutes(token, roleMember.id);
-              expect(roleMembersforSeizoSHain).toBeDefined();
-            }
-      */
-    });
-
     test('getApprovalRoutes', async () => {
       const access = new DatabaseAccess(knex);
       const roleMembers = await access.getApprovalRoutes();
@@ -271,7 +201,6 @@ describe('データアクセス', () => {
         // expect(roleMembersforSeizoSHain).toBeDefined();
       }
     });
-
 
     test('getUserWorkPatternCalendar', async () => {
       const access = new DatabaseAccess(knex);
@@ -292,88 +221,164 @@ describe('データアクセス', () => {
 
   // アクセストークン取得・検証
   describe('認証関連テスト', () => {
-    test('issueAccessToken & getUserInfoFromAccessToken', async () => {
+    const testUserAccount = generateRandomString();
+    const testUserPassword = generateRandomString();
+    const testEmail = generateRandomString() + '@' + generateRandomString() + '.com';
+    const testWorkPatternName = generateRandomString();
+    const testPrivilegeName = generateRandomString();
+
+    beforeAll(async () => {
       const access = new DatabaseAccess(knex);
-      const token = await access.issueAccessToken(refreshToken);
+
+      await expect(access.addPrivilege({ name: testPrivilegeName })).resolves.not.toThrow();
+      await expect(access.addWorkPattern({ name: testWorkPatternName, onTimeStart: '08:30', onTimeEnd: '17:30' })).resolves.not.toThrow();
+      await expect(access.addUsers([{
+        account: testUserAccount, password: testUserPassword,
+        email: testEmail, name: '山田 太郎', phonetic: 'ヤマダ タロウ',
+        privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName
+      }])).resolves.not.toThrow();
+    });
+
+    afterAll(async () => {
+      const access = new DatabaseAccess(knex);
+
+      await expect(access.deleteUser(testUserAccount)).resolves.not.toThrow();
+      const privileges = await access.getPrivileges();
+      const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName).id;
+      await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+    });
+
+    test('issueRefreshToken, issueAccessToken, revokeRefreshToken', async () => {
+      const access = new DatabaseAccess(knex);
+
+      // issueRefreshToken
+      const tokenResponse = await access.issueRefreshToken(testUserAccount, testUserPassword);
+      expect(tokenResponse.refreshToken).not.toBe('');
+
+      // issueAccessToken
+      const token = await access.issueAccessToken(tokenResponse.refreshToken);
       expect(token).not.toBe('');
-      const userData = await access.getUserInfoFromAccessToken(token);
-      expect(userData).toBeDefined();
-      expect(userData.account).toBe(testSuperUserAccount);
+
+      await expect(access.revokeRefreshToken(testUserAccount, tokenResponse.refreshToken)).resolves.not.toThrow();
     });
 
     test('changeUserPassword', async () => {
       const access = new DatabaseAccess(knex);
+      const users = await access.getUsers({ byAccounts: [testUserAccount] });
+      expect(users.length).toBeGreaterThan(0);
+      expect(users.some(user => user.account === testUserAccount)).toBeTruthy();
+      const userInfo = users[0];
 
-      try {
-        const newPassword = testSuperUserPassword + 'hogehogehogehoge'
-        await access.changeUserPassword(
-          { id: testSuperUserId, account: testSuperUserAccount },
-          { oldPassword: testSuperUserPassword + 'hogehoge', newPassword: newPassword }
-        );
-        expect(true).toBeFalsy();
-      }
-      catch (error) {
-      }
+      // 現在のパスワードが間違っている場合
+      const newPassword = testUserPassword + 'hogehogehogehoge'
+      await expect(access.changeUserPassword(
+        { id: userInfo.id, account: testUserAccount },
+        { oldPassword: testUserPassword + 'hogehoge', newPassword: newPassword }
+      )).rejects.toThrow();
 
-      const newPassword1 = testSuperUserPassword + 'hogehogehogehoge'
-      await access.changeUserPassword(
-        { id: testSuperUserId, account: testSuperUserAccount },
-        { oldPassword: testSuperUserPassword, newPassword: newPassword1 }
-      );
-      testSuperUserPassword = newPassword1;
+      // 現在のパスワードが正しい場合
+      const newPassword1 = testUserPassword + 'hogehogehogehoge'
+      await expect(access.changeUserPassword(
+        { id: userInfo.id, account: testUserAccount },
+        { oldPassword: testUserPassword, newPassword: newPassword1 }
+      )).resolves.not.toThrow();
 
-      const newPassword2 = testSuperUserPassword + 'hogehogehogehoge'
-      await access.changeUserPassword(
-        { id: testSuperUserId, account: testSuperUserAccount },
-        { oldPassword: testSuperUserPassword, newPassword: newPassword2 }
-      );
-      testSuperUserPassword = newPassword2;
+      await expect(access.changeUserPassword(
+        { id: userInfo.id, account: testUserAccount },
+        { oldPassword: newPassword1, newPassword: testUserPassword }
+      )).resolves.not.toThrow();
     });
   });
 
   describe('ユーザー関連テスト', () => {
+    const testUserAccount = [generateRandomString(), generateRandomString(), generateRandomString(), generateRandomString()];
+    const testUserPassword = generateRandomString();
+    const testEmail = generateRandomString() + '@' + generateRandomString() + '.com';
+    const testWorkPatternName = generateRandomString();
+    const testPrivilegeName = generateRandomString();
+
     beforeAll(async () => {
-      // テスト用の権限登録
-      //const knex = knexConnect(knexconfig);
-      //await knex('privilege').insert({ name: 'QRコード使用者', recordByLogin: false });
-      //const access = new DatabaseAccess(knexconfig);
-      /*
-            await access.registerPrivilege({
-              name: 'QRコード使用者',
-              recordByLogin: false,
-      
-            });
-            */
+      const access = new DatabaseAccess(knex);
+
+      await expect(access.addPrivilege({ name: testPrivilegeName })).resolves.not.toThrow();
+      await expect(access.addWorkPattern({ name: testWorkPatternName, onTimeStart: '08:30', onTimeEnd: '17:30' })).resolves.not.toThrow();
+
+      await expect(access.addUsers([
+        {
+          account: testUserAccount[0], password: testUserPassword,
+          email: testEmail, name: '金子 星男', phonetic: 'カネコ ホシオ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '浜松工場', section: '製造部'
+        },
+        {
+          account: testUserAccount[1], password: testUserPassword,
+          email: testEmail, name: '久保田 模試子', phonetic: 'クボタ モシコ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '東名工場', section: '製造部'
+        },
+        {
+          account: testUserAccount[2], password: testUserPassword,
+          email: testEmail, name: '稲田 市兵衛', phonetic: 'イナダ イチベエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: '営業部'
+        }, {
+          account: testUserAccount[3], password: testUserPassword,
+          email: testEmail, name: '山本 花絵', phonetic: 'ヤマモト ハナエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: '総務部'
+        }
+      ])).resolves.not.toThrow();
+
+    });
+
+    afterAll(async () => {
+      const access = new DatabaseAccess(knex);
+
+      await expect(access.deleteUser(testUserAccount[0])).resolves.not.toThrow();
+      await expect(access.deleteUser(testUserAccount[1])).resolves.not.toThrow();
+      await expect(access.deleteUser(testUserAccount[2])).resolves.not.toThrow();
+      await expect(access.deleteUser(testUserAccount[3])).resolves.not.toThrow();
+
+      const privileges = await access.getPrivileges();
+      const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName).id;
+      await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
     });
 
     test('getUser', async () => {
       const access = new DatabaseAccess(knex);
 
-      let userInfo = await access.getUsers({
+      let users = await access.getUsers({
         byName: '金子'
       });
-      //console.log(userInfo);
-      expect(userInfo).toBeDefined();
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(0);
 
-      userInfo = await access.getUsers({
+      users = await access.getUsers({
         byPhonetic: 'ホシ'
       });
-      //console.log(userInfo);
-      expect(userInfo).toBeDefined();
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(0);
 
-      userInfo = await access.getUsers({
-        byAccounts: ['USR00234']
+      users = await access.getUsers({
+        byAccounts: [testUserAccount[0]]
       });
-      //console.log(userInfo);
-      expect(userInfo).toBeDefined();
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(0);
 
-      userInfo = await access.getUsers({
+      users = await access.getUsers({
+        byAccounts: [testUserAccount[0], testUserAccount[1]]
+      });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(1);
+
+      users = await access.getUsers({
         byDepartment: '浜松工場',
         bySection: '製造部'
       });
-      //console.log(userInfo);
-      expect(userInfo).toBeDefined();
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(0);
 
+      /*
       userInfo = await access.getUsers({
         byDepartment: '東名工場',
         bySection: '製造部',
@@ -382,31 +387,27 @@ describe('データアクセス', () => {
       //console.log(userInfo);
       expect(userInfo).toBeDefined();
       expect(userInfo.length).toBeLessThanOrEqual(25);
+      */
 
-      userInfo = await access.getUsers({
+      users = await access.getUsers({
         byName: '久保田',
         byDepartment: '東名工場'
       });
       //console.log(userInfo);
-      expect(userInfo).toBeDefined();
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBeGreaterThan(0);
 
     });
 
     test('issueQrCodeRefreshToken && getUsersWithQrCodeIssued', async () => {
-      const account = 'USR00001';
       const access = new DatabaseAccess(knex);
+      let userInfo = await access.getUsers({ byAccounts: [testUserAccount[3]] });
 
-      let userInfo = await access.getUsers({ byAccounts: [account] });
-      //console.log(userInfo);
-      //expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeTruthy();
-
-      const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(account);
-      userInfo = await access.getUsers({ byAccounts: [account] });
-      console.log(userInfo);
+      const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(testUserAccount[3]);
+      userInfo = await access.getUsers({ byAccounts: [testUserAccount[3]] });
       expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeFalsy();
-      //console.log(qrCodeRefreshToken);
 
-      await access.revokeRefreshToken(account, qrCodeRefreshToken.refreshToken);
+      await access.revokeQrCodeRefreshToken(testUserAccount[3], qrCodeRefreshToken.refreshToken);
     });
 
     /*
@@ -423,17 +424,6 @@ describe('データアクセス', () => {
           expect(userInfo).toBeDefined();
         });
     */
-    afterAll(async () => {
-      /*
-      const access = new DatabaseAccess(knexconfig);
-      await access.revokeRefreshToken(testSuperUserName, refreshToken);
-
-      const knex = knexConnect(knexconfig);
-      await knex('user').where('account', testSuperUserName).del();
-      await knex('privilege').where('name', testSuperPrivilegeName).del();
-      knex.destroy();
-      */
-    });
   });
 
   describe('メールキュー関連テスト', () => {

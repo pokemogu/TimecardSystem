@@ -1,5 +1,7 @@
 import { Knex } from 'knex';
-import { hashPassword, issueRefreshToken } from '../src/verify';
+import uuidAPIKey from 'uuid-apikey';
+
+import { hashPassword } from '../src/verify';
 import { fakeNames } from '../../fakeNames';
 import * as models from '../../shared/models';
 import * as apiif from '../../shared/APIInterfaces';
@@ -35,30 +37,25 @@ function dateToLocalString(date: Date) {
   return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
 }
 
-export async function seed(knex: Knex): Promise<void> {
+export async function seed(knex: Knex) {
 
   const getUserIdFromAccount = async (account: string) => {
     return (await knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first()).id;
   };
 
   await knex('record').truncate();
-  //await knex('recordLog').del();
   await knex("applyPrivilege").del();
   await knex('applyType').del().where('isSystemType', false);
   await knex('applyOption').del();
   await knex('apply').del();
-  await knex('roleLevel').del();
-  await knex('approvalRouteMember').del();
-  await knex('role').del();
-  await knex('approvalRoute').del();
-  await knex('device').del();
+  await knex("token").del();
   await knex("user").del();
   await knex('wagePattern').del();
   await knex('workPattern').del();
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
-  await knex('role').del();
+  await knex('systemConfig').update({ value: '' });
 
   // 部署情報
   await knex('department').insert([
@@ -153,7 +150,17 @@ export async function seed(knex: Knex): Promise<void> {
     .from('privilege');
 
   // 端末情報
-  const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
+  const devicesData = [
+    { account: 'DKK00001', name: '打刻端末1' },
+    { account: 'DKK00002', name: '打刻端末2' },
+    { account: 'DKK00003', name: '打刻端末3' },
+    { account: 'DKK00004', name: '打刻端末4' },
+    { account: 'DKK00005', name: '打刻端末5' },
+    { account: 'DKK00006', name: '打刻端末6' },
+    { account: 'DKK00007', name: '打刻端末7' },
+    { account: 'DKK00008', name: '打刻端末8' }
+  ]
+  /*
   await knex('user').insert([
     { available: true, registeredAt: new Date(), account: 'DKK00001', name: "打刻端末1", privilege: privilegeIdDevice, isDevice: true },
     { available: true, registeredAt: new Date(), account: 'DKK00002', name: "打刻端末2", privilege: privilegeIdDevice, isDevice: true },
@@ -164,40 +171,77 @@ export async function seed(knex: Knex): Promise<void> {
     { available: true, registeredAt: new Date(), account: 'DKK00007', name: "打刻端末7", privilege: privilegeIdDevice, isDevice: true },
     { available: true, registeredAt: new Date(), account: 'DKK00008', name: "打刻端末8", privilege: privilegeIdDevice, isDevice: true },
   ]);
+  */
+
+  const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
+  const dateNow = new Date();
+
+  await knex('user').insert(devicesData.map(deviceData => {
+    return {
+      available: true, registeredAt: dateNow,
+      account: deviceData.account, name: deviceData.name,
+      privilege: privilegeIdDevice, isDevice: true
+    }
+  }));
 
   const secondsPerDay = 60 * 60 * 24;
+  const dateExpiration = new Date(dateNow);
+  dateExpiration.setSeconds(dateExpiration.getSeconds() + (secondsPerDay * 3650));
 
-  let refreshToken = issueRefreshToken({ account: 'DKK00001' }, secondsPerDay * 3650);
+  await knex('token').insert(
+    await Promise.all(
+      devicesData.map(async (deviceData) => {
+        return {
+          user: await getUserIdFromAccount(deviceData.account),
+          refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey,
+          isQrToken: true,
+          refreshTokenExpiration: dateExpiration
+        }
+      })
+    )
+  );
+
+  /*
   let userIdDevice = await getUserIdFromAccount('DKK00001');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00002' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00002');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00003' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00003');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00004' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00004');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00005' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00005');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00006' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00006');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00007' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00007');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
 
-  refreshToken = issueRefreshToken({ account: 'DKK00008' }, secondsPerDay * 3650);
   userIdDevice = await getUserIdFromAccount('DKK00008');
-  await knex('token').insert({ user: userIdDevice, refreshToken: refreshToken, isQrToken: true });
+  await knex('token').insert({
+    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
+  });
+  */
 
   // 申請権限
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
@@ -257,26 +301,6 @@ export async function seed(knex: Knex): Promise<void> {
     { type: typeMeasureLeave, privilege: privilegeIdBoardMember, permitted: true },
     { type: typeOvertime, privilege: privilegeIdBoardMember, permitted: true },
   ]);
-
-  // 承認権限情報
-  await knex('role').insert([
-    { name: '承認者1(主)', level: 1 },
-    { name: '承認者1(副)', level: 1 },
-    { name: '承認者2(主)', level: 2 },
-    { name: '承認者2(副)', level: 2 },
-    { name: '承認者3(主)', level: 3 },
-    { name: '承認者3(副)', level: 3 },
-    { name: '決済者', level: 10 },
-  ]);
-
-  // 承認権限レベル名称
-  await knex('roleLevel').insert([
-    { name: '承認1', level: 1 },
-    { name: '承認2', level: 2 },
-    { name: '承認3', level: 3 },
-    { name: '決済', level: 10 },
-  ]);
-
 
   // 勤務形態関連
   await knex('workPattern').insert([
@@ -659,7 +683,7 @@ export async function seed(knex: Knex): Promise<void> {
         { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
       ]
     },
-  ]
+  ];
 
   for (const route of routes) {
     await knex('approvalRoute').insert({
@@ -672,45 +696,7 @@ export async function seed(knex: Knex): Promise<void> {
       approvalLevel3SubUser: route.approvalLevel3SubUserId,
       approvalDecisionUser: route.approvalDecisionUserId,
     });
-
-    const routeRow = await knex
-      .select<{ id: number }>({ id: 'id' })
-      .first()
-      .from('approvalRoute')
-      .where('name', route.name);
-    const routeId = routeRow.id;
-
-    for (const role of route.roles) {
-      for (const user of role.users) {
-
-        const userRow = await knex
-          .select<{ id: number }>({ id: 'id' })
-          .first()
-          .from('user')
-          .where('account', user.account);
-
-        const roleRow = await knex
-          .select<{ id: number }>({ id: 'id' })
-          .first()
-          .from('role')
-          .where('name', user.role);
-
-        //        const sql = await knex('approvalMember').insert<{ route: number, user: number, role: string }>
-        await knex('approvalRouteMember').insert({ route: routeId, user: userRow.id, role: roleRow.id });
-      }
-    }
   }
-
-
-  const roleMembers = await knex
-    .select<{ routeName: string, roleName: string, level: number, userAccount: string, userName: string }[]>(
-      { routeName: 'approvalRoute.name', roleName: 'role.name', level: 'role.level', userAccount: 'user.account', userName: 'user.name' }
-    )
-    .from('approvalRouteMember')
-    .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
-    .join('user', { 'user.id': 'approvalRouteMember.user' })
-    .join('role', { 'role.id': 'approvalRouteMember.role' })
-
 
   // テスト打刻
   const recordTypeCache: Record<string, number> = {};
@@ -772,7 +758,7 @@ export async function seed(knex: Knex): Promise<void> {
 
   // 承認テストデータ生成
   const getRouteIdFromName = async (name: string) => {
-    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', name).first()).id;
+    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', name).first())?.id;
   };
 
   const hamamatsuSeizouRouteId = await getRouteIdFromName('浜松製造部社員');

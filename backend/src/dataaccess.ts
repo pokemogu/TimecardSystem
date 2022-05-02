@@ -1,7 +1,6 @@
-import { generateKeyPairSync } from 'crypto';
-
 import type { Knex } from 'knex';
 
+import { generateKeyPair, setJsonWebTokenKey } from './verify';
 import type * as models from 'shared/models';
 import type * as apiif from 'shared/APIInterfaces';
 
@@ -59,15 +58,12 @@ export class DatabaseAccess {
       const privateKeyConfig = configValues.find(config => config.key === 'privateKey');
       const publicKeyConfig = configValues.find(config => config.key === 'publicKey');
       if (privateKeyConfig && publicKeyConfig && privateKeyConfig.value !== '' && publicKeyConfig.value !== '') {
-        DatabaseAccess.privateKey = privateKeyConfig.value;
-        DatabaseAccess.publicKey = publicKeyConfig.value;
+        setJsonWebTokenKey(privateKeyConfig.value, publicKeyConfig.value);
+        //DatabaseAccess.privateKey = privateKeyConfig.value;
+        //DatabaseAccess.publicKey = publicKeyConfig.value;
       }
       else {
-        const { privateKey, publicKey } = generateKeyPairSync('ec', {
-          namedCurve: 'P-256',
-          publicKeyEncoding: { type: 'spki', format: 'pem' },
-          privateKeyEncoding: { type: 'pkcs8', format: 'pem', }
-        });
+        const { privateKey, publicKey } = generateKeyPair();
 
         await knex('systemConfig').insert([
           { key: 'privateKey', value: privateKey },
@@ -76,8 +72,9 @@ export class DatabaseAccess {
           .onConflict(['key'])
           .merge('value'); // ON DUPLICATE KEY UPDATE
 
-        DatabaseAccess.privateKey = privateKey;
-        DatabaseAccess.publicKey = publicKey;
+        setJsonWebTokenKey(privateKey, publicKey);
+        //DatabaseAccess.privateKey = privateKey;
+        //DatabaseAccess.publicKey = publicKey;
       }
     }
   }
@@ -88,8 +85,8 @@ export class DatabaseAccess {
   public issueRefreshToken = auth.issueRefreshToken;
   public issueQrCodeRefreshToken = auth.issueQrCodeRefreshToken;
   public issueAccessToken = auth.issueAccessToken;
-  public getUserInfoFromAccessToken = auth.getUserInfoFromAccessToken;
   public revokeRefreshToken = auth.revokeRefreshToken;
+  public revokeQrCodeRefreshToken = auth.revokeQrCodeRefreshToken;
   public deleteAllExpiredRefreshTokens = auth.deleteAllExpiredRefreshTokens;
   public changeUserPassword = auth.changeUserPassword;
 
@@ -116,7 +113,7 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   public getUsers = user.getUsers;
   public generateAvailableUserAccount = user.generateAvailableUserAccount;
-  public addUser = user.addUser;
+  public addUsers = user.addUsers;
   public deleteUser = user.deleteUser;
   public disableUser = user.disableUser;
 

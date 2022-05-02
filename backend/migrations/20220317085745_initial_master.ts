@@ -1,6 +1,6 @@
 import { Knex } from "knex";
 
-export async function up(knex: Knex): Promise<void> {
+export async function up(knex: Knex) {
   try {
     await knex.schema.createTable('holiday', function (table) {
       table.date('date').unique().index();
@@ -161,7 +161,7 @@ export async function up(knex: Knex): Promise<void> {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
       table.string('refreshToken').notNullable().unique().index();
-      //table.datetime('refreshTokenExpiration').notNullable().index();
+      table.datetime('refreshTokenExpiration').notNullable().index();
       table.string('accessToken');
       //table.datetime('accessTokenExpiration');
       table.boolean('isQrToken').notNullable().defaultTo(false);
@@ -171,13 +171,6 @@ export async function up(knex: Knex): Promise<void> {
 
     await knex.schema.raw('ALTER TABLE token MODIFY refreshToken VARCHAR(255) CHARACTER SET ascii;');
     await knex.schema.raw('ALTER TABLE token MODIFY accessToken VARCHAR(255) CHARACTER SET ascii;');
-
-    await knex.schema.createTable('device', function (table) {
-      table.increments('id');
-      table.string('name').notNullable().unique();
-      table.string('token').unique();
-      table.datetime('tokenExpiration');
-    });
 
     ///////////////////////////////////////////////////////////////////////
     // 申請関連
@@ -515,6 +508,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     // 承認関連
     ///////////////////////////////////////////////////////////////////////
 
+    /*
     await knex.schema.createTable('role', function (table) {
       table.increments('id');
       table.string('name').notNullable();
@@ -567,6 +561,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
           .orderBy('role.level')
       );
     });
+    */
 
     ///////////////////////////////////////////////////////////////////////
     // その他
@@ -624,6 +619,17 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       table.string('replyTo');
     });
 
+    await knex.schema.createTable('auditLog', function (table) {
+      table.increments('id');
+      table.datetime('timestamp').notNullable();
+      table.string('account');
+      table.string('method').notNullable();
+      table.string('path');
+      table.string('params');
+      table.string('query');
+      table.string('body', 1023);
+    });
+
     // 指定された月の全ての日を生成するストアドプロシージャgenerateAllDays
     // 生成結果は一時テーブルalldaysに書き込まれる
     //
@@ -654,23 +660,24 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
   }
 }
 
-export async function down(knex: Knex): Promise<void> {
+export async function down(knex: Knex) {
   await knex.schema.raw('drop procedure if exists generateAllDays');
 
   //await knex.schema.dropViewIfExists('applyPrivilegeAllList');
   //await knex.schema.dropViewIfExists('applyPrivilegeExistingList');
-  await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
+  //await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
   await knex.schema.dropViewIfExists('recordTimeWithOnTime');
   await knex.schema.dropViewIfExists('recordTime');
 
+  await knex.schema.dropTableIfExists('auditLog');
   await knex.schema.dropTableIfExists('mailQueue');
   await knex.schema.dropTableIfExists('userConfig');
   await knex.schema.dropTableIfExists('systemConfig');
   await knex.schema.dropTableIfExists('config');
-  await knex.schema.dropTableIfExists('approvalRouteMember');
-  await knex.schema.dropTableIfExists('approval');
-  await knex.schema.dropTableIfExists('roleLevel');
-  await knex.schema.dropTableIfExists('role');
+  //await knex.schema.dropTableIfExists('approvalRouteMember');
+  //await knex.schema.dropTableIfExists('approval');
+  //await knex.schema.dropTableIfExists('roleLevel');
+  //await knex.schema.dropTableIfExists('role');
   await knex.schema.dropTableIfExists('record');
   //await knex.schema.dropTableIfExists('recordLogTemp');
   //await knex.schema.dropTableIfExists('recordLog');

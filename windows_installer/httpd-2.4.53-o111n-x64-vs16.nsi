@@ -13,7 +13,7 @@ Name "Apache HTTP Server 2.4.53 x64 by Apache Haus"
 OutFile "httpd-2.4.53-o111n-x64-vs16.exe"
 
 # デフォルトインストールフォルダ
-InstallDir "$PROGRAMFILES64\Aapche24"
+InstallDir "$PROGRAMFILES64\Apache24"
 
 ${StrRep}
 
@@ -38,7 +38,7 @@ Section
   ${StrRep} "$0" "$INSTDIR" '\' '/'
   ExecWait `powershell -Command "(gc '$INSTDIR\conf\httpd.conf') -replace '/Apache24','$0' -replace '#LoadModule proxy_module modules/mod_proxy.so','LoadModule proxy_module modules/mod_proxy.so' -replace '#LoadModule proxy_http_module modules/mod_proxy_http.so','LoadModule proxy_http_module modules/mod_proxy_http.so' | Out-File -encoding ASCII '$INSTDIR\conf\httpd.conf'"`
   #Rename "$INSTDIR\conf\extra\httpd-ahssl.conf" "$INSTDIR\conf\extra\httpd-ahssl.conf.orig"
-  Rename "$INSTDIR\httpd-ahssl.conf" "$INSTDIR\conf\extra\httpd-ahssl.conf"
+  #Rename "$INSTDIR\httpd-ahssl.conf" "$INSTDIR\conf\extra\httpd-ahssl.conf"
 
   # サービスとしてインストール
   ExecWait '"$INSTDIR\bin\httpd.exe" -k install'

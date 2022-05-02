@@ -1,5 +1,11 @@
-import axios from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type * as apiif from 'shared/APIInterfaces';
+import createAuthRefreshInterceptor from 'axios-auth-refresh';
+
+const axiosConfig: AxiosRequestConfig = {
+  baseURL: import.meta.env.VITE_API_BASEURL ?? '',
+  timeout: import.meta.env.VITE_API_TIMEOUT ?? 60000
+}
 
 const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
 const timeout = import.meta.env.VITE_API_TIMEOUT ?? 60000;
@@ -20,10 +26,10 @@ function handleAxiosError(axiosError: unknown) {
 
 export async function login(account: string, password: string) {
   try {
-    const data = (await axios.post<apiif.IssueTokenResponseBody>(`${urlPrefix}/api/token/issue`, <apiif.IssueTokenRequestBody>{
+    const data = (await axios.post<apiif.IssueTokenResponseBody>('/api/token/issue', <apiif.IssueTokenRequestBody>{
       account: account,
       password: password
-    }, { timeout: timeout })).data;
+    }, axiosConfig)).data;
 
     if (!data.token) {
       throw new Error('token undefined');
@@ -38,10 +44,10 @@ export async function login(account: string, password: string) {
 
 export async function logout(account: string, refreshToken: string) {
   try {
-    await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/token/revoke`, <apiif.RevokeTokenRequestBody>{
+    await axios.post<apiif.MessageOnlyResponseBody>('/api/token/revoke', <apiif.RevokeTokenRequestBody>{
       account: account,
       refreshToken: refreshToken
-    }, { timeout: timeout });
+    }, axiosConfig);
   } catch (error) {
     handleAxiosError(error);
   }
@@ -49,9 +55,9 @@ export async function logout(account: string, refreshToken: string) {
 
 export async function getToken(refreshToken: string) {
   try {
-    const data = (await axios.post<apiif.AccessTokenResponseBody>(`${urlPrefix}/api/token/refresh`, {
+    const data = (await axios.post<apiif.AccessTokenResponseBody>('/api/token/refresh', {
       refreshToken: refreshToken
-    }, { timeout: timeout })).data;
+    }, axiosConfig)).data;
     return data;
   } catch (error) {
     handleAxiosError(error);
@@ -60,27 +66,52 @@ export async function getToken(refreshToken: string) {
 
 export class TokenAccess {
   accessToken: string;
+  refreshToken: string;
+  axios: AxiosInstance;
+  callbackOnAccessTokenChanged?: (accessToken: string) => void;
 
-  constructor(accessToken: string) {
+  constructor(accessToken: string, refreshToken: string = '', callbackOnAccessTokenChanged?: (accessToken: string) => void) {
+
+    this.axios = axios.create(axiosConfig);
     this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+
+    this.axios.interceptors.request.use(request => {
+      request.headers = { 'Authorization': `Bearer ${this.accessToken}` };
+      return request;
+    });
+
+    if (callbackOnAccessTokenChanged) {
+      this.callbackOnAccessTokenChanged = callbackOnAccessTokenChanged;
+    }
+
+    // リフレッシュトークンがある場合は自動リトライを行なう
+    if (this.refreshToken !== '') {
+      createAuthRefreshInterceptor(this.axios, async (failedRequest) => {
+        const newAccessToken = await getToken(this.refreshToken);
+        if (newAccessToken?.token) {
+          this.accessToken = newAccessToken.token.accessToken;
+
+          if (this.callbackOnAccessTokenChanged) {
+            this.callbackOnAccessTokenChanged(this.accessToken);
+          }
+
+        }
+      });
+    }
   }
 
   public async changePassword(params: apiif.ChangePasswordRequestBody) {
     try {
-      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/token/password`, params, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/token/password', params);
     } catch (error) {
       handleAxiosError(error);
     }
   }
 
-  public async addUser(userInfo: apiif.UserInfoRequestData) {
+  public async addUsers(usersInfo: apiif.UserInfoRequestData[]) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/user`, userInfo, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/user', usersInfo);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -88,8 +119,7 @@ export class TokenAccess {
 
   public async getUserInfo(account: string) {
     try {
-      const result = (await axios.get<apiif.UserInfoResponseBody>(`${urlPrefix}/api/user/${account}`,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}`, timeout: timeout } })).data;
+      const result = (await this.axios.get<apiif.UserInfoResponseBody>(`/api/user/${account}`)).data;
       if (!result.info) {
         throw new Error('response data undefined');
       } else {
@@ -115,9 +145,8 @@ export class TokenAccess {
     offset?: number
   }) {
     try {
-      const result = (await axios.get<apiif.UserInfosResponseBody>(`${urlPrefix}/api/user`,
+      const result = (await this.axios.get<apiif.UserInfosResponseBody>('/api/user',
         {
-          headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout,
           params: <apiif.UserInfoRequestQuery>{
             id: params.byId,
             accounts: params.byAccounts,
@@ -144,9 +173,8 @@ export class TokenAccess {
 
   public async record(recordType: string, timestamp: Date, deviceAccount?: string, deviceRefreshToken?: string) {
     try {
-      return (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/record/${recordType}`,
-        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), deviceAccount: deviceAccount, deviceToken: deviceRefreshToken },
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
+      return (await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/record/${recordType}`,
+        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), deviceAccount: deviceAccount, deviceToken: deviceRefreshToken }
       )).data;
     } catch (error) {
       handleAxiosError(error);
@@ -155,9 +183,7 @@ export class TokenAccess {
 
   public async getRecords(params: apiif.RecordRequestQuery) {
     try {
-      return (await axios.get<apiif.RecordResponseBody>(`${urlPrefix}/api/record`,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, params: params, timeout: timeout }
-      )).data.records;
+      return (await this.axios.get<apiif.RecordResponseBody>('/api/record', { params: params })).data.records;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -165,9 +191,7 @@ export class TokenAccess {
 
   public async submitApply(applyType: string, params: apiif.ApplyRequestBody) {
     try {
-      const data = (await axios.post<{ message: string, id: number }>(`${urlPrefix}/api/apply/${applyType}`, params,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      )).data;
+      const data = (await this.axios.post<{ message: string, id: number }>(`/api/apply/${applyType}`, params)).data;
       if (data.id) {
         return data.id;
       }
@@ -181,10 +205,7 @@ export class TokenAccess {
 
   public async getApply(applyId: number) {
     try {
-      const applies = (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply/${applyId}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data.applies;
+      const applies = (await this.axios.get<apiif.ApplyResponseBody>(`/api/apply/${applyId}`)).data.applies;
       if (applies && applies.length > 0) {
         return applies[0];
       }
@@ -195,10 +216,7 @@ export class TokenAccess {
 
   public async getApplyTypeOfApply(applyId: number) {
     try {
-      const types = (await axios.get<apiif.ApplyTypeResponseBody>(`${urlPrefix}/api/apply/applyType/${applyId}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data.applyTypes;
+      const types = (await this.axios.get<apiif.ApplyTypeResponseBody>(`/api/apply/applyType/${applyId}`)).data.applyTypes;
       if (types && types.length > 0) {
         return types[0];
       }
@@ -215,9 +233,7 @@ export class TokenAccess {
   ) {
     try {
       const filter = params?.isUnapproved ? 'unapproved' : (params?.isApproved ? 'approved' : (params?.isRejected ? 'rejected' : undefined));
-      return (await axios.get<apiif.ApplyResponseBody>(`${urlPrefix}/api/apply` + (filter ? `?filter=${filter}` : ''),
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      )).data;
+      return (await this.axios.get<apiif.ApplyResponseBody>(`/api/apply` + (filter ? `?filter=${filter}` : ''))).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -225,9 +241,7 @@ export class TokenAccess {
 
   public async approveApply(applyId: number) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/approve/${applyId}`, {},
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      );
+      await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/approve/${applyId}`, {});
     } catch (error) {
       handleAxiosError(error);
     }
@@ -235,9 +249,7 @@ export class TokenAccess {
 
   public async rejectApply(applyId: number) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/reject/${applyId}`, {},
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      );
+      await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/reject/${applyId}`, {});
     } catch (error) {
       handleAxiosError(error);
     }
@@ -245,10 +257,7 @@ export class TokenAccess {
 
   public async issueRefreshTokenForOtherUser(account: string) {
     try {
-      return (await axios.post<apiif.IssueTokenResponseBody>(`${urlPrefix}/api/token/issue/${account}`,
-        {},
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      )).data;
+      return (await this.axios.post<apiif.IssueTokenResponseBody>(`/api/token/issue/${account}`, {})).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -256,9 +265,7 @@ export class TokenAccess {
 
   public async addApplyType(applyType: apiif.ApplyTypeRequestData) {
     try {
-      return (await axios.post<{ message: string, id?: number }>(`${urlPrefix}/api/apply-type`, applyType,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      )).data.id;
+      return (await this.axios.post<{ message: string, id?: number }>('/api/apply-type', applyType)).data.id;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -266,9 +273,7 @@ export class TokenAccess {
 
   public async updateApplyType(applyType: apiif.ApplyTypeRequestData) {
     try {
-      await axios.put<{ message: string, id?: number }>(`${urlPrefix}/api/apply-type`, applyType,
-        { headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout }
-      );
+      await this.axios.put<{ message: string, id?: number }>('/api/apply-type', applyType);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -276,9 +281,7 @@ export class TokenAccess {
 
   public async deleteApplyType(name: string) {
     try {
-      await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply-type/${name}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/apply-type/${name}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -290,21 +293,28 @@ export class TokenAccess {
 
   public async addPrivilege(privilege: apiif.PrivilageRequestData) {
     try {
-      const data = (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage`, privilege, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data;
+      const data = (await this.axios.post<apiif.MessageOnlyResponseBody>('/api/privilage', privilege)).data;
     } catch (error) {
       handleAxiosError(error);
     }
   }
 
+  /*
   public async getPrivilege(privilegeName: string) {
     try {
-      return (await axios.get<apiif.PrivilegeResponseBody>(`${urlPrefix}/api/privilage/${privilegeName}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data;
+      return (await axios.get<apiif.PrivilegeResponseBody>(`/api/privilage/${privilegeName}`)).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+  */
+
+  public async getUserPrivilege(account: string) {
+    try {
+      const result = (await this.axios.get<apiif.PrivilegeResponseBody>(`/api/privilage/${account}`)).data;
+      if (result?.privileges && result.privileges.length > 0) {
+        return result.privileges[0];
+      }
     } catch (error) {
       handleAxiosError(error);
     }
@@ -312,10 +322,7 @@ export class TokenAccess {
 
   public async getApplyPrivilege(privilegeId: number) {
     try {
-      return (await axios.get<apiif.ApplyPrivilegeResponseBody>(`${urlPrefix}/api/apply-privilage/${privilegeId}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data.applyPrivileges;
+      return (await this.axios.get<apiif.ApplyPrivilegeResponseBody>(`/api/apply-privilage/${privilegeId}`)).data.applyPrivileges;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -323,9 +330,7 @@ export class TokenAccess {
 
   public async getPrivileges(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await axios.get<apiif.PrivilegeResponseBody>(`${urlPrefix}/api/privilage`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.PrivilegeResponseBody>('/api/privilage', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
@@ -340,9 +345,7 @@ export class TokenAccess {
 
   public async updatePrivilege(privilege: apiif.PrivilageRequestData) {
     try {
-      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage`, privilege, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/privilage', privilege);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -350,9 +353,7 @@ export class TokenAccess {
 
   public async deletePrivilege(id: number) {
     try {
-      await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/privilage/${id}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/privilage/${id}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -364,10 +365,7 @@ export class TokenAccess {
 
   public async addApprovalRoutes(route: apiif.ApprovalRouteRequestData) {
     try {
-      const data = (await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route`, route, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data;
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/apply/route', route);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -375,10 +373,7 @@ export class TokenAccess {
 
   public async getApprovalRoute(routeName: string) {
     try {
-      const data = (await axios.get<apiif.ApprovalRouteResponseBody>(`${urlPrefix}/api/apply/route/${routeName}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout
-      })).data;
+      const data = (await this.axios.get<apiif.ApprovalRouteResponseBody>(`/api/apply/route/${routeName}`)).data;
 
       if (data.routes?.length === 1) {
         return data.routes[0];
@@ -392,9 +387,7 @@ export class TokenAccess {
 
   public async getApprovalRoutes(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await axios.get<apiif.ApprovalRouteResponseBody>(`${urlPrefix}/api/apply/route`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.ApprovalRouteResponseBody>('/api/apply/route', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
@@ -408,9 +401,7 @@ export class TokenAccess {
 
   public async updateApprovalRoutes(route: apiif.ApprovalRouteRequestData) {
     try {
-      const data = (await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route`, route, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      const data = (await this.axios.put<apiif.MessageOnlyResponseBody>('/api/apply/route', route)).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -418,9 +409,7 @@ export class TokenAccess {
 
   public async deleteApprovalRoute(id: number) {
     try {
-      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/apply/route/${id}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      const data = (await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/apply/route/${id}`)).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -432,9 +421,7 @@ export class TokenAccess {
 
   public async addWorkPattern(workPattern: apiif.WorkPatternRequestData) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern`, workPattern, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/work-pattern', workPattern);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -442,9 +429,7 @@ export class TokenAccess {
 
   public async getWorkPatterns(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await axios.get<apiif.WorkPatternsResponseBody>(`${urlPrefix}/api/work-pattern`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.WorkPatternsResponseBody>('/api/work-pattern', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
@@ -458,9 +443,7 @@ export class TokenAccess {
 
   public async getWorkPattern(name: string, params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await axios.get<apiif.WorkPatternResponseBody>(`${urlPrefix}/api/work-pattern/${name}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.WorkPatternResponseBody>(`/api/work-pattern/${name}`, {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
@@ -474,9 +457,7 @@ export class TokenAccess {
 
   public async updateWorkPattern(workPattern: apiif.WorkPatternRequestData) {
     try {
-      await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern`, workPattern, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/work-pattern', workPattern);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -484,9 +465,7 @@ export class TokenAccess {
 
   public async deleteWorkPattern(id: number) {
     try {
-      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern/${id}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/work-pattern/${id}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -494,9 +473,7 @@ export class TokenAccess {
 
   public async setUserWorkPatternCalendar(workPatternCalendar: apiif.UserWorkPatternCalendarRequestData) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/work-pattern-calendar`, workPatternCalendar, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar', workPatternCalendar);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -504,9 +481,7 @@ export class TokenAccess {
 
   public async getUserWorkPatternCalendar(params?: apiif.UserWorkPatternCalendarRequestQuery) {
     try {
-      const data = (await axios.get<apiif.UserWorkPatternCalendarResponseBody>(`${urlPrefix}/api/work-pattern-calendar`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.UserWorkPatternCalendarResponseBody>('/api/work-pattern-calendar', {
         params: params
       })).data;
       return data.userWorkPatternCalendars;
@@ -517,10 +492,8 @@ export class TokenAccess {
 
   public async deleteUserWorkPatternCalendar(date: string, account?: string) {
     try {
-      await axios.delete<apiif.MessageOnlyResponseBody>(
-        `${urlPrefix}/api/work-pattern-calendar/${date}` + (account ? `/${account}` : ''), {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(
+        `/api/work-pattern-calendar/${date}` + (account ? `/${account}` : ''));
     } catch (error) {
       handleAxiosError(error);
     }
@@ -531,9 +504,7 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   public async setHoliday(holiday: apiif.HolidayRequestData) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/holiday`, holiday, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/holiday', holiday);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -541,9 +512,7 @@ export class TokenAccess {
 
   public async deleteHoliday(date: string) {
     try {
-      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/holiday/${date}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/holiday/${date}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -554,9 +523,7 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   public async setSystemConfig(key: string, value: string) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/config`, { key: key, value: value }, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/config', { key: key, value: value });
     } catch (error) {
       handleAxiosError(error);
     }
@@ -564,9 +531,7 @@ export class TokenAccess {
 
   public async getSystemConfigValue(key: string) {
     try {
-      const data = (await axios.get<apiif.SystemConfigResponseBody>(`${urlPrefix}/api/config/${key}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      const data = (await this.axios.get<apiif.SystemConfigResponseBody>(`/api/config/${key}`)).data;
       if (data?.config && data.config.length > 0) {
         return data.config[0].value;
       }
@@ -577,8 +542,8 @@ export class TokenAccess {
 
   public async getSystemConfig(params: apiif.SystemConfigQuery) {
     try {
-      const data = (await axios.get<apiif.SystemConfigResponseBody>(`${urlPrefix}/api/config`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout, params: params
+      const data = (await this.axios.get<apiif.SystemConfigResponseBody>('/api/config', {
+        params: params
       })).data;
       if (data?.config) {
         return data.config;
@@ -593,9 +558,7 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   public async addDevice(device: apiif.DeviceRequestData) {
     try {
-      await axios.post<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device`, device, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      });
+      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/device', device);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -603,9 +566,7 @@ export class TokenAccess {
 
   public async getDevices(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await axios.get<apiif.DevicesResponseBody>(`${urlPrefix}/api/device`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        timeout: timeout,
+      const data = (await this.axios.get<apiif.DevicesResponseBody>('/api/device', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
@@ -619,9 +580,7 @@ export class TokenAccess {
 
   public async updateDevice(device: apiif.DeviceRequestData) {
     try {
-      const data = (await axios.put<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device`, device, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/device', device);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -629,9 +588,7 @@ export class TokenAccess {
 
   public async deleteDevice(account: string) {
     try {
-      const data = (await axios.delete<apiif.MessageOnlyResponseBody>(`${urlPrefix}/api/device/${account}`, {
-        headers: { 'Authorization': `Bearer ${this.accessToken}` }, timeout: timeout
-      })).data;
+      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/device/${account}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -642,7 +599,7 @@ export async function getDevices() {
   const response = await axios.get<{
     message: string,
     devices: { name: string }[]
-  }>(`${urlPrefix}/api/devices`, { timeout: timeout });
+  }>(`${urlPrefix}/api/devices`, axiosConfig);
 
   if (response.status === 200) {
     return response.data.devices;
@@ -654,7 +611,7 @@ export async function getDevices() {
 
 export async function getApprovalRouteRoles() {
   try {
-    const data = (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, { timeout: timeout })).data;
+    const data = (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, axiosConfig)).data;
     return data.roles;
   } catch (error) {
     handleAxiosError(error);
@@ -670,7 +627,7 @@ export async function getDepartments() {
           name: string
         }[]
       }[]
-    }>(`${urlPrefix}/api/department`, { timeout: timeout });
+    }>('/api/department', axiosConfig);
 
     return response.data.departments;
   } catch (error) {
@@ -680,7 +637,7 @@ export async function getDepartments() {
 
 export async function getApplyTypes() {
   try {
-    const response = await axios.get<apiif.ApplyTypeResponseBody>(`${urlPrefix}/api/apply-type`, { timeout: timeout });
+    const response = await axios.get<apiif.ApplyTypeResponseBody>('/api/apply-type', axiosConfig);
     return response.data.applyTypes;
   } catch (error) {
     handleAxiosError(error);
@@ -700,7 +657,7 @@ export async function getApplyTypeOptions(applyType: string) {
           description: string
         }[]
       }[]
-    }>(`${urlPrefix}/api/options/apply/${applyType}`, { timeout: timeout })).data;
+    }>(`/api/options/apply/${applyType}`, axiosConfig)).data;
   } catch (error) {
     handleAxiosError(error);
   }
@@ -708,7 +665,7 @@ export async function getApplyTypeOptions(applyType: string) {
 
 export async function getUserAccountCandidates() {
   try {
-    return (await axios.get<apiif.UserAccountCandidatesResponseBody>(`${urlPrefix}/api/user/account-candidates`, { timeout: timeout })).data.candidates;
+    return (await axios.get<apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', axiosConfig)).data.candidates;
   } catch (error) {
     handleAxiosError(error);
   }
@@ -716,7 +673,7 @@ export async function getUserAccountCandidates() {
 
 export async function getHolidays(params: apiif.HolidayRequestQuery) {
   try {
-    const result = (await axios.get<apiif.HolidaysResponseBody>(`${urlPrefix}/api/holiday`, { timeout: timeout, params: params })).data;
+    const result = (await axios.get<apiif.HolidaysResponseBody>('/api/holiday', { timeout: axiosConfig.timeout, params: params })).data;
     if (result?.holidays) {
       return result.holidays.map((holiday) => {
         const date = new Date(holiday.date);
