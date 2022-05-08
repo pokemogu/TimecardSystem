@@ -29,7 +29,7 @@ export async function getMails(this: DatabaseAccess) {
     .from('mailQueue');
 }
 
-export async function deleteMail(id: number) {
+export async function deleteMail(this: DatabaseAccess, id: number) {
   await this.knex('mailQueue').where('id', id).del();
 }
 

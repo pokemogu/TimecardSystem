@@ -2,10 +2,9 @@ import type { Express } from 'express';
 import asyncHandler from 'express-async-handler';
 
 import { Knex } from "knex";
-import * as apiif from 'shared/APIInterfaces';
-import { DatabaseAccess } from './dataaccess';
-import type { UserInfo } from './dataaccess';
+import * as apiif from './APIInterfaces';
 import { verifyJsonWebToken } from './verify';
+import { DatabaseAccess, type UserInfo } from './dataaccess';
 import createHttpError from 'http-errors';
 
 declare global {
@@ -22,7 +21,6 @@ export default function registerHandlers(app: Express, knex: Knex) {
   app.use(function (req, res, next) {
     //console.log('req.path=' + req.path);
     if (req.token) {
-      console.log(req.token);
       try {
         const userInfo = verifyJsonWebToken(req.token) as UserInfo;
         req.user = { id: userInfo.id, account: userInfo.account }
@@ -38,7 +36,7 @@ export default function registerHandlers(app: Express, knex: Knex) {
             throw createHttpError(400, error.message, { internalMessage: error.toString() });
           }
         }
-        throw createHttpError(500, { internalMessage: error.toString() });
+        throw createHttpError(500, { internalMessage: (error as object).toString() });
       }
     }
     next();
@@ -46,212 +44,138 @@ export default function registerHandlers(app: Express, knex: Knex) {
 
   // NODE_AUDITが有効な場合は監査ログを記録する
   if (process.env.NODE_AUDIT && (process.env.NODE_AUDIT.toLowerCase() === 'true' || process.env.NODE_AUDIT === '1')) {
-    if (knex.schema.hasTable('auditLog')) {
-      app.use(asyncHandler(async (req, res, next) => {
-        if (req.method !== 'OPTIONS') {
-          await knex('auditLog').insert({
-            timestamp: new Date(),
-            account: req.user ? req.user.account : undefined,
-            method: req.method,
-            path: req.path,
-            params: req.params ? JSON.stringify(req.params).substring(0, 254) : undefined,
-            query: req.query ? JSON.stringify(req.query).substring(0, 254) : undefined,
-            body: req.body ? JSON.stringify(req.body).substring(0, 1022) : undefined
-          });
-        }
-        next();
-      }));
-    }
+    app.use(asyncHandler(async (req, res, next) => {
+      if (req.method !== 'OPTIONS') {
+        await knex('auditLog').insert({
+          timestamp: new Date(),
+          account: req.user ? req.user.account : undefined,
+          method: req.method,
+          path: req.path,
+          params: req.params ? JSON.stringify(req.params).substring(0, 254) : undefined,
+          query: req.query ? JSON.stringify(req.query).substring(0, 254) : undefined,
+          body: req.body ? JSON.stringify(req.body).substring(0, 1022) : undefined
+        });
+      }
+      next();
+    }));
   }
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserInfoRequestData[]>('/api/user', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.UserInfoRequestData[]>('/api/user', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).addUsers(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', asyncHandler(async (req, res) => {
     res.send({ message: 'ok', candidates: await new DatabaseAccess(knex).generateAvailableUserAccount() });
   }));
 
-  app.get<{ account: string }, apiif.UserInfoResponseBody>('/api/user/:account', asyncHandler(async (req, res) => {
-    const access = new DatabaseAccess(knex);
-    const users = await access.getUsers({ byAccounts: [req.params.account] });
-
-    if (users.length === 0) {
-      res.status(404);
-      res.send({
-        message: 'cannot find'
-      });
+  app.get<{ account: string }, apiif.UserInfoResponseData>('/api/user/:account', asyncHandler(async (req, res) => {
+    const users = await new DatabaseAccess(knex).getUsersInfo({ accounts: [req.params.account] });
+    if (users.length > 0) {
+      res.send(users[0]);
     }
     else {
-      const user = users[0];
-
-      res.send({
-        message: 'ok',
-        info: {
-          id: user.id,
-          available: user.isAvailable,
-          registeredAt: user.registeredAt.toISOString(),
-          account: user.account,
-          name: user.name,
-          email: user.email,
-          phonetic: user.phonetic,
-          department: user.department,
-          section: user.section,
-          qrCodeIssueNum: user.qrCodeIssuedNum,
-          defaultWorkPatternName: user.defaultWorkPatternName,
-          optional1WorkPatternName: user.optional1WorkPatternName,
-          optional2WorkPatternName: user.optional2WorkPatternName
-        }
-      });
+      throw new createHttpError.NotFound(`ユーザー ${req.params.account} が見つかりません。`);
     }
   }));
 
-  app.get<{}, apiif.UserInfosResponseBody, {}, apiif.UserInfoRequestQuery>('/api/user', asyncHandler(async (req, res) => {
-    const access = new DatabaseAccess(knex);
-    const users = await access.getUsers({
-      byId: req.query.id,
-      byAccounts: req.query.accounts,
-      byName: req.query.name,
-      byDepartment: req.query.department,
-      bySection: req.query.section,
-      byPhonetic: req.query.phonetic,
-      registeredFrom: req.query.registeredFrom ? new Date(req.query.registeredFrom) : undefined,
-      registeredTo: req.query.registeredTo ? new Date(req.query.registeredTo) : undefined,
-      isQrCodeIssued: req.query.isQrCodeIssued,
-      limit: req.query.limit,
-      offset: req.query.offset
-    });
-
-    res.send({
-      message: 'ok',
-      infos: users.map<apiif.UserInfoResponseData>((user) => {
-        return {
-          id: user.id,
-          available: user.isAvailable,
-          registeredAt: user.registeredAt.toISOString(),
-          account: user.account,
-          name: user.name,
-          phonetic: user.phonetic,
-          email: user.email,
-          section: user.section,
-          department: user.department,
-          qrCodeIssueNum: user.qrCodeIssuedNum,
-          defaultWorkPatternName: user.defaultWorkPatternName,
-          optional1WorkPatternName: user.optional1WorkPatternName,
-          optional2WorkPatternName: user.optional2WorkPatternName
-        }
-      })
-    });
+  app.get<{}, apiif.UserInfoResponseData[], {}, apiif.UserInfoRequestQuery>('/api/user', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getUsersInfo(req.query));
   }));
 
   ///////////////////////////////////////////////////////////////////////
   // 認証関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.IssueTokenResponseBody, apiif.IssueTokenRequestBody>('/api/token/issue', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueRefreshToken(req.body.account, req.body.password) });
+  app.post<{}, apiif.IssueTokenResponseData, apiif.IssueTokenRequestBody>('/api/token/issue', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).issueRefreshToken(req.body.account, req.body.password));
   }));
 
-  app.post<{ account: string }, apiif.IssueTokenResponseBody>('/api/token/issue/:account', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', token: await new DatabaseAccess(knex).issueQrCodeRefreshToken(req.params.account) });
+  app.post<{ account: string }, apiif.IssueTokenResponseData>('/api/token/issue/:account', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).issueQrCodeRefreshToken(req.params.account));
   }));
 
-  app.post<{}, apiif.AccessTokenResponseBody, apiif.AccessTokenRequestBody>('/api/token/refresh', asyncHandler(async (req, res) => {
-    res.send({
-      message: 'ok',
-      token: <apiif.AccessTokenResponseData>{
-        accessToken: await new DatabaseAccess(knex).issueAccessToken(req.body.refreshToken)
-      }
-    });
+  app.post<{}, apiif.AccessTokenResponseData, apiif.AccessTokenRequestBody>('/api/token/refresh', asyncHandler(async (req, res) => {
+    res.send({ accessToken: await new DatabaseAccess(knex).issueAccessToken(req.body.refreshToken) });
   }));
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.RevokeTokenRequestBody>('/api/token/revoke', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.RevokeTokenRequestBody>('/api/token/revoke', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).revokeRefreshToken(req.body.account, req.body.refreshToken);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ChangePasswordRequestBody>('/api/token/password', asyncHandler(async (req, res) => {
+  app.put<{}, {}, apiif.ChangePasswordRequestBody>('/api/token/password', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     await new DatabaseAccess(knex).changeUserPassword(req.user, req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   ///////////////////////////////////////////////////////////////////////
   // 権限関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).addPrivilege(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.get<{ account: string }, apiif.PrivilegeResponseBody>('/api/privilage/:account', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', privileges: [await new DatabaseAccess(knex).getUserPrivilege(req.params.account)] });
+  app.get<{ account: string }, apiif.PrivilegeResponseData[]>('/api/privilage/:account', asyncHandler(async (req, res) => {
+    res.send([await new DatabaseAccess(knex).getUserPrivilege(req.params.account)]);
   }));
 
-  app.get<{}, apiif.PrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/privilage', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', privileges: await new DatabaseAccess(knex).getPrivileges() });
+  app.get<{}, apiif.PrivilegeResponseData[], {}, { limit: number, offset: number }>('/api/privilage', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getPrivileges());
   }));
 
   app.get<{ id: number }, apiif.ApplyPrivilegeResponseBody, {}, { limit: number, offset: number }>('/api/apply-privilage/:id', asyncHandler(async (req, res) => {
     res.send({ message: 'ok', applyPrivileges: await new DatabaseAccess(knex).getApplyPrivilege(req.params.id) });
   }));
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
+  app.put<{}, {}, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).updatePrivilege(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/privilage/:id', asyncHandler(async (req, res) => {
+  app.delete<{ id: number }>('/api/privilage/:id', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).deletePrivilege(req.params.id);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   ///////////////////////////////////////////////////////////////////////
   // 打刻関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{ type: string }, apiif.MessageOnlyResponseBody, apiif.RecordRequestBody>('/api/record/:type', asyncHandler(async (req, res) => {
-    const access = new DatabaseAccess(knex);
-    await access.submitRecord(req.user, {
-      account: req.body.account,
-      type: req.params.type,
-      timestamp: new Date(req.body.timestamp),
-      deviceAccount: req.body.deviceAccount,
-      deviceToken: req.body.deviceToken
-    });
-    res.send({ message: 'ok' });
+  app.post<{ type: string }, {}, apiif.RecordRequestBody>('/api/record/:type', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
+    await new DatabaseAccess(knex).submitRecord(req.user, req.params.type, req.body);
+    res.send({});
   }));
 
-  app.get<{}, apiif.RecordResponseBody, {}, apiif.RecordRequestQuery>('/api/record', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', records: await new DatabaseAccess(knex).getRecords(req.query) });
+  app.get<{}, apiif.RecordResponseData[], {}, apiif.RecordRequestQuery>('/api/record', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getRecords(req.query));
   }));
 
   ///////////////////////////////////////////////////////////////////////
   // 機器関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).addDevice(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.get<{}, apiif.DevicesResponseBody>('/api/devices', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', devices: await new DatabaseAccess(knex).getDevicesOld() });
-  }));
-
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
+  app.put<{}, {}, apiif.DeviceRequestData>('/api/device', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).updateDevice(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.delete<{ account: string }, apiif.MessageOnlyResponseBody>('/api/device/:account', asyncHandler(async (req, res) => {
+  app.delete<{ account: string }>('/api/device/:account', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).deleteDevice(req.params.account);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   app.get<{ limit: number, offset: number }, apiif.DevicesResponseBody>('/api/device', asyncHandler(async (req, res) => {
@@ -270,36 +194,31 @@ export default function registerHandlers(app: Express, knex: Knex) {
     }
   }));
 
-  // 承認ルート役割
-  app.get<{}, apiif.ApprovalRouteRoleBody>('/api/apply/role', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', roles: await new DatabaseAccess(knex).getApprovalRouteRoles() });
-  }));
-
   ///////////////////////////////////////////////////////////////////////
   // 承認ルート関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).addApprovalRoute(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.get<{}, apiif.ApprovalRouteResponseBody, {}, { limit: number, offset: number }>('/api/apply/route', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', routes: await new DatabaseAccess(knex).getApprovalRoutes(req.query) });
+  app.get<{}, apiif.ApprovalRouteResponseData[], {}, { limit: number, offset: number }>('/api/apply/route', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getApprovalRoutes(req.query));
   }));
 
-  app.get<{ name: string }, apiif.ApprovalRouteResponseBody, {}>('/api/apply/route/:name', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', routes: await new DatabaseAccess(knex).getApprovalRoutes(undefined, req.params.name) });
+  app.get<{ name: string }, apiif.ApprovalRouteResponseData[]>('/api/apply/route/:name', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getApprovalRoutes(undefined, req.params.name));
   }));
 
-  app.put<{}, apiif.MessageOnlyResponseBody, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
+  app.put<{}, {}, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).updateApprovalRoute(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
-  app.delete<{ id: number }, apiif.MessageOnlyResponseBody>('/api/apply/route/:id', asyncHandler(async (req, res) => {
+  app.delete<{ id: number }>('/api/apply/route/:id', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).deleteApprovalRoute(req.params.id);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   ///////////////////////////////////////////////////////////////////////
@@ -307,11 +226,12 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{ applyType: string }, { message: string, id?: number }, apiif.ApplyRequestBody>('/api/apply/:applyType', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     res.send({ message: 'ok', id: await new DatabaseAccess(knex).submitApply(req.user, req.params.applyType, req.body) });
   }));
 
   app.get<{ applyId: number }, apiif.ApplyTypeResponseBody, {}>('/api/apply/applyType/:applyId', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', applyTypes: [await new DatabaseAccess(knex).getApplyTypeOfApply(req.token, req.params.applyId)] });
+    res.send({ message: 'ok', applyTypes: [await new DatabaseAccess(knex).getApplyTypeOfApply(req.params.applyId)] });
   }));
 
   app.get<{ applyId: number }, apiif.ApplyResponseBody, {}>('/api/apply/:applyId', asyncHandler(async (req, res) => {
@@ -322,14 +242,20 @@ export default function registerHandlers(app: Express, knex: Knex) {
   // 申請承認関連
   ///////////////////////////////////////////////////////////////////////
 
-  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody>('/api/approve/:applyId', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).approveApply(req.user, req.params.applyId, true);
-    res.send({ message: 'ok' });
+  app.get<{ applyId: number }, apiif.UserInfoResponseData[]>('/api/approve/:applyId', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getApplyCurrentApprovingUsers(req.params.applyId));
   }));
 
-  app.post<{ applyId: number }, apiif.MessageOnlyResponseBody>('/api/reject/:applyId', asyncHandler(async (req, res) => {
+  app.post<{ applyId: number }>('/api/approve/:applyId', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
+    await new DatabaseAccess(knex).approveApply(req.user, req.params.applyId, true);
+    res.send({});
+  }));
+
+  app.post<{ applyId: number }>('/api/reject/:applyId', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     await new DatabaseAccess(knex).approveApply(req.user, req.params.applyId, false);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   ///////////////////////////////////////////////////////////////////////
@@ -386,11 +312,13 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserWorkPatternCalendarRequestData>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     await new DatabaseAccess(knex).setUserWorkPatternCalendar(req.user, req.body);
     res.send({ message: 'ok' });
   }));
 
   app.get<{}, apiif.UserWorkPatternCalendarResponseBody, {}, apiif.UserWorkPatternCalendarRequestQuery>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     res.send({
       message: 'ok',
       userWorkPatternCalendars: await new DatabaseAccess(knex).getUserWorkPatternCalendar(req.user, req.query)
@@ -398,11 +326,13 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.delete<{ date: string, account: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date/:account', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date, req.params.account);
     res.send({ message: 'ok' });
   }));
 
   app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/work-pattern-calendar/:date', asyncHandler(async (req, res) => {
+    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
     await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date);
     res.send({ message: 'ok' });
   }));
@@ -410,26 +340,27 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
   // 休日登録
   ///////////////////////////////////////////////////////////////////////
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.HolidayRequestData>('/api/holiday', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.HolidayRequestData>('/api/holiday', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).setHoliday(req.body);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   app.get<{}, apiif.HolidaysResponseBody, {}, apiif.HolidayRequestQuery>('/api/holiday', asyncHandler(async (req, res) => {
+    console.log(req.query);
     res.send({ message: 'ok', holidays: await new DatabaseAccess(knex).getHolidays(req.query) });
   }));
 
-  app.delete<{ date: string }, apiif.MessageOnlyResponseBody>('/api/holiday/:date', asyncHandler(async (req, res) => {
+  app.delete<{ date: string }>('/api/holiday/:date', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).deleteHoliday(req.params.date);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   ///////////////////////////////////////////////////////////////////////
   // システム設定
   ///////////////////////////////////////////////////////////////////////
-  app.post<{}, apiif.MessageOnlyResponseBody, apiif.SystemConfigRequestData>('/api/config', asyncHandler(async (req, res) => {
+  app.post<{}, {}, apiif.SystemConfigRequestData>('/api/config', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).setSystemConfig(req.body.key, req.body.value);
-    res.send({ message: 'ok' });
+    res.send({});
   }));
 
   app.get<{ key: string }, apiif.SystemConfigResponseBody>('/api/config/:key', asyncHandler(async (req, res) => {

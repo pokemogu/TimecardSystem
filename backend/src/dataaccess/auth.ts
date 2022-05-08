@@ -1,10 +1,10 @@
-import { DatabaseAccess } from '../dataaccess';
-import type { UserInfo } from '../dataaccess';
-import * as verifier from '../verify';
-import { issueJsonWebToken, verifyJsonWebToken, verifyPassword, hashPassword } from '../verify';
-import type * as apiif from 'shared/APIInterfaces';
 import createHttpError from 'http-errors';
 import uuidAPIKey from 'uuid-apikey';
+
+import { DatabaseAccess } from '../dataaccess';
+import type { UserInfo } from '../dataaccess';
+import { issueJsonWebToken, verifyJsonWebToken, verifyPassword, hashPassword } from '../verify';
+import type * as apiif from '../APIInterfaces';
 
 ///////////////////////////////////////////////////////////////////////
 // 認証関連
@@ -31,7 +31,7 @@ export async function issueRefreshToken(this: DatabaseAccess, account: string, p
     throw new createHttpError.Unauthorized('IDかパスワードが間違っています');
   }
 
-  if (!user.available) {
+  if (!user?.available) {
     throw new createHttpError.NotFound('指定されたユーザーは存在しません');
   }
 
@@ -64,7 +64,7 @@ export async function issueQrCodeRefreshToken(this: DatabaseAccess, account: str
     .where('user.account', account)
     .first()
 
-  if (!user.available) {
+  if (!user?.available) {
     throw new createHttpError.NotFound('指定されたユーザーは存在しません');
   }
 
@@ -121,6 +121,10 @@ export async function revokeRefreshToken(this: DatabaseAccess, account: string, 
     .where('user.account', account)
     .first();
 
+  if (!user) {
+    throw new createHttpError.NotFound('指定されたユーザーは存在しません');
+  }
+
   await this.knex('token')
     .where('user', user.id)
     .andWhere('refreshToken', refreshToken)
@@ -134,6 +138,10 @@ export async function revokeQrCodeRefreshToken(this: DatabaseAccess, account: st
     .from('user')
     .where('user.account', account)
     .first();
+
+  if (!user) {
+    throw new createHttpError.NotFound('指定されたユーザーは存在しません');
+  }
 
   await this.knex('token')
     .where('user', user.id)
@@ -164,6 +172,13 @@ export async function deleteAllExpiredRefreshTokens(this: DatabaseAccess) {
 }
 
 export async function changeUserPassword(this: DatabaseAccess, userInfo: UserInfo, params: apiif.ChangePasswordRequestBody) {
+  const userPrivilege = await this.getUserPrivilege(userInfo.account);
+  if (params.account && !params.oldPassword) {
+    if (!userPrivilege.registerUser) {
+      throw new createHttpError.Forbidden('他のユーザーのパスワードを変更する権限がありません');
+    }
+  }
+
   const targetUserInfo =
     await this.knex.select<{ id: number, password: string }[]>({ id: 'id', password: 'password' })
       .from('user')
@@ -177,8 +192,14 @@ export async function changeUserPassword(this: DatabaseAccess, userInfo: UserInf
       })
       .first();
 
-  if (!verifyPassword(targetUserInfo.password, params.oldPassword)) {
-    throw new createHttpError.Unauthorized('IDかパスワードが間違っています');
+  if (!targetUserInfo) {
+    throw new createHttpError.NotFound('指定されたユーザーは存在しません');
+  }
+
+  if (params.oldPassword) {
+    if (!verifyPassword(targetUserInfo.password, params.oldPassword)) {
+      throw new createHttpError.Unauthorized('IDかパスワードが間違っています');
+    }
   }
 
   await this.knex('user').update({

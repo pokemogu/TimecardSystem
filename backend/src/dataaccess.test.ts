@@ -1,29 +1,22 @@
 import mysql2 from 'mysql2/promise';
 import { Knex } from 'knex';
 import knexConnect from 'knex';
+
 import { generateKeyPair, setJsonWebTokenKey } from './verify';
 import { DatabaseAccess } from "./dataaccess";
-
-const testSuperUserAccount = '____TEST_SUPER_USER_NAME___';
-const testSuperUserName = 'スーパーシステム管理者X';
-const testSuperUserDefaultWorkPattern = 'スーパーシステム管理者の勤務体系';
-const testSuperUserPhonetic = 'スーパーシステムカンリシャエックス';
-let testSuperUserPassword = 'P@ssw0rdXXXXX'
-let testSuperUserId = 0;
-const testSuperPrivilegeName = '____TEST_SUPER_USER_PRIVILEGE___';
-const testSuperWorkPatternName = '____TEST_SUPER_USER_WORKPATTERN___';
 
 describe('データアクセス', () => {
 
   const generateRandomString = () => { return Math.random().toString(32).substring(2) };
 
-  let knexconfig: Knex.Config = {};
-  let knex: Knex;
-  let refreshToken: string = '';
-
   const dbName = 'timecard_' + generateRandomString();
   const dbUser = generateRandomString();
   const dbPass = generateRandomString();
+
+  const knexconfig: Knex.Config = {
+    client: process.env.DB_TYPE || 'sqlite3',
+  };
+  let knex: Knex;
 
   // 初期化
   beforeAll(async () => {
@@ -31,21 +24,18 @@ describe('データアクセス', () => {
     const conn = await mysql2.createConnection({
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
-      user: process.env.DB_ROOT_USER || 'root',
-      password: process.env.DB_ROOT_PASSWORD || 'password'
+      user: process.env.MYSQL_ROOT_USER || 'root',
+      password: process.env.MYSQL_ROOT_PASSWORD || 'password'
     });
     await conn.execute(`CREATE DATABASE ${dbName}`);
     await conn.execute(`CREATE USER '${dbUser}'@'%' IDENTIFIED BY '${dbPass}'`);
     await conn.execute(`GRANT ALL PRIVILEGES ON ${dbName}.* TO '${dbUser}'@'%'`)
     await conn.execute(`FLUSH PRIVILEGES`);
+    await conn.end();
 
     // データベースアクセス設定
-    knexconfig = {
-      client: process.env.DB_TYPE || 'sqlite3',
-    };
-
     if (knexconfig.client === 'sqlite3') {
-      knexconfig.connection = { filename: process.env.DB_NAME || ':memory:', };
+      knexconfig.connection = { filename: process.env.DB_NAME || ':memory:' };
       knexconfig.useNullAsDefault = true;
     }
     else {
@@ -68,8 +58,6 @@ describe('データアクセス', () => {
     // DDL適用
     knex = knexConnect(knexconfig);
     await knex.migrate.latest(); // 全DDL適用なので非常に時間かかる
-
-    console.log('全体-beforeAll ' + new Date().toISOString());
   });
 
   // 後始末
@@ -78,11 +66,12 @@ describe('データアクセス', () => {
     const conn = await mysql2.createConnection({
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
-      user: process.env.DB_ROOT_USER || 'root',
-      password: process.env.DB_ROOT_PASSWORD || 'password'
+      user: process.env.MYSQL_ROOT_USER || 'root',
+      password: process.env.MYSQL_ROOT_PASSWORD || 'password'
     });
     await conn.execute(`DROP USER '${dbUser}'@'%'`);
     await conn.execute(`DROP DATABASE ${dbName}`);
+    await conn.end();
   });
 
   test('事前の基本テスト(権限、勤務体系、ユーザー)', async () => {
@@ -125,13 +114,13 @@ describe('データアクセス', () => {
 
     // ユーザーを新規追加する
     await expect(access.addUsers([{
-      account: testUserAccount, password: testUserPassword,
+      account: testUserAccount, /* password: testUserPassword, */
       email: testEmail, name: '山田 太郎', phonetic: 'ヤマダ タロウ',
       privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName
     }])).resolves.not.toThrow();
 
     // ユーザーが追加されていることを確認する
-    const users = await access.getUsers();
+    const users = await access.getUsersInfo();
     expect(users?.length).toBeDefined();
     expect(users.length).toBeGreaterThan(0);
     expect(users.some(user => user.account === testUserAccount)).toBeTruthy();
@@ -150,26 +139,10 @@ describe('データアクセス', () => {
 
   describe('一般情報取得テスト', () => {
 
-    // デバイス情報取得
-    /*
-    test('getDevices', async () => {
-      const access = new DatabaseAccess(knex);
-      const result = await access.getDevices();
-      expect(result).toBeDefined();
-      console.log(result);
-    });
-    */
-
     test('getDepartments', async () => {
       const access = new DatabaseAccess(knex);
       const departments = await access.getDepartments();
-      console.log(departments);
       expect(departments).toBeDefined();
-
-      departments.forEach((department) => {
-        console.log(department.name + '->');
-        console.log(department.sections);
-      });
     });
 
     // 申請オプション情報取得
@@ -178,14 +151,11 @@ describe('データアクセス', () => {
 
       const applyTypes = await access.getApplyTypes();
       expect(applyTypes).toBeDefined();
-      console.log(applyTypes);
 
       applyTypes.forEach(async (applyType) => {
         const appyOptionTypes = await access.getApplyOptionTypes(applyType.name)
         expect(appyOptionTypes).toBeDefined();
-        console.log(applyType.name + ' -> ');
         appyOptionTypes.forEach((appyOptionType) => {
-          console.log(appyOptionType);
         })
       });
     });
@@ -193,7 +163,6 @@ describe('データアクセス', () => {
     test('getApprovalRoutes', async () => {
       const access = new DatabaseAccess(knex);
       const roleMembers = await access.getApprovalRoutes();
-      console.dir(roleMembers, { depth: null });
       expect(roleMembers).toBeDefined();
 
       for (const roleMember of roleMembers) {
@@ -215,28 +184,53 @@ describe('データアクセス', () => {
           to: '2022-04-09'
         }
       );
-      console.dir(result, { depth: null });
     });
   });
 
   // アクセストークン取得・検証
   describe('認証関連テスト', () => {
+    const testAdminAccount = generateRandomString();
     const testUserAccount = generateRandomString();
+    const testAdminPassword = generateRandomString();
     const testUserPassword = generateRandomString();
     const testEmail = generateRandomString() + '@' + generateRandomString() + '.com';
     const testWorkPatternName = generateRandomString();
-    const testPrivilegeName = generateRandomString();
+    const testAdminPrivilegeName = generateRandomString();
+    const testUserPrivilegeName = generateRandomString();
 
     beforeAll(async () => {
       const access = new DatabaseAccess(knex);
 
-      await expect(access.addPrivilege({ name: testPrivilegeName })).resolves.not.toThrow();
+      await expect(access.addPrivilege({ name: testAdminPrivilegeName, registerUser: true })).resolves.not.toThrow();
+      await expect(access.addPrivilege({ name: testUserPrivilegeName })).resolves.not.toThrow();
       await expect(access.addWorkPattern({ name: testWorkPatternName, onTimeStart: '08:30', onTimeEnd: '17:30' })).resolves.not.toThrow();
+
+      // 管理者ユーザーを作成する
       await expect(access.addUsers([{
-        account: testUserAccount, password: testUserPassword,
-        email: testEmail, name: '山田 太郎', phonetic: 'ヤマダ タロウ',
-        privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName
+        account: testAdminAccount, /* password: testAdminPassword, */
+        email: testEmail, name: '管理 次郎', phonetic: 'カンリ ジロウ',
+        privilegeName: testAdminPrivilegeName, defaultWorkPatternName: testWorkPatternName
       }])).resolves.not.toThrow();
+      const adminUserInfo = (await access.getUsersInfo({ accounts: [testAdminAccount] }))[0];
+
+      // 管理者ユーザーのパスワードを設定する
+      await expect(access.changeUserPassword(
+        { id: adminUserInfo.id, account: adminUserInfo.account },
+        { account: testAdminAccount, newPassword: testAdminPassword }
+      )).resolves.not.toThrow();
+
+      // 一般ユーザーを作成する
+      await expect(access.addUsers([{
+        account: testUserAccount, /* password: testUserPassword, */
+        email: testEmail, name: '山田 太郎', phonetic: 'ヤマダ タロウ',
+        privilegeName: testUserPrivilegeName, defaultWorkPatternName: testWorkPatternName
+      }])).resolves.not.toThrow();
+
+      // 一般ユーザーのパスワードを設定する
+      await expect(access.changeUserPassword(
+        { id: adminUserInfo.id, account: adminUserInfo.account },
+        { account: testUserAccount, newPassword: testUserPassword }
+      )).resolves.not.toThrow();
     });
 
     afterAll(async () => {
@@ -244,7 +238,7 @@ describe('データアクセス', () => {
 
       await expect(access.deleteUser(testUserAccount)).resolves.not.toThrow();
       const privileges = await access.getPrivileges();
-      const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName).id;
+      const privilegeId = privileges.find(privilege => privilege.name === testUserPrivilegeName).id;
       await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
     });
 
@@ -264,7 +258,7 @@ describe('データアクセス', () => {
 
     test('changeUserPassword', async () => {
       const access = new DatabaseAccess(knex);
-      const users = await access.getUsers({ byAccounts: [testUserAccount] });
+      const users = await access.getUsersInfo({ accounts: [testUserAccount] });
       expect(users.length).toBeGreaterThan(0);
       expect(users.some(user => user.account === testUserAccount)).toBeTruthy();
       const userInfo = users[0];
@@ -277,16 +271,22 @@ describe('データアクセス', () => {
       )).rejects.toThrow();
 
       // 現在のパスワードが正しい場合
-      const newPassword1 = testUserPassword + 'hogehogehogehoge'
       await expect(access.changeUserPassword(
         { id: userInfo.id, account: testUserAccount },
-        { oldPassword: testUserPassword, newPassword: newPassword1 }
+        { oldPassword: testUserPassword, newPassword: newPassword }
       )).resolves.not.toThrow();
 
+      // 元のパスワードに戻す
       await expect(access.changeUserPassword(
         { id: userInfo.id, account: testUserAccount },
-        { oldPassword: newPassword1, newPassword: testUserPassword }
+        { oldPassword: newPassword, newPassword: testUserPassword }
       )).resolves.not.toThrow();
+
+      // 他ユーザーのパスワード変更権限がない場合
+      await expect(access.changeUserPassword(
+        { id: userInfo.id, account: testUserAccount },
+        { account: testAdminAccount, newPassword: newPassword }
+      )).rejects.toThrow();
     });
   });
 
@@ -305,24 +305,24 @@ describe('データアクセス', () => {
 
       await expect(access.addUsers([
         {
-          account: testUserAccount[0], password: testUserPassword,
+          account: testUserAccount[0], /* password: testUserPassword, */
           email: testEmail, name: '金子 星男', phonetic: 'カネコ ホシオ',
           privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
           department: '浜松工場', section: '製造部'
         },
         {
-          account: testUserAccount[1], password: testUserPassword,
+          account: testUserAccount[1], /* password: testUserPassword, */
           email: testEmail, name: '久保田 模試子', phonetic: 'クボタ モシコ',
           privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
           department: '東名工場', section: '製造部'
         },
         {
-          account: testUserAccount[2], password: testUserPassword,
+          account: testUserAccount[2], /* password: testUserPassword, */
           email: testEmail, name: '稲田 市兵衛', phonetic: 'イナダ イチベエ',
           privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
           department: '名古屋事業所', section: '営業部'
         }, {
-          account: testUserAccount[3], password: testUserPassword,
+          account: testUserAccount[3], /* password: testUserPassword, */
           email: testEmail, name: '山本 花絵', phonetic: 'ヤマモト ハナエ',
           privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
           department: '名古屋事業所', section: '総務部'
@@ -344,39 +344,48 @@ describe('データアクセス', () => {
       await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
     });
 
-    test('getUser', async () => {
+    test('getUsersInfo', async () => {
       const access = new DatabaseAccess(knex);
 
-      let users = await access.getUsers({
-        byName: '金子'
+      let users = await access.getUsersInfo({
+        name: '金子'
+      });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(1);
+      expect(users.some(user => user.account === testUserAccount[0])).toBeTruthy();
+
+      users = await access.getUsersInfo({
+        phonetic: 'ホシ'
+      });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(1);
+      expect(users.some(user => user.account === testUserAccount[0])).toBeTruthy();
+
+      users = await access.getUsersInfo({
+        accounts: [testUserAccount[0]]
+      });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(1);
+      expect(users.some(user => user.account === testUserAccount[0])).toBeTruthy();
+
+      users = await access.getUsersInfo({
+        accounts: [testUserAccount[0], testUserAccount[1]]
+      });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(2);
+
+      users = await access.getUsersInfo({
+        department: '浜松工場',
+        section: '製造部'
       });
       expect(users?.length).toBeDefined();
       expect(users.length).toBeGreaterThan(0);
 
-      users = await access.getUsers({
-        byPhonetic: 'ホシ'
+      users = await access.getUsersInfo({
+        department: '名古屋事業所'
       });
       expect(users?.length).toBeDefined();
-      expect(users.length).toBeGreaterThan(0);
-
-      users = await access.getUsers({
-        byAccounts: [testUserAccount[0]]
-      });
-      expect(users?.length).toBeDefined();
-      expect(users.length).toBeGreaterThan(0);
-
-      users = await access.getUsers({
-        byAccounts: [testUserAccount[0], testUserAccount[1]]
-      });
-      expect(users?.length).toBeDefined();
-      expect(users.length).toBeGreaterThan(1);
-
-      users = await access.getUsers({
-        byDepartment: '浜松工場',
-        bySection: '製造部'
-      });
-      expect(users?.length).toBeDefined();
-      expect(users.length).toBeGreaterThan(0);
+      expect(users.length).toBeGreaterThanOrEqual(2);
 
       /*
       userInfo = await access.getUsers({
@@ -389,9 +398,9 @@ describe('データアクセス', () => {
       expect(userInfo.length).toBeLessThanOrEqual(25);
       */
 
-      users = await access.getUsers({
-        byName: '久保田',
-        byDepartment: '東名工場'
+      users = await access.getUsersInfo({
+        name: '久保田',
+        department: '東名工場'
       });
       //console.log(userInfo);
       expect(users?.length).toBeDefined();
@@ -399,13 +408,56 @@ describe('データアクセス', () => {
 
     });
 
+    test('addUsers (Update)', async () => {
+      const access = new DatabaseAccess(knex);
+
+      await expect(access.addUsers([
+        {
+          account: testUserAccount[0], /* password: testUserPassword, */
+          name: '棚橋 邦夫', phonetic: 'タナハシ クニオ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '浜松工場', section: '製造部'
+        },
+        {
+          account: testUserAccount[1], /* password: testUserPassword, */
+          email: testEmail, name: '久保田 模試子', phonetic: 'クボタ モシコ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '浜松工場', section: '興行部'
+        },
+        {
+          account: testUserAccount[2], /* password: testUserPassword, */
+          email: testEmail, name: '稲田 市兵衛', phonetic: 'イナダ イチベエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: 'システム部'
+        }, {
+          account: testUserAccount[3], /* password: testUserPassword, */
+          email: testEmail, name: '山本 花絵', phonetic: 'ヤマモト ハナエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: 'すぐやる部'
+        }
+      ])).resolves.not.toThrow();
+
+      let users = await access.getUsersInfo({ accounts: [testUserAccount[0]] });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(1);
+      expect(users[0].name).toBe('棚橋 邦夫');
+      expect(users[0].phonetic).toBe('タナハシ クニオ');
+
+      users = await access.getUsersInfo({ accounts: [testUserAccount[1]] });
+      expect(users?.length).toBeDefined();
+      expect(users.length).toBe(1);
+      expect(users[0].department).toBe('浜松工場');
+      expect(users[0].section).toBe('興行部');
+
+    });
+
     test('issueQrCodeRefreshToken && getUsersWithQrCodeIssued', async () => {
       const access = new DatabaseAccess(knex);
-      let userInfo = await access.getUsers({ byAccounts: [testUserAccount[3]] });
+      let userInfo = await access.getUsersInfo({ accounts: [testUserAccount[3]] });
 
       const qrCodeRefreshToken = await access.issueQrCodeRefreshToken(testUserAccount[3]);
-      userInfo = await access.getUsers({ byAccounts: [testUserAccount[3]] });
-      expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeFalsy();
+      userInfo = await access.getUsersInfo({ accounts: [testUserAccount[3]] });
+      //expect(userInfo.every(info => info.qrCodeIssuedNum === 0)).toBeFalsy();
 
       await access.revokeQrCodeRefreshToken(testUserAccount[3], qrCodeRefreshToken.refreshToken);
     });

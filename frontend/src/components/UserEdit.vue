@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import * as backendAccess from '@/BackendAccess';
@@ -13,21 +12,18 @@ const props = defineProps<{
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'submit'): void
+  (event: 'update:userInfo', value: apiif.UserInfoRequestData): void,
+  (event: 'submit'): void,
+  (event: 'submitDelete'): void,
 }>();
 
-const route = useRoute();
-const router = useRouter();
 const store = useSessionStore();
-const isOpened = ref(false);
 
 const privilegeNames = ref<string[]>([]);
 const workPatternNames = ref<string[]>([]);
 
-const account = ref(route.params.account ? route.params.account as string : '');
-const isNewAccount = ref(route.params.account ? false : true);
-
-const userInfo = ref<apiif.UserInfoRequestData>(props.userInfo);
+const isNewAccount = ref(props.userInfo.account === '' ? true : false);
+const userInfo = ref<apiif.UserInfoRequestData>({ ...props.userInfo });
 
 const departmentList = ref<{
   name: string
@@ -35,8 +31,6 @@ const departmentList = ref<{
     name: string
   }[]
 }[]>([]);
-const department = ref('');
-const section = ref('');
 
 let candidateCycle = 0;
 const receivedCandidates: string[] = [];
@@ -84,7 +78,7 @@ async function onGenerateAccount() {
   }
 
   if (receivedCandidates.length > 0) {
-    account.value = receivedCandidates[candidateCycle];
+    userInfo.value.account = receivedCandidates[candidateCycle];
     candidateCycle = ((candidateCycle + 1) >= receivedCandidates.length) ? 0 : (candidateCycle + 1)
   }
 }
@@ -92,24 +86,28 @@ async function onGenerateAccount() {
 async function onSubmit() {
   if (isNewAccount.value === true) {
     if (!confirm('この内容で登録しますか？')) {
-      emits('update:isOpened', false);
+      return;
     }
   }
   else {
     if (!confirm('この内容で修正しますか？')) {
-      emits('update:isOpened', false);
+      return;
     }
   }
+  emits('update:userInfo', userInfo.value);
+  emits('update:isOpened', false);
+  emits('submit');
 }
 
 async function onDeleteAccount() {
   if (confirm('本当にこの従業員を削除しますか? ※従業員を削除してもシステム上の理由により社員No IDは再利用できません')) {
-    alert('従業員の削除が完了しました。');
+    emits('update:userInfo', userInfo.value);
     emits('update:isOpened', false);
+    emits('submitDelete');
   }
 }
 
-function onClose(event: Event) {
+function onClose() {
   emits('update:isOpened', false);
 }
 
@@ -128,13 +126,14 @@ function onClose(event: Event) {
             <div class="row justify-content-center m-2">
               <div class="col-6 bg-white">
                 <div class="row m-1">
-                  <label for="user-id" class="col-3 col-form-label">社員No</label>
+                  <label for="user-account" class="col-3 col-form-label">社員No</label>
                   <div class="col-9">
                     <div class="input-group">
-                      <input type="text" id="user-id" class="form-control" pattern="^[0-9A-Za-z]+$"
-                        title="半角英数字のみ入力可能です" v-bind:disabled="!isNewAccount" v-model="account" required />
-                      <button class="btn btn-outline-secondary" type="button" id="button-addon2"
-                        v-on:click="onGenerateAccount" v-show="isNewAccount"
+                      <input type="text" id="user-account" class="form-control" pattern="^[0-9A-Za-z]+$"
+                        title="半角英数字のみ入力可能です" v-bind:disabled="!isNewAccount" v-model="userInfo.account" required
+                        :disabled="isNewAccount === false" :readonly="isNewAccount === false" />
+                      <button v-if="isNewAccount === true" class="btn btn-outline-secondary" type="button"
+                        id="button-addon2" v-on:click="onGenerateAccount" v-show="isNewAccount"
                         title="英字で始まり数字で終わるパターンのIDを既存IDを元に自動生成します(例: USR00100)。該当するパターンの既存IDが存在しない場合は自動生成できませんので手動入力してください。">AUTO</button>
                     </div>
                   </div>
@@ -143,7 +142,7 @@ function onClose(event: Event) {
                   <label for="user-department" class="col-3 col-form-label">部門</label>
                   <div class="col-9">
                     <input type="text" class="form-control" list="user-department-list" id="user-department"
-                      v-model="department" autocomplete="off" required />
+                      v-model="userInfo.department" autocomplete="off" required />
                     <datalist id="user-department-list">
                       <option v-for="(item, index) in departmentList" v-bind:value="item.name"></option>
                     </datalist>
@@ -152,11 +151,11 @@ function onClose(event: Event) {
                 <div class="row m-1">
                   <label for="user-section" class="col-3 col-form-label">所属</label>
                   <div class="col-9">
-                    <input type="text" class="form-control" list="user-section-list" id="user-section" v-model="section"
-                      autocomplete="off" required />
+                    <input type="text" class="form-control" list="user-section-list" id="user-section"
+                      v-model="userInfo.section" autocomplete="off" required />
                     <datalist id="user-section-list">
                       <option
-                        v-for="(item, index) in departmentList.find(selectedDepartment => selectedDepartment.name === department)?.sections"
+                        v-for="(item, index) in departmentList.find(selectedDepartment => selectedDepartment.name === userInfo.department)?.sections"
                         v-bind:value="item.name"></option>
                     </datalist>
                   </div>
@@ -164,20 +163,20 @@ function onClose(event: Event) {
                 <div class="row m-1">
                   <label for="user-name" class="col-3 col-form-label">氏名</label>
                   <div class="col-9">
-                    <input type="text" id="user-name" class="form-control" required />
+                    <input type="text" id="user-name" class="form-control" v-model="userInfo.name" required />
                   </div>
                 </div>
                 <div class="row m-1">
                   <label for="user-phonetic" class="col-3 col-form-label">フリガナ</label>
                   <div class="col-9">
-                    <input type="text" id="user-phonetic" class="form-control" pattern="^[ァ-ンヴー|　| ]+$"
-                      title="カタカナのみ入力可能です" />
+                    <input type="text" id="user-phonetic" class="form-control" v-model="userInfo.phonetic"
+                      pattern="^[ァ-ンヴー|　| ]+$" title="カタカナのみ入力可能です" />
                   </div>
                 </div>
                 <div class="row m-1">
                   <label for="user-email" class="col-4 col-form-label">メールアドレス</label>
                   <div class="col-8">
-                    <input type="email" id="user-email" class="form-control" />
+                    <input type="email" id="user-email" v-model="userInfo.email" class="form-control" />
                   </div>
                 </div>
                 <!--
@@ -223,7 +222,7 @@ function onClose(event: Event) {
                 <div class="row m-1">
                   <label for="user-privilege" class="col-3 col-form-label">権限設定</label>
                   <div class="col-9">
-                    <select class="form-select" id="user-privilege">
+                    <select class="form-select" id="user-privilege" v-model="userInfo.privilegeName">
                       <option selected disabled>権限を選択してください</option>
                       <option v-for="privilegeName in privilegeNames" :value="privilegeName">{{ privilegeName }}
                       </option>
@@ -231,44 +230,48 @@ function onClose(event: Event) {
                   </div>
                 </div>
                 <div class="row m-1">
-                  <label for="user-privilege" class="col-3 col-form-label">勤務体系1</label>
+                  <label for="user-default-workpattern" class="col-3 col-form-label">勤務体系1</label>
                   <div class="col-9">
-                    <select class="form-select" id="user-privilege" required>
+                    <select class="form-select" id="user-default-workpattern" v-model="userInfo.defaultWorkPatternName"
+                      required>
                       <option selected disabled>勤務体系を選択してください</option>
                       <option v-for="workPatternName in workPatternNames" :value="workPatternName">
                         {{
-                          workPatternName
+                            workPatternName
                         }}
                       </option>
                     </select>
                   </div>
                 </div>
                 <div class="row m-1">
-                  <label for="user-privilege" class="col-3 col-form-label">勤務体系2</label>
+                  <label for="user-optional1-workpattern" class="col-3 col-form-label">勤務体系2</label>
                   <div class="col-9">
-                    <select class="form-select" id="user-privilege">
+                    <select class="form-select" id="user-optional1-workpattern"
+                      v-model="userInfo.optional1WorkPatternName">
                       <option selected></option>
                       <option v-for="workPatternName in workPatternNames" :value="workPatternName">
                         {{
-                          workPatternName
+                            workPatternName
                         }}
                       </option>
                     </select>
                   </div>
                 </div>
                 <div class="row m-1">
-                  <label for="user-privilege" class="col-3 col-form-label">勤務体系3</label>
+                  <label for="user-optional2-workpattern" class="col-3 col-form-label">勤務体系3</label>
                   <div class="col-9">
-                    <select class="form-select" id="user-privilege">
+                    <select class="form-select" id="user-optional2-workpattern"
+                      v-model="userInfo.optional2WorkPatternName">
                       <option selected></option>
                       <option v-for="workPatternName in workPatternNames" :value="workPatternName">
                         {{
-                          workPatternName
+                            workPatternName
                         }}
                       </option>
                     </select>
                   </div>
                 </div>
+                <!--
                 <div class="row m-1">
                   <label for="user-paid-leave-total" class="col-6 col-form-label">有給日数</label>
                   <div class="col-6">
@@ -278,6 +281,7 @@ function onClose(event: Event) {
                     </div>
                   </div>
                 </div>
+                -->
               </div>
             </div>
             <div class="modal-footer">

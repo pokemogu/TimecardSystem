@@ -105,7 +105,7 @@ console.log(adminMenusPerCol);
 <template>
   <div class="container">
     <Teleport to="body" v-if="isPasswordChangeOpened">
-      <PasswordChange v-model:isOpened="isPasswordChangeOpened"></PasswordChange>
+      <PasswordChange v-model:isOpened="isPasswordChangeOpened" :confirmOldPasword="true"></PasswordChange>
     </Teleport>
 
     <Teleport to="body" v-if="isDeviceSelectOpened">

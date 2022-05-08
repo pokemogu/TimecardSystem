@@ -1,8 +1,7 @@
 import type { Knex } from 'knex';
 
 import { generateKeyPair, setJsonWebTokenKey } from './verify';
-import type * as models from 'shared/models';
-import type * as apiif from 'shared/APIInterfaces';
+import type * as apiif from './APIInterfaces';
 
 import * as auth from './dataaccess/auth';
 import * as workPattern from './dataaccess/workpattern';
@@ -15,6 +14,7 @@ import * as holiday from './dataaccess/holiday';
 import * as config from './dataaccess/config';
 import * as mail from './dataaccess/mail';
 import * as device from './dataaccess/device';
+import * as department from './dataaccess/department';
 
 export interface UserInfo {
   id: number,
@@ -70,7 +70,7 @@ export class DatabaseAccess {
           { key: 'publicKey', value: publicKey }
         ])
           .onConflict(['key'])
-          .merge('value'); // ON DUPLICATE KEY UPDATE
+          .merge(['value']); // ON DUPLICATE KEY UPDATE
 
         setJsonWebTokenKey(privateKey, publicKey);
         //DatabaseAccess.privateKey = privateKey;
@@ -111,7 +111,7 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連 dataaccess.user
   ///////////////////////////////////////////////////////////////////////
-  public getUsers = user.getUsers;
+  public getUsersInfo = user.getUsersInfo;
   public generateAvailableUserAccount = user.generateAvailableUserAccount;
   public addUsers = user.addUsers;
   public deleteUser = user.deleteUser;
@@ -121,8 +121,10 @@ export class DatabaseAccess {
   // 申請関連 dataaccess.apply
   ///////////////////////////////////////////////////////////////////////
   public submitApply = apply.submitApply;
+  protected getApplyOptions = apply.getApplyOptions;
   public getApply = apply.getApply;
   public getApplyTypeOfApply = apply.getApplyTypeOfApply;
+  public getApplyCurrentApprovingUsers = apply.getApplyCurrentApprovingUsers;
   public approveApply = apply.approveApply;
   public getApplyTypes = apply.getApplyTypes;
   public addApplyType = apply.addApplyType;
@@ -186,15 +188,10 @@ export class DatabaseAccess {
   public updateDevice = device.updateDevice;
   public deleteDevice = device.deleteDevice;
 
-  public async getDevicesOld() {
-    const devices = await this.knex.table<models.Device>('device');
-
-    return devices.map((device) => { return <apiif.DeviceResponseData>{ name: device.name } });
-  }
-
   ///////////////////////////////////////////////////////////////////////
   // 部署情報関連
   ///////////////////////////////////////////////////////////////////////
+  protected getSections = department.getSections;
   public async getDepartments() {
 
     const sections = await this.knex
@@ -207,7 +204,7 @@ export class DatabaseAccess {
 
     for (const section of sections) {
       const sameDepartment = result.find((elem) => elem.name === section.departmentName);
-      if (!sameDepartment) {
+      if (!sameDepartment?.sections) {
         result.push({
           name: section.departmentName,
           sections: [{ name: section.sectionName }]

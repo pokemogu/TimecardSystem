@@ -8,12 +8,15 @@
   "scripts": {
     "dev-backend": "npm run --workspace=backend dev-auto",
     "dev-frontend": "npm run --workspace=frontend dev",
-    "dev": "npm-run-all --parallel dev-backend dev-frontend"
+    "dev": "npm-run-all --parallel dev-backend dev-frontend",
+    "typecheck-backend": "npm run --workspace=backend typecheck",
+    "typecheck-frontend": "npm run --workspace=frontend typecheck",
+    "typecheck": "npm-run-all --sequential typecheck-backend typecheck-frontend",
+    "build-backend": "npm run --workspace=backend build",
+    "build-frontend": "npm run --workspace=frontend build",
+    "build": "npm-run-all --sequential build-backend build-frontend"
   },
   "private": true,
-  "msw": {
-    "workerDirectory": "frontend/public"
-  },
   "dependencies": {
     "backend": "^0.0.0"
   },

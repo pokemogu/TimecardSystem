@@ -18,13 +18,13 @@ export async function addSection(this: DatabaseAccess, departmentName: string, s
     .where('name', departmentName)
     .first();
 
-  await this.knex('department').insert({ name: sectionName, department: result.id });
+  await this.knex('department').insert({ name: sectionName, department: result?.id });
 }
 
 export async function getSections(this: DatabaseAccess) {
   return await this.knex.select<{ id: number, sectionName: string, departmentName: string }[]>({
     id: 'section.id', sectionName: 'section.name', departmentName: 'department.name'
   })
-    .from('department')
+    .from('section')
     .leftJoin('department', { 'department.id': 'section.department' });
 }

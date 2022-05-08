@@ -2,13 +2,24 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
 import type * as apiif from 'shared/APIInterfaces';
 import createAuthRefreshInterceptor from 'axios-auth-refresh';
 
-const axiosConfig: AxiosRequestConfig = {
-  baseURL: import.meta.env.VITE_API_BASEURL ?? '',
-  timeout: import.meta.env.VITE_API_TIMEOUT ?? 60000
+// サーバーからのレスポンスJSONにISO日付形式の文字列がある場合は自動的にDate型に変換する
+const reISO = /^(?:[+-]\d{6}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+function isoDateStringToDate(key: any, value: any) {
+  if (typeof value === 'string') {
+    if ((value.length === 24 || value.length === 27) && value.charAt(value.length - 1) === 'Z') {
+      if (reISO.exec(value)) {
+        return new Date(value);
+      }
+    }
+  }
+  return value;
 }
 
-const urlPrefix = import.meta.env.VITE_API_BASEURL ?? '';
-const timeout = import.meta.env.VITE_API_TIMEOUT ?? 60000;
+const axiosConfig: AxiosRequestConfig = {
+  baseURL: import.meta.env.VITE_API_BASEURL ?? undefined,
+  timeout: import.meta.env.VITE_API_TIMEOUT ?? undefined,
+  transformResponse: function (data) { return JSON.parse(data, isoDateStringToDate); }
+}
 
 function handleAxiosError(axiosError: unknown) {
   if (axios.isAxiosError(axiosError)) {
@@ -26,17 +37,10 @@ function handleAxiosError(axiosError: unknown) {
 
 export async function login(account: string, password: string) {
   try {
-    const data = (await axios.post<apiif.IssueTokenResponseBody>('/api/token/issue', <apiif.IssueTokenRequestBody>{
+    return (await axios.post<apiif.IssueTokenResponseData>('/api/token/issue', <apiif.IssueTokenRequestBody>{
       account: account,
       password: password
     }, axiosConfig)).data;
-
-    if (!data.token) {
-      throw new Error('token undefined');
-    }
-    else {
-      return data.token;
-    }
   } catch (error) {
     handleAxiosError(error);
   }
@@ -44,7 +48,7 @@ export async function login(account: string, password: string) {
 
 export async function logout(account: string, refreshToken: string) {
   try {
-    await axios.post<apiif.MessageOnlyResponseBody>('/api/token/revoke', <apiif.RevokeTokenRequestBody>{
+    await axios.post('/api/token/revoke', <apiif.RevokeTokenRequestBody>{
       account: account,
       refreshToken: refreshToken
     }, axiosConfig);
@@ -55,7 +59,7 @@ export async function logout(account: string, refreshToken: string) {
 
 export async function getToken(refreshToken: string) {
   try {
-    const data = (await axios.post<apiif.AccessTokenResponseBody>('/api/token/refresh', {
+    const data = (await axios.post<apiif.AccessTokenResponseData>('/api/token/refresh', {
       refreshToken: refreshToken
     }, axiosConfig)).data;
     return data;
@@ -89,8 +93,8 @@ export class TokenAccess {
     if (this.refreshToken !== '') {
       createAuthRefreshInterceptor(this.axios, async (failedRequest) => {
         const newAccessToken = await getToken(this.refreshToken);
-        if (newAccessToken?.token) {
-          this.accessToken = newAccessToken.token.accessToken;
+        if (newAccessToken?.accessToken) {
+          this.accessToken = newAccessToken.accessToken;
 
           if (this.callbackOnAccessTokenChanged) {
             this.callbackOnAccessTokenChanged(this.accessToken);
@@ -119,53 +123,15 @@ export class TokenAccess {
 
   public async getUserInfo(account: string) {
     try {
-      const result = (await this.axios.get<apiif.UserInfoResponseBody>(`/api/user/${account}`)).data;
-      if (!result.info) {
-        throw new Error('response data undefined');
-      } else {
-        return result.info;
-      }
+      return (await this.axios.get<apiif.UserInfoResponseData>(`/api/user/${account}`)).data;
     } catch (error) {
       handleAxiosError(error);
     }
   }
 
-  public async getUserInfos(params: {
-    byId?: number,
-    isAvailable?: boolean,
-    byAccounts?: string[],
-    byName?: string,
-    byPhonetic?: string,
-    bySection?: string,
-    byDepartment?: string,
-    registeredFrom?: Date,
-    registeredTo?: Date,
-    isQrCodeIssued?: boolean,
-    limit?: number,
-    offset?: number
-  }) {
+  public async getUsersInfo(params: apiif.UserInfoRequestQuery) {
     try {
-      const result = (await this.axios.get<apiif.UserInfosResponseBody>('/api/user',
-        {
-          params: <apiif.UserInfoRequestQuery>{
-            id: params.byId,
-            accounts: params.byAccounts,
-            name: params.byName,
-            phonetic: params.byPhonetic,
-            department: params.byDepartment,
-            section: params.bySection,
-            registeredFrom: params.registeredFrom?.toISOString(),
-            registeredTo: params.registeredTo?.toISOString(),
-            isQrCodeIssued: params.isQrCodeIssued,
-            limit: params.limit,
-            offset: params.offset
-          }
-        })).data;
-      if (!result.infos) {
-        throw new Error('response data undefined');
-      } else {
-        return result.infos;
-      }
+      return (await this.axios.get<apiif.UserInfoResponseData[]>('/api/user', { params: params })).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -173,9 +139,9 @@ export class TokenAccess {
 
   public async record(recordType: string, timestamp: Date, deviceAccount?: string, deviceRefreshToken?: string) {
     try {
-      return (await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/record/${recordType}`,
-        <apiif.RecordRequestBody>{ timestamp: timestamp.toISOString(), deviceAccount: deviceAccount, deviceToken: deviceRefreshToken }
-      )).data;
+      await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/record/${recordType}`,
+        <apiif.RecordRequestBody>{ timestamp: timestamp, deviceAccount: deviceAccount, deviceToken: deviceRefreshToken }
+      );
     } catch (error) {
       handleAxiosError(error);
     }
@@ -183,7 +149,7 @@ export class TokenAccess {
 
   public async getRecords(params: apiif.RecordRequestQuery) {
     try {
-      return (await this.axios.get<apiif.RecordResponseBody>('/api/record', { params: params })).data.records;
+      return (await this.axios.get<apiif.RecordResponseData[]>('/api/record', { params: params })).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -255,6 +221,14 @@ export class TokenAccess {
     }
   }
 
+  public async getApplyCurrentApprovingUsers(applyId: number) {
+    try {
+      return (await this.axios.get<apiif.UserInfoResponseData[]>(`/api/approve/${applyId}`, {})).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async issueRefreshTokenForOtherUser(account: string) {
     try {
       return (await this.axios.post<apiif.IssueTokenResponseBody>(`/api/token/issue/${account}`, {})).data;
@@ -293,7 +267,7 @@ export class TokenAccess {
 
   public async addPrivilege(privilege: apiif.PrivilageRequestData) {
     try {
-      const data = (await this.axios.post<apiif.MessageOnlyResponseBody>('/api/privilage', privilege)).data;
+      const data = (await this.axios.post('/api/privilage', privilege)).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -311,9 +285,9 @@ export class TokenAccess {
 
   public async getUserPrivilege(account: string) {
     try {
-      const result = (await this.axios.get<apiif.PrivilegeResponseBody>(`/api/privilage/${account}`)).data;
-      if (result?.privileges && result.privileges.length > 0) {
-        return result.privileges[0];
+      const result = (await this.axios.get<apiif.PrivilegeResponseData[]>(`/api/privilage/${account}`)).data;
+      if (result && result.length > 0) {
+        return result[0];
       }
     } catch (error) {
       handleAxiosError(error);
@@ -330,14 +304,14 @@ export class TokenAccess {
 
   public async getPrivileges(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await this.axios.get<apiif.PrivilegeResponseBody>('/api/privilage', {
+      const data = (await this.axios.get<apiif.PrivilegeResponseData[]>('/api/privilage', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
         }
       })).data;
 
-      return data.privileges;
+      return data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -345,7 +319,7 @@ export class TokenAccess {
 
   public async updatePrivilege(privilege: apiif.PrivilageRequestData) {
     try {
-      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/privilage', privilege);
+      await this.axios.put('/api/privilage', privilege);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -353,7 +327,7 @@ export class TokenAccess {
 
   public async deletePrivilege(id: number) {
     try {
-      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/privilage/${id}`);
+      await this.axios.delete(`/api/privilage/${id}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -373,10 +347,10 @@ export class TokenAccess {
 
   public async getApprovalRoute(routeName: string) {
     try {
-      const data = (await this.axios.get<apiif.ApprovalRouteResponseBody>(`/api/apply/route/${routeName}`)).data;
+      const data = (await this.axios.get<apiif.ApprovalRouteResponseData[]>(`/api/apply/route/${routeName}`)).data;
 
-      if (data.routes?.length === 1) {
-        return data.routes[0];
+      if (data.length === 1) {
+        return data[0];
       }
 
       throw new Error('invalid null or more than one response');
@@ -387,13 +361,12 @@ export class TokenAccess {
 
   public async getApprovalRoutes(params?: { limit?: number, offset?: number }) {
     try {
-      const data = (await this.axios.get<apiif.ApprovalRouteResponseBody>('/api/apply/route', {
+      return (await this.axios.get<apiif.ApprovalRouteResponseData[]>('/api/apply/route', {
         params: {
           limit: params ? params.limit : undefined,
           offset: params ? params.offset : undefined
         }
       })).data;
-      return data.routes;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -401,7 +374,7 @@ export class TokenAccess {
 
   public async updateApprovalRoutes(route: apiif.ApprovalRouteRequestData) {
     try {
-      const data = (await this.axios.put<apiif.MessageOnlyResponseBody>('/api/apply/route', route)).data;
+      const data = (await this.axios.put('/api/apply/route', route)).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -409,7 +382,7 @@ export class TokenAccess {
 
   public async deleteApprovalRoute(id: number) {
     try {
-      const data = (await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/apply/route/${id}`)).data;
+      const data = (await this.axios.delete(`/api/apply/route/${id}`)).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -504,7 +477,7 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   public async setHoliday(holiday: apiif.HolidayRequestData) {
     try {
-      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/holiday', holiday);
+      await this.axios.post('/api/holiday', holiday);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -512,7 +485,7 @@ export class TokenAccess {
 
   public async deleteHoliday(date: string) {
     try {
-      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/holiday/${date}`);
+      await this.axios.delete(`/api/holiday/${date}`);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -558,7 +531,7 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   public async addDevice(device: apiif.DeviceRequestData) {
     try {
-      await this.axios.post<apiif.MessageOnlyResponseBody>('/api/device', device);
+      await this.axios.post('/api/device', device);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -580,7 +553,7 @@ export class TokenAccess {
 
   public async updateDevice(device: apiif.DeviceRequestData) {
     try {
-      await this.axios.put<apiif.MessageOnlyResponseBody>('/api/device', device);
+      await this.axios.put('/api/device', device);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -588,33 +561,10 @@ export class TokenAccess {
 
   public async deleteDevice(account: string) {
     try {
-      await this.axios.delete<apiif.MessageOnlyResponseBody>(`/api/device/${account}`);
+      await this.axios.delete(`/api/device/${account}`);
     } catch (error) {
       handleAxiosError(error);
     }
-  }
-}
-
-export async function getDevices() {
-  const response = await axios.get<{
-    message: string,
-    devices: { name: string }[]
-  }>(`${urlPrefix}/api/devices`, axiosConfig);
-
-  if (response.status === 200) {
-    return response.data.devices;
-  }
-  else {
-    return undefined;
-  }
-}
-
-export async function getApprovalRouteRoles() {
-  try {
-    const data = (await axios.get<apiif.ApprovalRouteRoleBody>(`${urlPrefix}/api/apply/role`, axiosConfig)).data;
-    return data.roles;
-  } catch (error) {
-    handleAxiosError(error);
   }
 }
 
@@ -673,7 +623,7 @@ export async function getUserAccountCandidates() {
 
 export async function getHolidays(params: apiif.HolidayRequestQuery) {
   try {
-    const result = (await axios.get<apiif.HolidaysResponseBody>('/api/holiday', { timeout: axiosConfig.timeout, params: params })).data;
+    const result = (await axios.get<apiif.HolidaysResponseBody>('/api/holiday', { ...axiosConfig, params: params })).data;
     if (result?.holidays) {
       return result.holidays.map((holiday) => {
         const date = new Date(holiday.date);

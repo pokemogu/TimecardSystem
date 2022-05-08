@@ -12,9 +12,9 @@ const router = useRouter();
 const store = useSessionStore();
 
 const isApprovalRouteSelected = ref(false);
-const selectedRoute = ref<apiif.ApprovalRouteResposeData>({ name: '', roles: [] });
+const selectedRoute = ref<apiif.ApprovalRouteResponseData>({ name: '' });
 
-const routeInfos = ref<apiif.ApprovalRouteResposeData[]>([]);
+const routeInfos = ref<apiif.ApprovalRouteResponseData[]>([]);
 const checks = ref<Record<string, boolean>>({});
 
 const limit = ref(10);
@@ -58,7 +58,8 @@ function onRouteClick(routeName?: string) {
   // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
   const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
   if (targetRouteInfo) {
-    selectedRoute.value = targetRouteInfo;
+    //selectedRoute.value = JSON.parse(JSON.stringify(targetRouteInfo));
+    selectedRoute.value = { ...targetRouteInfo };
   }
   else {
     selectedRoute.value = { name: '' };

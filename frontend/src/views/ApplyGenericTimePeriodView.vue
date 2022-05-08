@@ -8,6 +8,7 @@ import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 
 const route = useRoute();
 const router = useRouter();
@@ -36,12 +37,55 @@ const dateFrom = ref('');
 const timeFrom = ref('');
 const timeTo = ref('');
 const reason = ref('');
+const apply = ref<apiif.ApplyResponseData>();
+
+const isMounted = ref(false);
+
+onMounted(async () => {
+
+  try {
+    if (route.params.id) {
+      const applyId = parseInt(route.params.id as string);
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      apply.value = await access.getApply(applyId);
+    }
+    isMounted.value = true;
+  } catch (error) {
+    alert(error);
+  }
+});
 
 const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
 
 async function onFormSubmit() {
-  isApprovalRouteSelectOpened.value = true;
+  // 回付中の場合は承認処理を行なう
+  if (apply.value) {
+    console.log('承認されました');
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.approveApply(apply.value.id);
+    }
+    router.push({ name: 'dashboard' });
+  }
+  // 起票中の場合は承認ルート選択モーダルを表示する
+  else {
+    isApprovalRouteSelectOpened.value = true;
+  }
+}
+
+async function onFormSubmitReject() {
+  console.log('否認されました');
+  if (apply.value) {
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.rejectApply(apply.value.id);
+    }
+    router.push({ name: 'dashboard' });
+  }
 }
 
 async function onRouteSubmit() {
@@ -49,15 +93,14 @@ async function onRouteSubmit() {
     if (store.isLoggedIn()) {
       const token = await store.getToken();
       if (token) {
-        console.log(routeName.value);
         const access = new backendAccess.TokenAccess(token);
         await access.submitApply(applyType.value, {
-          date: dateFrom.value,
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
-          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
-          timestamp: new Date().toISOString(),
+          date: new Date(dateFrom.value),
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+          timestamp: new Date(),
           reason: reason.value,
-          route: routeName.value
+          routeName: routeName.value
         });
 
         if (applyType.value === 'holiday-work' && doApplyMakeupLeave.value === true) {
@@ -92,9 +135,10 @@ async function onRouteSubmit() {
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
-          <ApplyForm v-bind:applyName="applyType ? applyTypeAndName[applyType] : ''" v-bind:applyType="applyType || ''"
-            v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo" v-model:reason="reason"
-            v-on:submit="onFormSubmit"></ApplyForm>
+          <ApplyForm v-if="isMounted" v-bind:applyName="applyType ? applyTypeAndName[applyType] : ''"
+            v-bind:applyType="applyType || ''" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom"
+            v-model:timeTo="timeTo" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"
+            v-on:submitReject="onFormSubmitReject"></ApplyForm>
         </div>
         <div v-if="applyType === 'holiday-work'" class="row">
           <div class="col-9"></div>

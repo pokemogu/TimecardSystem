@@ -16,9 +16,9 @@ const store = useSessionStore();
 
 // 権限チェック
 
-const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
+const applyTypeOptions1 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'situation', options: [] });
 const applyTypeValue1 = ref('');
-const applyTypeOptions2 = ref<{ name: string, description: string }[]>([]);
+const applyTypeOptions2 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'recordType', options: [] });
 const applyTypeValue2 = ref('');
 const dateFrom = ref(new Date().toISOString().slice(0, 10));
 const timeFrom = ref('');
@@ -35,22 +35,19 @@ onMounted(async () => {
       const token = await store.getToken();
       const access = new backendAccess.TokenAccess(token);
       apply.value = await access.getApply(applyId);
-      console.log(apply.value);
     }
 
     const applyTypeOptions = await backendAccess.getApplyTypeOptions('record');
     if (applyTypeOptions?.optionTypes) {
-      applyTypeOptions1.value = applyTypeOptions?.optionTypes
+      applyTypeOptions1.value.options = applyTypeOptions?.optionTypes
         .find(optionType => optionType.name === 'situation')?.options || [];
-      applyTypeValue1.value = applyTypeOptions1.value.length > 0 ? applyTypeOptions1.value[0].name : '';
+      applyTypeValue1.value = applyTypeOptions1.value.options.length > 0 ? applyTypeOptions1.value.options[0].name : '';
 
-      applyTypeOptions2.value = applyTypeOptions?.optionTypes
+      applyTypeOptions2.value.options = applyTypeOptions?.optionTypes
         .find(optionType => optionType.name === 'recordType')?.options || [];
-      applyTypeValue2.value = applyTypeOptions2.value.length > 0 ? applyTypeOptions2.value[0].name : '';
+      applyTypeValue2.value = applyTypeOptions2.value.options.length > 0 ? applyTypeOptions2.value.options[0].name : '';
     }
-
     isMounted.value = true;
-
   } catch (error) {
     alert(error);
   }
@@ -60,7 +57,32 @@ const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
 
 async function onFormSubmit() {
-  isApprovalRouteSelectOpened.value = true;
+  // 回付中の場合は承認処理を行なう
+  if (apply.value) {
+    console.log('承認されました');
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.approveApply(apply.value.id);
+    }
+    router.push({ name: 'dashboard' });
+  }
+  // 起票中の場合は承認ルート選択モーダルを表示する
+  else {
+    isApprovalRouteSelectOpened.value = true;
+  }
+}
+
+async function onFormSubmitReject() {
+  console.log('否認されました');
+  if (apply.value) {
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.rejectApply(apply.value.id);
+    }
+    router.push({ name: 'dashboard' });
+  }
 }
 
 async function onRouteSubmit() {
@@ -70,15 +92,15 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         const applyId = await access.submitApply('record', {
-          date: dateFrom.value,
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
-          timestamp: new Date().toISOString(),
+          date: new Date(dateFrom.value),
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+          timestamp: new Date(),
           options: [
             { name: 'situation', value: applyTypeValue1.value },
             { name: 'recordType', value: applyTypeValue2.value }
           ],
           reason: reason.value,
-          route: routeName.value
+          routeName: routeName.value
         });
 
         router.push({ name: 'dashboard' });
@@ -111,7 +133,8 @@ async function onRouteSubmit() {
           <ApplyForm applyName="打刻" applyType="record" v-model:applyTypeValue1="applyTypeValue1"
             v-bind:applyTypeOptions1="applyTypeOptions1" v-model:applyTypeValue2="applyTypeValue2"
             v-bind:applyTypeOptions2="applyTypeOptions2" v-model:dateFrom="dateFrom" :isDateFromSpanningDay="true"
-            v-model:timeFrom="timeFrom" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"></ApplyForm>
+            v-model:timeFrom="timeFrom" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"
+            v-on:submitReject="onFormSubmitReject"></ApplyForm>
         </template>
       </div>
       <div class="col-2">

@@ -5,6 +5,7 @@ import express from 'express';
 import type { ErrorRequestHandler } from 'express';
 import bearerToken from 'express-bearer-token';
 import createHttpError from 'http-errors';
+import detectTSNode from 'detect-ts-node';
 
 import { Knex } from 'knex';
 import knexConnect from 'knex';
@@ -16,8 +17,6 @@ import getLogger from './logger';
 import registerHandlers from './webapp';
 import { DatabaseAccess } from './dataaccess';
 
-import detectTSNode from 'detect-ts-node';
-
 dotenv.config({
   path: process.env.NODE_ENV
     ? (fs.existsSync(path.join('.', '.env.') + process.env.NODE_ENV) ? (path.join('.', '.env.') + process.env.NODE_ENV) : path.join('.', '.env'))
@@ -26,7 +25,7 @@ dotenv.config({
 const logger = getLogger('timecard');
 
 // データベースアクセス設定
-const knexconfig: Knex.Config = {
+const knexconfig: Knex.Config<Record<string, any>[]> = {
   client: process.env.DB_TYPE || 'sqlite3',
 };
 
@@ -38,8 +37,8 @@ else {
     host: process.env.DB_HOST || "localhost",
     port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
     database: process.env.DB_NAME || "my_db",
-    user: process.env.DB_APP_USER || "my_user",
-    password: process.env.DB_APP_PASSWORD || "P@ssw0rd",
+    user: process.env.DB_USER || "my_user",
+    password: process.env.DB_PASSWORD || "P@ssw0rd",
     charset: 'utf8mb4'
   };
   knexconfig.pool = {
@@ -84,13 +83,29 @@ execWorker();
 // ここで変換定義する。
 (knexconfig.connection as any).typeCast = function (field: any, next: any) {
   if (field.type === 'TINY' && field.length === 1) {
-    return (field.string() === '1'); // 1 = true, 0 = false
+    const value = field.string();
+    return value ? (value === '1') : null; // 1 = true, 0 = false
   }
   return next();
 };
 
 const app = express();
-app.use(express.json());
+
+// クライアントからのリクエストJSONにISO日付形式の文字列がある場合は自動的にDate型に変換する
+const reISO = /^(?:[+-]\d{6}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+function isoDateStringToDate(key: any, value: any) {
+  if (typeof value === 'string') {
+    if ((value.length === 24 || value.length === 27) && value.charAt(value.length - 1) === 'Z') {
+      if (reISO.exec(value)) {
+        return new Date(value);
+      }
+    }
+  }
+  return value;
+}
+
+app.use(express.json({ reviver: isoDateStringToDate }));
+
 app.use(express.urlencoded({ extended: true }));
 app.use(bearerToken());
 
@@ -101,7 +116,7 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
   next();
 });
 
-const knex = knexConnect(knexconfig);
+const knex = knexConnect<any, Record<string, any>[]>(knexconfig);
 registerHandlers(app, knex);
 
 // デフォルトエラーハンドラー

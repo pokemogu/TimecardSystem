@@ -66,7 +66,7 @@ export function worker(knexconfig: Knex.Config) {
     return next();
   };
 
-  const knex = knexConnect(knexconfig);
+  const knex = knexConnect<any, Record<string, any>[]>(knexconfig);
   const interval = setInterval(async function () {
     try {
       // ジョブ一覧

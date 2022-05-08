@@ -81,7 +81,10 @@ async function onPageForward() {
 async function onPrivilegeClick(privilegeId?: number) {
 
   if (privilegeId) {
-    selectedPrivilege.value = privilegeInfos.value.find(priv => priv.id === privilegeId) ?? { name: '' };
+    const selectedPrivilegeIndex = privilegeInfos.value.findIndex(priv => priv.id === privilegeId);
+    if (selectedPrivilegeIndex >= 0) {
+      selectedPrivilege.value = JSON.parse(JSON.stringify(privilegeInfos.value[selectedPrivilegeIndex]));
+    }
   }
   else {
     selectedPrivilege.value = {
@@ -160,41 +163,24 @@ async function onPrivilegeSubmit() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="権限設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="権限設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <PrivilegeEdit
-        v-model:isOpened="isModalOpened"
-        v-model:privilege="selectedPrivilege"
-        v-on:submit="onPrivilegeSubmit"
-      ></PrivilegeEdit>
+      <PrivilegeEdit v-model:isOpened="isModalOpened" v-model:privilege="selectedPrivilege"
+        v-on:submit="onPrivilegeSubmit"></PrivilegeEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onPrivilegeClick()"
-        >新規権限作成</button>
+        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onPrivilegeClick()">新規権限作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onPrivilegeDelete"
-        >チェックした権限を削除</button>
+          v-on:click="onPrivilegeDelete">チェックした権限を削除</button>
       </div>
     </div>
 
@@ -217,31 +203,20 @@ async function onPrivilegeSubmit() {
               <th rowspan="2" scope="col" class="text-center vertical">端末登録</th>
             </tr>
             <tr>
-              <th
-                scope="col"
-                class="text-center vertical"
-                v-for="(item, index) in applyTypes.map(applyType => applyType.description)"
-              >{{ item }}</th>
+              <th scope="col" class="text-center vertical"
+                v-for="(item, index) in applyTypes.map(applyType => applyType.description)">{{ item }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(privilege, index) in privilegeInfos">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[privilege.id || 0]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index"
+                  v-model="checks[privilege.id || 0]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onPrivilegeClick(privilege.id)"
-                >
+                <button type="button" class="btn btn-link" v-on:click="onPrivilegeClick(privilege.id)">
                   {{
-                    privilege.name
+                      privilege.name
                   }}
                 </button>
               </td>
@@ -249,10 +224,8 @@ async function onPrivilegeSubmit() {
                 <span v-if="privilege.recordByLogin">&check;</span>
               </td>
 
-              <td
-                class="text-center"
-                v-for="(item, index) in privilege.applyPrivileges?.filter(applyType => applyType.isSystemType === true)"
-              >
+              <td class="text-center"
+                v-for="(item, index) in privilege.applyPrivileges?.filter(applyType => applyType.isSystemType === true)">
                 <span v-if="item.permitted === true">&check;</span>
               </td>
               <td class="text-center">
@@ -260,12 +233,8 @@ async function onPrivilegeSubmit() {
               </td>
               <td class="text-center">
                 <span v-if="privilege.viewRecord === undefined || privilege.viewRecord === false"></span>
-                <span
-                  v-else-if="privilege.viewRecord === true && privilege.viewAllUserInfo === true"
-                >全社</span>
-                <span
-                  v-else-if="privilege.viewRecord === true && privilege.viewSectionUserInfo === true"
-                >部署</span>
+                <span v-else-if="privilege.viewRecord === true && privilege.viewAllUserInfo === true">全社</span>
+                <span v-else-if="privilege.viewRecord === true && privilege.viewSectionUserInfo === true">部署</span>
                 <span v-else-if="privilege.viewRecord === true">本人</span>
               </td>
               <td class="text-center">
@@ -298,10 +267,7 @@ async function onPrivilegeSubmit() {
                         <span>&laquo;</span>
                       </button>
                     </li>
-                    <li
-                      class="page-item"
-                      v-bind:class="{ disabled: privilegeInfos.length <= limit }"
-                    >
+                    <li class="page-item" v-bind:class="{ disabled: privilegeInfos.length <= limit }">
                       <button class="page-link" v-on:click="onPageForward">
                         <span>&raquo;</span>
                       </button>
@@ -320,7 +286,9 @@ async function onPrivilegeSubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

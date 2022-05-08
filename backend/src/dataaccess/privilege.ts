@@ -1,7 +1,8 @@
 import lodash from 'lodash';
-import { DatabaseAccess } from '../dataaccess';
-import type * as apiif from 'shared/APIInterfaces';
 import createHttpError from 'http-errors';
+
+import { DatabaseAccess } from '../dataaccess';
+import type * as apiif from '../APIInterfaces';
 
 ///////////////////////////////////////////////////////////////////////
 // 権限情報関連
@@ -20,7 +21,7 @@ export async function registerPrivilege(this: DatabaseAccess, accessToken: strin
 export async function getUserPrivilege(this: DatabaseAccess, account: string) {
 
   const result = await this.knex.select<apiif.PrivilegeResponseData[]>({
-    id: 'privilege', name: 'privilege.name', recordByLogin: 'privilege.recordByLogin',
+    id: 'privilege.id', name: 'privilege.name', recordByLogin: 'privilege.recordByLogin',
     maxApplyLateNum: 'privilege.maxApplyLateNum', maxApplyLateHours: 'privilege.maxApplyLateHours',
     maxApplyEarlyNum: 'privilege.maxApplyEarlyNum', maxApplyEarlyHours: 'privilege.maxApplyEarlyHours',
     approve: 'privilege.approve',
@@ -37,6 +38,10 @@ export async function getUserPrivilege(this: DatabaseAccess, account: string) {
     .where('user.account', account)
     .andWhere('privilege.isSystemPrivilege', false)
     .first();
+
+  if (!result) {
+    throw new createHttpError.NotFound('指定された名前の権限が見つかりません');
+  }
 
   if (result.id) {
     result.applyPrivileges = await this.getApplyPrivilege(result.id);
@@ -113,13 +118,19 @@ export async function getApplyPrivilege(this: DatabaseAccess, privilege: number)
 export async function addPrivilege(this: DatabaseAccess, privilege: apiif.PrivilageRequestData) {
 
   const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
-  Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
+  if (privilege.applyPrivileges) {
+    applyPrivileges.push(...privilege.applyPrivileges);
+    //Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
+  }
 
   const applyTypes = await this.getApplyTypes();
 
   await this.knex('privilege').insert(lodash.omit(privilege, ['id', 'applyPrivileges']));
 
   const privilegeLastIdResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+  if (!privilegeLastIdResult) {
+    throw createHttpError(500, '', { internalMessage: 'MySQLの LAST_INSERT_ID() 実行に失敗しました' });
+  }
   const privilegeLastId = privilegeLastIdResult['LAST_INSERT_ID()'];
 
   if (privilege.applyPrivileges && privilege.applyPrivileges.length > 0) {
@@ -134,20 +145,39 @@ export async function addPrivilege(this: DatabaseAccess, privilege: apiif.Privil
 }
 
 export async function getPrivileges(this: DatabaseAccess) {
-  const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege').where('isSystemPrivilege', false);
+  //const results = await this.knex.table<apiif.PrivilegeResponseData>('privilege').where('isSystemPrivilege', false);
+  const results = await this.knex.select<apiif.PrivilegeResponseData[]>({
+    id: 'privilege.id', name: 'privilege.name', recordByLogin: 'privilege.recordByLogin',
+    maxApplyLateNum: 'privilege.maxApplyLateNum', maxApplyLateHours: 'privilege.maxApplyLateHours',
+    maxApplyEarlyNum: 'privilege.maxApplyEarlyNum', maxApplyEarlyHours: 'privilege.maxApplyEarlyHours',
+    approve: 'privilege.approve',
+    viewRecord: 'privilege.viewRecord', viewRecordPerDevice: 'privilege.viewRecordPerDevice',
+    configurePrivilege: 'privilege.configurePrivilege', configureWorkPattern: 'privilege.configureWorkPattern',
+    issueQr: 'privilege.issueQr',
+    registerUser: 'privilege.registerUser', registerDevice: 'privilege.registerDevice',
+    viewAllUserInfo: 'privilege.viewAllUserInfo',
+    viewDepartmentUserInfo: 'privilege.viewDepartmentUserInfo',
+    viewSectionUserInfo: 'privilege.viewSectionUserInfo'
+  })
+    .from('privilege')
+    .where('isSystemPrivilege', false);
 
   for (const result of results) {
     if (result.id) {
       result.applyPrivileges = await this.getApplyPrivilege(result.id);
     }
   }
+
   return results;
 }
 
 export async function updatePrivilege(this: DatabaseAccess, privilege: apiif.PrivilageRequestData) {
 
   const applyPrivileges: apiif.ApplyPrivilegeResponseData[] = [];
-  Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
+  if (privilege.applyPrivileges) {
+    applyPrivileges.push(...privilege.applyPrivileges);
+    //Array.prototype.push.apply(applyPrivileges, privilege.applyPrivileges);
+  }
 
   const applyTypes = await this.getApplyTypes();
 
@@ -175,7 +205,7 @@ export async function deletePrivilege(this: DatabaseAccess, id: number) {
     });
   }
   catch (error: unknown) {
-    if (error.toString().includes('foreign key constraint fails')) {
+    if (error instanceof Error && error.toString().includes('foreign key constraint fails')) {
       throw createHttpError(403, 'この権限を使用しているユーザーがいる為、削除できません', { internalMessage: (error as Error).message });
     }
     else {

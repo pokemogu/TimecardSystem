@@ -1,4 +1,4 @@
-import type * as apiif from 'shared/APIInterfaces';
+import type * as apiif from '../APIInterfaces';
 import { DatabaseAccess } from '../dataaccess';
 
 ///////////////////////////////////////////////////////////////////////

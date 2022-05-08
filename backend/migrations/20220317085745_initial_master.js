@@ -1,6 +1,7 @@
-import { Knex } from "knex";
+const Knex = require('knex').Knex;
 
-export async function up(knex: Knex) {
+/** @param { Knex } knex  */
+async function up(knex) {
   try {
     await knex.schema.createTable('holiday', function (table) {
       table.date('date').unique().index();
@@ -211,12 +212,14 @@ export async function up(knex: Knex) {
 
     await knex.schema.raw('ALTER TABLE applyOptionType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
-    const typeRecord = await knex.select<{ id: number }[]>('id').as('type').from('applyType').where('name', 'record');
-    const typeLeave = await knex.select<{ id: number }[]>('id').as('type').from('applyType').where('name', 'leave');
+    /** @type {{ id: number }} */
+    const typeRecord = await knex.select('id').as('type').from('applyType').where('name', 'record').first();
+    /** @type {{ id: number }} */
+    const typeLeave = await knex.select('id').as('type').from('applyType').where('name', 'leave').first();
     await knex('applyOptionType').insert([
-      { name: 'situation', isSystemType: true, type: typeRecord[0].id, description: '種類' },
-      { name: 'recordType', isSystemType: true, type: typeRecord[0].id, description: '時刻' },
-      { name: 'leaveType', isSystemType: true, type: typeLeave[0].id, description: '種類' },
+      { name: 'situation', isSystemType: true, type: typeRecord.id, description: '種類' },
+      { name: 'recordType', isSystemType: true, type: typeRecord.id, description: '時刻' },
+      { name: 'leaveType', isSystemType: true, type: typeLeave.id, description: '種類' },
     ]);
 
     await knex.schema.createTable('applyOptionValue', function (table) {
@@ -231,29 +234,35 @@ export async function up(knex: Knex) {
 
     await knex.schema.raw('ALTER TABLE applyOptionValue MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
-    const optionTypeRecordSituation = await knex.select<{ id: number }[]>('id').as('optionType').from('applyOptionType')
-      .where('type', typeRecord[0].id)
-      .andWhere('name', 'situation');
-    const optionTypeRecordType = await knex.select<{ id: number }[]>('id').as('optionType').from('applyOptionType')
-      .where('type', typeRecord[0].id)
-      .andWhere('name', 'recordType');
-    const optionTypeLeaveType = await knex.select<{ id: number }[]>('id').as('optionType').from('applyOptionType')
-      .where('type', typeLeave[0].id)
-      .andWhere('name', 'leaveType');
+    /** @type {{ id: number }} */
+    const optionTypeRecordSituation = await knex.select('id').as('optionType').from('applyOptionType')
+      .where('type', typeRecord.id)
+      .andWhere('name', 'situation')
+      .first();
+    /** @type {{ id: number }} */
+    const optionTypeRecordType = await knex.select('id').as('optionType').from('applyOptionType')
+      .where('type', typeRecord.id)
+      .andWhere('name', 'recordType')
+      .first();
+    /** @type {{ id: number }} */
+    const optionTypeLeaveType = await knex.select('id').as('optionType').from('applyOptionType')
+      .where('type', typeLeave.id)
+      .andWhere('name', 'leaveType')
+      .first();
     await knex('applyOptionValue').insert([
-      { optionType: optionTypeRecordSituation[0].id, name: 'notyet', isSystemType: true, description: '未打刻' },
-      { optionType: optionTypeRecordSituation[0].id, name: 'athome', isSystemType: true, description: '在宅' },
-      { optionType: optionTypeRecordSituation[0].id, name: 'trip', isSystemType: true, description: '出張' },
-      { optionType: optionTypeRecordSituation[0].id, name: 'break', isSystemType: true, description: '外出' },
-      { optionType: optionTypeRecordType[0].id, name: 'clockin', isSystemType: true, description: '出勤' },
-      { optionType: optionTypeRecordType[0].id, name: 'clockout', isSystemType: true, description: '退勤' },
-      { optionType: optionTypeRecordType[0].id, name: 'break', isSystemType: true, description: '外出' },
-      { optionType: optionTypeRecordType[0].id, name: 'reenter', isSystemType: true, description: '再入' },
-      { optionType: optionTypeLeaveType[0].id, name: 'normal', isSystemType: true, description: '有給' },
-      { optionType: optionTypeLeaveType[0].id, name: 'halfday', isSystemType: true, description: '半休' },
-      //{ optionType: optionTypeLeaveType[0].id, name: 'makeup', isSystemType: true, description: '代休' },
-      { optionType: optionTypeLeaveType[0].id, name: 'mourning', isSystemType: true, description: '慶弔休' },
-      { optionType: optionTypeLeaveType[0].id, name: 'measure', isSystemType: true, description: '措置休暇' },
+      { optionType: optionTypeRecordSituation.id, name: 'notyet', isSystemType: true, description: '未打刻' },
+      { optionType: optionTypeRecordSituation.id, name: 'athome', isSystemType: true, description: '在宅' },
+      { optionType: optionTypeRecordSituation.id, name: 'trip', isSystemType: true, description: '出張' },
+      { optionType: optionTypeRecordSituation.id, name: 'break', isSystemType: true, description: '外出' },
+      { optionType: optionTypeRecordType.id, name: 'clockin', isSystemType: true, description: '出勤' },
+      { optionType: optionTypeRecordType.id, name: 'clockout', isSystemType: true, description: '退勤' },
+      { optionType: optionTypeRecordType.id, name: 'break', isSystemType: true, description: '外出' },
+      { optionType: optionTypeRecordType.id, name: 'reenter', isSystemType: true, description: '再入' },
+      { optionType: optionTypeLeaveType.id, name: 'normal', isSystemType: true, description: '有給' },
+      { optionType: optionTypeLeaveType.id, name: 'halfday', isSystemType: true, description: '半休' },
+      //{ optionType: optionTypeLeaveType.id, name: 'makeup', isSystemType: true, description: '代休' },
+      { optionType: optionTypeLeaveType.id, name: 'mourning', isSystemType: true, description: '慶弔休' },
+      { optionType: optionTypeLeaveType.id, name: 'measure', isSystemType: true, description: '措置休暇' },
     ]);
 
     await knex.schema.createTable('approvalRoute', function (table) {
@@ -659,8 +668,10 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     throw error;
   }
 }
+exports.up = up;
 
-export async function down(knex: Knex) {
+/** @param { Knex } knex  */
+async function down(knex) {
   await knex.schema.raw('drop procedure if exists generateAllDays');
 
   //await knex.schema.dropViewIfExists('applyPrivilegeAllList');
@@ -702,3 +713,4 @@ export async function down(knex: Knex) {
   await knex.schema.dropTableIfExists('department');
   await knex.schema.dropTableIfExists('holiday');
 }
+exports.down = down;

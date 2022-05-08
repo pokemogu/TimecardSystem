@@ -6,6 +6,7 @@ import * as backendAccess from '@/BackendAccess';
 
 const appName = '勤怠管理システム';
 
+// 承認権限が有るかどうかチェックする
 const verifyApprove = (redirectTo: string = 'dashboard') => {
   const store = useSessionStore();
   if (!store.privilege) {
@@ -16,6 +17,7 @@ const verifyApprove = (redirectTo: string = 'dashboard') => {
   }
 }
 
+// 申請権限が有るかどうかチェックする
 const verifyApplyPrivilege = (applyType: string, redirectTo: string = 'dashboard') => {
   const store = useSessionStore();
   if (!store.privilege?.applyPrivileges) {
@@ -79,9 +81,14 @@ const router = createRouter({
         if (token) {
           const access = new backendAccess.TokenAccess(token);
           const applyId = parseInt(to.params.id as string);
-          const type = await access.getApplyTypeOfApply(applyId);
-          if (type) {
-            return `/apply/${type.name}/${applyId}`;
+          try {
+            const type = await access.getApplyTypeOfApply(applyId);
+            if (type?.name) {
+              return `/apply/${type.name}/${applyId}`;
+            }
+          }
+          catch (error) {
+            console.log(error);
           }
         }
         return { name: 'home' };
@@ -207,26 +214,30 @@ const router = createRouter({
       path: '/apply/generic-time-period/:type',
       name: 'apply-generic-time-period',
       component: () => import('@/views/ApplyGenericTimePeriodView.vue'),
-      meta: { title: `${appName} - 申請` }
+      meta: { title: `${appName} - 申請` },
+      beforeEnter: (to) => { return verifyApprove() || verifyApplyPrivilege(to.params.type as string) }
     },
     {
       path: '/apply/generic-time-period/:type/:id',
       name: 'apply-generic-time-period-view',
       component: () => import('@/views/ApplyGenericTimePeriodView.vue'),
-      meta: { title: `${appName} - 申請` }
+      meta: { title: `${appName} - 申請` },
+      beforeEnter: (to) => { return verifyApprove() || verifyApplyPrivilege(to.params.type as string) }
     },
     // 代休申請
     {
       path: '/apply/makeup-leave',
       name: 'apply-makeup-leave',
       component: () => import('@/views/ApplyMakeupLeaveView.vue'),
-      meta: { title: `${appName} - 代休申請` }
+      meta: { title: `${appName} - 代休申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('makeup-leave') }
     },
     {
       path: '/apply/makeup-leave/:id',
       name: 'apply-makeup-leave-view',
       component: () => import('@/views/ApplyMakeupLeaveView.vue'),
-      meta: { title: `${appName} - 代休申請` }
+      meta: { title: `${appName} - 代休申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('makeup-leave') }
     },
     // その他申請
     {
@@ -246,13 +257,15 @@ const router = createRouter({
       path: '/approval/pending',
       name: 'approval-pending',
       component: () => import('@/views/ApproveView.vue'),
-      meta: { title: `${appName} - 未承認一覧` }
+      meta: { title: `${appName} - 未承認一覧` },
+      beforeEnter: () => { return verifyApprove() }
     },
     {
       path: '/approval/pending',
       name: 'approval-all',
       component: () => { },
-      meta: { title: `${appName} - 全ての申請` }
+      meta: { title: `${appName} - 全ての申請` },
+      beforeEnter: () => { return verifyApprove() }
     },
     // 管理関連
     {

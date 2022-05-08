@@ -16,7 +16,7 @@ async function loadUserCache(accessToken: string) {
     if (minuteDiff > 60) {
       console.log('Updating user info cache...');
       const access = new backendAccess.TokenAccess(accessToken);
-      const userInfos = await access.getUserInfos({ isQrCodeIssued: true });
+      const userInfos = await access.getUsersInfo({ isQrCodeIssued: true });
 
       let updatedUserInfoNum = 0;
       if (userInfos) {

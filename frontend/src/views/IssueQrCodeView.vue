@@ -10,7 +10,7 @@ import Header from '@/components/Header.vue';
 import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
-import generateQrCodePDF from '../GenerateQrCodePDF';
+import generateQrCodePDF from '@/GenerateQrCodePDF';
 
 import UserEdit from '@/components/UserEdit.vue';
 
@@ -18,7 +18,7 @@ const router = useRouter();
 const store = useSessionStore();
 
 const userInfos = ref<apiif.UserInfoResponseData[]>([]);
-const selectedUserInfo = ref<apiif.UserInfoRequestData>({ account: '' });
+const selectedUserInfo = ref<apiif.UserInfoRequestData>({ account: '', name: '', privilegeName: '', defaultWorkPatternName: '' });
 const checks = ref<boolean[]>([]);
 const isModalOpened = ref(false);
 
@@ -52,11 +52,11 @@ const updateUserList = async () => {
     const token = await store.getToken();
     if (token) {
       const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getUserInfos({
-        byAccounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
-        byName: nameSearch.value !== '' ? nameSearch.value : undefined,
-        byDepartment: departmentSearch.value !== '' ? departmentSearch.value : undefined,
-        bySection: sectionSearch.value !== '' ? sectionSearch.value : undefined,
+      const infos = await tokenAccess.getUsersInfo({
+        accounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
+        name: nameSearch.value !== '' ? nameSearch.value : undefined,
+        department: departmentSearch.value !== '' ? departmentSearch.value : undefined,
+        section: sectionSearch.value !== '' ? sectionSearch.value : undefined,
         registeredFrom: dateFrom.value !== '' ? new Date(dateFrom.value) : undefined,
         registeredTo: dateTo.value !== '' ? new Date(dateTo.value) : undefined,
         isQrCodeIssued: statusSearch.value !== '' ? (statusSearch.value === 'issued' ? true : false) : undefined,
@@ -79,6 +79,30 @@ const updateUserList = async () => {
 onMounted(async () => {
   await updateUserList();
 })
+
+async function onUserClick(account?: string) {
+  if (account) {
+    const token = await store.getToken();
+    if (token) {
+      const tokenAccess = new backendAccess.TokenAccess(token);
+      const userInfo = await tokenAccess.getUserInfo(account);
+      if (userInfo) {
+        selectedUserInfo.value = {
+          account: userInfo.account, name: userInfo.name, phonetic: userInfo.phonetic,
+          email: userInfo.email, section: userInfo.section, department: userInfo.department,
+          privilegeName: userInfo.privilegeName,
+          defaultWorkPatternName: userInfo.defaultWorkPatternName,
+          optional1WorkPatternName: userInfo.optional1WorkPatternName,
+          optional2WorkPatternName: userInfo.optional2WorkPatternName
+        };
+      }
+    }
+  }
+  else {
+    selectedUserInfo.value = { account: '', name: '', privilegeName: '', defaultWorkPatternName: '' };
+  }
+  isModalOpened.value = true;
+}
 
 async function onIssueQrCode() {
   const userInfoforQrCode: {
@@ -132,6 +156,15 @@ async function onPageForward() {
   await updateUserList();
 }
 
+async function onSubmit() {
+  console.log(selectedUserInfo.value);
+  console.log(selectedUserInfo.value.account);
+}
+
+async function onDelete() {
+
+}
+
 </script>
 
 <template>
@@ -144,12 +177,13 @@ async function onPageForward() {
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <UserEdit v-model:isOpened="isModalOpened" v-model:userInfo="selectedUserInfo"></UserEdit>
+      <UserEdit v-model:isOpened="isModalOpened" v-model:userInfo="selectedUserInfo" v-on:submit="onSubmit"
+        v-on:submitDelete="onDelete"></UserEdit>
     </Teleport>
 
     <div class="row justify-content-end p-2">
       <div class="d-grid gap-2 col-2">
-        <button type="button" class="btn btn-primary" id="new-user" v-on:click="isModalOpened = true">従業員ID追加</button>
+        <button type="button" class="btn btn-primary" id="new-user" v-on:click="onUserClick()">従業員ID追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
         <button type="button" class="btn btn-primary" id="issue-qr" v-on:click="onIssueQrCode"
@@ -218,7 +252,9 @@ async function onPageForward() {
                 <RouterLink :to="{ name: 'admin-reguser', params: { account: user.account } }">{{ user.account }}
                 </RouterLink>
                 -->
-                {{ user.account }}
+                <button type="button" class="btn btn-link" v-on:click="onUserClick(user.account)">
+                  {{ user.account }}
+                </button>
               </td>
               <td>{{ user.name }}</td>
               <td>{{ user.department }}</td>

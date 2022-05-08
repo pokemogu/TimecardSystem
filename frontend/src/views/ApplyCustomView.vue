@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 const store = useSessionStore();
 
-const applyTypeOptions1 = ref<{ name: string, description: string }[]>([]);
+const applyTypeOptions1 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'applyType', options: [] });
 const applyTypeValue1 = ref('');
 
 const dateFrom = ref('');
@@ -30,7 +30,7 @@ onMounted(async () => {
   if (applyTypes) {
     const customApplyTypes = applyTypes.filter(applyType => applyType.isSystemType !== true);
     if (customApplyTypes) {
-      applyTypeOptions1.value.splice(0);
+      applyTypeOptions1.value.options.splice(0);
       Array.prototype.push.apply(
         applyTypeOptions1.value,
         customApplyTypes.map(applyType => {
@@ -55,12 +55,12 @@ async function onRouteSubmit() {
         }
         const access = new backendAccess.TokenAccess(token);
         await access.submitApply(applyTypeValue1.value, {
-          date: dateFrom.value,
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
-          dateTimeTo: new Date(`${dateTo.value}T${timeTo.value}:59`).toISOString(),
-          timestamp: new Date().toISOString(),
+          date: new Date(dateFrom.value),
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+          dateTimeTo: new Date(`${dateTo.value}T${timeTo.value}:59`),
+          timestamp: new Date(),
           contact: contact.value,
-          route: routeName.value
+          routeName: routeName.value
         });
 
         router.push({ name: 'dashboard' });

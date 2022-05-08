@@ -23,8 +23,8 @@ const router = useRouter();
 const store = useSessionStore();
 
 const isModalOpened = ref(false);
-const selectedWorkPattern = ref<apiif.WorkPatternResponseData>({ name: '', onTimeStart: '', onTimeEnd: '', wagePatterns: [] });
-const workPatternInfos = ref<apiif.WorkPatternsResponseData[]>([]);
+const selectedWorkPattern = ref<apiif.WorkPatternRequestData>({ name: '', onTimeStart: '', onTimeEnd: '', wagePatterns: [] });
+const workPatternInfos = ref<apiif.WorkPatternResponseData[]>([]);
 const checks = ref<Record<number, boolean>>({});
 
 const limit = ref(10);
@@ -74,7 +74,7 @@ async function onWorkPatternClick(workPatternName?: string) {
         const tokenAccess = new backendAccess.TokenAccess(token);
         const workPattern = await tokenAccess.getWorkPattern(workPatternName);
         if (workPattern) {
-          selectedWorkPattern.value = workPattern;
+          selectedWorkPattern.value = JSON.parse(JSON.stringify(workPattern));
         }
       }
     }
@@ -84,9 +84,11 @@ async function onWorkPatternClick(workPatternName?: string) {
     }
   }
   else {
+    selectedWorkPattern.value.id = undefined;
     selectedWorkPattern.value.name = '';
     selectedWorkPattern.value.onTimeStart = '';
     selectedWorkPattern.value.onTimeEnd = '';
+    selectedWorkPattern.value.wagePatterns = undefined;
   }
 
 
@@ -177,41 +179,24 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="勤務体系設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="勤務体系設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <WorkPatternEdit
-        v-model:isOpened="isModalOpened"
-        v-model:workPattern="selectedWorkPattern"
-        v-on:submit="onWorkPatternSubmit"
-      ></WorkPatternEdit>
+      <WorkPatternEdit v-model:isOpened="isModalOpened" v-model:workPattern="selectedWorkPattern"
+        v-on:submit="onWorkPatternSubmit"></WorkPatternEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onWorkPatternClick()"
-        >新規勤務体系作成</button>
+        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onWorkPatternClick()">新規勤務体系作成</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onWorkPatternDelete()"
-        >チェックした勤務体系を削除</button>
+          v-on:click="onWorkPatternDelete()">チェックした勤務体系を削除</button>
       </div>
     </div>
 
@@ -230,19 +215,13 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
           <tbody>
             <tr v-for="(workPattern, index) in workPatternInfos">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[workPattern.id]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index"
+                  v-model="checks[workPattern.id]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onWorkPatternClick(workPattern.name)"
-                >{{ workPattern.name }}</button>
+                <button type="button" class="btn btn-link" v-on:click="onWorkPatternClick(workPattern.name)">{{
+                    workPattern.name
+                }}</button>
               </td>
               <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>
               <td>{{ formatTimeString(workPattern.onTimeEnd) }}</td>
@@ -258,10 +237,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
                         <span>&laquo;</span>
                       </button>
                     </li>
-                    <li
-                      class="page-item"
-                      v-bind:class="{ disabled: workPatternInfos.length <= limit }"
-                    >
+                    <li class="page-item" v-bind:class="{ disabled: workPatternInfos.length <= limit }">
                       <button class="page-link" v-on:click="onPageForward">
                         <span>&raquo;</span>
                       </button>
@@ -280,7 +256,9 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

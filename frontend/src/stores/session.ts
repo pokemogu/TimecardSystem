@@ -33,6 +33,8 @@ export const useSessionStore = defineStore({
           this.refreshToken = result.refreshToken;
           this.userAccount = account;
           this.userName = result.name;
+          this.userSection = result.section;
+          this.userDepartment = result.department;
 
           const accessToken = await this.getToken();
           const access = new backendAccess.TokenAccess(accessToken);
@@ -61,10 +63,10 @@ export const useSessionStore = defineStore({
           this.refreshToken = refreshToken;
         }
         const result = await backendAccess.getToken(this.refreshToken);
-        if (!result?.token) {
+        if (!result?.accessToken) {
           throw new Error('token not returned');
         }
-        return result.token.accessToken;
+        return result.accessToken;
       } catch (error) {
         console.log(error);
         throw error;

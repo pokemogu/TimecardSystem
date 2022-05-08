@@ -1,6 +1,8 @@
+import createHttpError from 'http-errors';
+
 import { DatabaseAccess } from '../dataaccess';
 import type { UserInfo } from '../dataaccess';
-import type * as apiif from 'shared/APIInterfaces';
+import type * as apiif from '../APIInterfaces';
 
 function dateToLocalString(date: Date) {
   return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
@@ -10,35 +12,26 @@ function dateToLocalString(date: Date) {
 // 打刻情報関連
 ///////////////////////////////////////////////////////////////////////
 
-export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, params: {
-  account?: string, type: string, timestamp: Date, deviceAccount?: string, deviceToken?: string, apply?: number
-}) {
+export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, recordType: string, params: apiif.RecordRequestBody) {
 
   // type はデータベースから取得済のキャッシュを利用する
-  if (!(params.type in DatabaseAccess.recordTypeCache)) {
+  if (!(recordType in DatabaseAccess.recordTypeCache)) {
     throw new Error('invalid type');
   }
 
   let userId = -1;
   if (params.account) {
-    userId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', params.account).first()).id;
+    const targetUserId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', params.account).first())?.id;
+    if (!targetUserId) {
+      throw new createHttpError.NotFound(`指定されたユーザーID ${params.account} が見つかりません`);
+    }
+    else {
+      userId = targetUserId;
+    }
   }
   else {
     userId = userInfo.id;
   }
-
-  /*
-  await this.knex('recordLog').insert([
-    {
-      user: userId,
-      type: DatabaseAccess.recordTypeCache[params.type].id,
-      device: params.device,
-      timestamp: params.timestamp
-    }
-  ]);
-  const lastRecordLogResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
-  const lastRecordLogId = lastRecordLogResult['LAST_INSERT_ID()'];
-  */
 
   // 出勤(clockin)以外の打刻は前日からの日跨ぎ勤務である可能性があるので、
   // (なお労働基準法の規定上、出勤時の日付は必ず勤務日となるので、出勤打刻の場合は前日チェックはしない)
@@ -49,16 +42,12 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, par
   const beforeDayString = dateToLocalString(beforeDay);
 
   let recordDateString = currentDayString;
-  if (params.type !== 'clockin') {
+  if (recordType !== 'clockin') {
     const records = await this.knex.select<{ id: number, date: Date }[]>({ id: 'id', date: 'date' })
       .from('record')
       .where('user', userId)
       .andWhere('clockin', 'is not', null)
       .andWhereBetween('date', [beforeDayString, currentDayString]);
-
-    //for (const record of records) {
-    //  console.log(dateToLocalString(record.date));
-    //}
 
     if (!records.some(record => dateToLocalString(record.date) === currentDayString)) {
       //console.log('record: currentDay not found')
@@ -77,12 +66,12 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, par
       .from('user')
       .where('account', params.deviceAccount)
       .andWhere('isDevice', true)
-      .first()).id;
+      .first())?.id;
     //console.log('deviceId: ' + deviceId)
   }
 
   const mergeColumns: string[] = [];
-  switch (params.type) {
+  switch (recordType) {
     case 'clockin':
       Array.prototype.push.apply(mergeColumns, ['clockin', 'clockinDevice', 'clockinApply']);
       break;
@@ -101,21 +90,21 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, par
     user: userId,
     date: recordDateString,
 
-    clockin: params.type === 'clockin' ? params.timestamp : undefined,
-    clockinDevice: params.type === 'clockin' ? deviceId : undefined,
-    clockinApply: params.type === 'clockin' ? params.apply : undefined,
+    clockin: recordType === 'clockin' ? params.timestamp : undefined,
+    clockinDevice: recordType === 'clockin' ? deviceId : undefined,
+    clockinApply: recordType === 'clockin' ? params.applyId : undefined,
 
-    break: params.type === 'break' ? params.timestamp : undefined,
-    breakDevice: params.type === 'break' ? deviceId : undefined,
-    breakApply: params.type === 'break' ? params.apply : undefined,
+    break: recordType === 'break' ? params.timestamp : undefined,
+    breakDevice: recordType === 'break' ? deviceId : undefined,
+    breakApply: recordType === 'break' ? params.applyId : undefined,
 
-    reenter: params.type === 'reenter' ? params.timestamp : undefined,
-    reenterDevice: params.type === 'reenter' ? deviceId : undefined,
-    reenterApply: params.type === 'reenter' ? params.apply : undefined,
+    reenter: recordType === 'reenter' ? params.timestamp : undefined,
+    reenterDevice: recordType === 'reenter' ? deviceId : undefined,
+    reenterApply: recordType === 'reenter' ? params.applyId : undefined,
 
-    clockout: params.type === 'clockout' ? params.timestamp : undefined,
-    clockoutDevice: params.type === 'clockout' ? deviceId : undefined,
-    clockoutApply: params.type === 'clockout' ? params.apply : undefined,
+    clockout: recordType === 'clockout' ? params.timestamp : undefined,
+    clockoutDevice: recordType === 'clockout' ? deviceId : undefined,
+    clockoutApply: recordType === 'clockout' ? params.applyId : undefined,
   })
     .onConflict(['user', 'date'])
     .merge(mergeColumns); // ON DUPLICATE KEY UPDATE
@@ -131,25 +120,25 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     section: string
     date: Date,
 
-    clockin: Date | null,
-    clockinDeviceAccount: string | null,
-    clockinDeviceName: string | null,
-    clockinApplyId: number | null,
+    clockin?: Date,
+    clockinDeviceAccount?: string,
+    clockinDeviceName?: string,
+    clockinApplyId?: number,
 
-    breakDeviceAccount: string | null,
-    break: Date | null,
-    breakDeviceName: string | null,
-    breakApplyId: number | null,
+    break?: Date,
+    breakDeviceAccount?: string,
+    breakDeviceName?: string,
+    breakApplyId?: number,
 
-    reenterDeviceAccount: string | null,
-    reenter: Date | null,
-    reenterDeviceName: string | null,
-    reenterApplyId: number | null,
+    reenter?: Date,
+    reenterDeviceAccount?: string,
+    reenterDeviceName?: string,
+    reenterApplyId?: number,
 
-    clockout: Date | null,
-    clockoutDeviceAccount: string | null,
-    clockoutDeviceName: string | null,
-    clockoutApplyId: number | null,
+    clockout?: Date,
+    clockoutDeviceAccount?: string,
+    clockoutDeviceName?: string,
+    clockoutApplyId?: number,
   };
 
   const results = await this.knex
@@ -219,25 +208,25 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       userName: result.userName,
       date: dateToLocalString(result.date),
       clockin: result.clockin ? {
-        timestamp: result.clockin.toISOString(),
+        timestamp: result.clockin,
         deviceAccount: result.clockinDeviceAccount,
         deviceName: result.clockinDeviceName,
         applyId: result.clockinApplyId
       } : undefined,
       break: result.break ? {
-        timestamp: result.break.toISOString(),
+        timestamp: result.break,
         deviceAccount: result.breakDeviceAccount,
         deviceName: result.breakDeviceName,
         applyId: result.breakApplyId
       } : undefined,
       reenter: result.reenter ? {
-        timestamp: result.reenter.toISOString(),
+        timestamp: result.reenter,
         deviceAccount: result.reenterDeviceAccount,
         deviceName: result.reenterDeviceName,
         applyId: result.reenterApplyId
       } : undefined,
       clockout: result.clockout ? {
-        timestamp: result.clockout.toISOString(),
+        timestamp: result.clockout,
         deviceAccount: result.clockoutDeviceAccount,
         deviceName: result.clockoutDeviceName,
         applyId: result.clockoutApplyId

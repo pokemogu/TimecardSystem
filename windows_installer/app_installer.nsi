@@ -50,9 +50,11 @@ FunctionEnd
 #####################################################################
 
 !include "FileFunc.nsh"
+!include "StrFunc.nsh"
+${StrRep}
 
 Function LaunchConfig
-  Exec "$INSTDIR\configure.bat"
+  Exec 'npm.cmd run configure-windows-service'
 FunctionEnd
 
 # 日本語UI
@@ -96,7 +98,9 @@ noError_Node:
   Var /GLOBAL ApacheHausUninstallerPath
   Var /GLOBAL ApacheHausPath
 
-  ReadRegStr $ApacheHausUninstallerPath HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Apache HTTP Server 2.4.53 (Apache Haus)" "UninstallString"
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Apache HTTP Server 2.4.53 (Apache Haus)" "UninstallString"
+  ${StrRep} $1 $0 '"' ''
+  StrCpy $ApacheHausUninstallerPath $1
   ${GetParent} $ApacheHausUninstallerPath $ApacheHausPath
   StrCmp $ApacheHausPath "" 0 noError_Apache
 
@@ -114,7 +118,7 @@ noError_Apache:
   Var /GLOBAL ApacheHausExtraConfPath
   StrCpy $ApacheHausExtraConfPath "$ApacheHausPath\conf\extra\httpd-ahssl-sites"
 
-  IfFileExists "$ApacheHausExtraConfPath\*.*" 0 noError_ApacheConf
+  IfFileExists "$ApacheHausExtraConfPath\*.*" noError_ApacheConf
   MessageBox MB_OK|MB_ICONSTOP "Apache by Apache Hausの設定ファイルフォルダ $ApacheHausExtraConfPath がみつかりません。Apache by Apache Hausを再インストールしてください。"
   Abort "Apache by Apache Hausの設定ファイルフォルダ $ApacheHausExtraConfPath がみつかりません。Apache by Apache Hausを再インストールしてください。"
 
@@ -122,33 +126,68 @@ noError_ApacheConf:
 
   DetailPrint "Apache Hausの設定ファイルフォルダ $ApacheHausExtraConfPath を確認しました。"
 
+  # フロントエンドのインストール
+  CreateDirectory "$INSTDIR\frontend"
+  SetOutPath "$INSTDIR\frontend"
+  File /r '..\frontend\dist\*'
+  SetOutPath $INSTDIR
+
   # インストールされるファイル
-  File "node-windows-1.0.0-beta.6.tgz"
-  File "readline-sync-1.4.10.tgz"
-  File /r "C:\Users\pokemogu\Documents\timecard\*"
-  File "configure.js"
-  File "configure.bat"
-  File "install_service.js"
-  File "install_service.bat"
-  File "uninstall_service.js"
-  File "uninstall_service.bat"
+  File 'node-windows-1.0.0-beta.6.tgz'
+
+  # バックエンドのインストール
+  !define TEMPDIR
+  !searchreplace TEMPDIR "${__DATE__}${__TIME__}" "/" ""
+  !searchreplace TEMPDIR "${TEMPDIR}" ":" ""
+
+  !if "$%TEMP%" != "${U+24}%TEMP%"
+    !define TEMPPATH "$%TEMP%\backend_${TEMPDIR}"
+    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* /s /mir'
+    !cd '${TEMPPATH}'
+    !system 'npm.cmd install --production'
+    File /r '${TEMPPATH}\*'
+    !cd ${__FILEDIR__}
+    !system 'rmdir "${TEMPPATH}" /s /q'
+  !else
+    !define SCRIPTDIR $%PWD%
+    !define TEMPPATH "/tmp/backend_${TEMPDIR}"
+    !system 'cp -pr "${__FILEDIR__}/../backend" "${TEMPPATH}"'
+    !cd '${TEMPPATH}'
+    !system 'npm install --production'
+    File /r '${TEMPPATH}\*'
+    !cd ${SCRIPTDIR}
+    !system 'rm -fr "${TEMPPATH}"'
+  !endif
 
   # 共通パッケージのインストール
-  ExecWait '"$PROGRAMFILES64\nodejs\npm.cmd" install -g "$INSTDIR\readline-sync-1.4.10.tgz"'
-  ExecWait '"$PROGRAMFILES64\nodejs\npm.cmd" install -g "$INSTDIR\node-windows-1.0.0-beta.6.tgz"'
-  ExecWait "npm.cmd link node-windows readline-sync"
+  ExecWait 'npm.cmd install -g "$INSTDIR\node-windows-1.0.0-beta.6.tgz"'
+  ExecWait "npm.cmd run link-node-windows"
 
   # サービスとしてインストール
-  ExecWait "$INSTDIR\install_service.bat"
+  ExecWait "npm.cmd run install-windows-service"
+
+  # Apache Haus設定ディレクトリへのジャンクション(リンク)を作成する
+  #ExecWait 'MKLINK /J "$INSTDIR\apacheconf" "$ApacheHausExtraConfPath"'
+  ExecWait `powershell -Command "New-Item -ItemType Junction -Path '$INSTDIR\apacheconf' -Target '$ApacheHausExtraConfPath'"`
 
   # フロントエンド用Apache Haus設定作成
-  FileOpen $1 '$ApacheHausExtraConfPath\timecard-app-frontend.conf' w
-  FileWrite $1 'DocumentRoot "$INSTDIR\frontend\dist"$\r$\n'
-  FileWrite $1 '<Directory "$INSTDIR\frontend\dist">$\r$\n'
+  FileOpen $1 $INSTDIR\apacheconf\timecard-app-frontend.conf w
+  FileWrite $1 'DocumentRoot "$INSTDIR\frontend"$\r$\n'
+  FileWrite $1 '<Directory "$INSTDIR\frontend">$\r$\n'
   FileWrite $1 '  Options Indexes Includes FollowSymLinks$\r$\n'
   FileWrite $1 '  AllowOverride AuthConfig Limit FileInfo$\r$\n'
   FileWrite $1 '  Require all granted$\r$\n'
   FileWrite $1 '</Directory>$\r$\n'
+  FileClose $1
+
+  # バックエンド用Apache Haus設定作成
+  FileOpen $1 $INSTDIR\apacheconf\timecard-app-backend.conf w
+  FileWrite $1 'ProxyRequests Off$\r$\n'
+  FileWrite $1 '<Proxy *>$\r$\n'
+  FileWrite $1 'Require all granted$\r$\n'
+  FileWrite $1 '</Proxy>$\r$\n'
+  FileWrite $1 'ProxyPass /api http://localhost:3000/api$\r$\n'
+  FileWrite $1 'ProxyPassReverse /api http://localhost:3000/api$\r$\n'
   FileClose $1
 
   # Apacheの再起動
@@ -157,7 +196,6 @@ noError_ApacheConf:
 
 
   # 作業用ファイルの削除
-  Delete "$INSTDIR\readline-sync-1.4.10.tgz"
   Delete "$INSTDIR\node-windows-1.0.0-beta.6.tgz"
 
   # アンインストーラを出力
@@ -165,9 +203,10 @@ noError_ApacheConf:
 
   # スタート メニューにショートカットを登録
   CreateDirectory "$SMPROGRAMS\Timecard System Server"
-  #SetOutPath "$INSTDIR"
+  SetOutPath "$INSTDIR"
 
-  CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "$INSTDIR\configure.bat" ""
+  #CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "$INSTDIR\configure.bat" ""
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "npm.cmd" "run configure-windows-service"
   Push "$SMPROGRAMS\Timecard System Server\設定.lnk"
   Call ShellLinkSetRunAs
   Pop $0
@@ -196,10 +235,8 @@ Section "Uninstall"
   SetAutoClose false
 
   # サービスのアンインストール
-  ExecWait "$INSTDIR\uninstall_service.bat"
-
-  SetOutPath "$INSTDIR\node_modules\timecard-app-backend"
-  ExecWait "node -e '$UNINSTALL_SERVICE_JS' '$INSTDIR'"
+  SetOutPath "$INSTDIR"
+  ExecWait "npm.cmd run uninstall-windows-service"
 
   # アプリのアンインストール
   #SetOutPath "$INSTDIR"
@@ -209,20 +246,30 @@ Section "Uninstall"
   #Pop $OUTDIR
   #SetOutPath "$OUTDIR"
 
-  # ディレクトリを削除
-  RMDir /r "$INSTDIR\frontend"
-  RMDir /r "$INSTDIR\backend"
-  RMDir /r "$INSTDIR\node_modules"
-
   # ファイルを削除
   Delete "$INSTDIR\package.json"
   Delete "$INSTDIR\package-lock.json"
+  Delete "$INSTDIR\windows-service.js"
   Delete "$INSTDIR\configure.js"
-  Delete "$INSTDIR\configure.bat"
-  Delete "install_service.js"
-  Delete "install_service.bat"
-  Delete "uninstall_service.js"
-  Delete "uninstall_service.bat"
+  Delete "$INSTDIR\knexfile.js"
+  Delete "$INSTDIR\.env"
+  Delete "$INSTDIR\.npmrc"
+  Delete "$INSTDIR\migrations\*_initial_master.js"
+  Delete "$INSTDIR\seeds\production-init.js"
+  Delete "$INSTDIR\apacheconf\timecard-app-frontend.conf"
+  Delete "$INSTDIR\apacheconf\timecard-app-backend.conf"
+
+  # ディレクトリを削除
+  RMDir "$INSTDIR\migrations"
+  RMDir "$INSTDIR\seeds"
+  RMDir "$INSTDIR\apacheconf"
+  RMDir /r "$INSTDIR\frontend"
+  RMDir /r "$INSTDIR\dist"
+  RMDir /r "$INSTDIR\node_modules"
+
+  # Apacheの再起動
+  ExecWait 'net stop Apache2.4'
+  ExecWait 'net start Apache2.4'
 
   # アンインストーラを削除
   Delete "$INSTDIR\Uninstall.exe"
@@ -234,8 +281,7 @@ Section "Uninstall"
   RMDir /r "$SMPROGRAMS\Timecard System Server"
 
   # 共通パッケージのアンインストール
-  ExecWait '"$PROGRAMFILES64\nodejs\npm.cmd" uninstall -g "$INSTDIR\readline-sync-1.4.10.tgz"'
-  ExecWait '"$PROGRAMFILES64\nodejs\npm.cmd" uninstall -g "$INSTDIR\node-windows-1.0.0-beta.6.tgz"'
+  ExecWait 'npm.cmd uninstall -g node-windows'
 
   # レジストリ キーを削除
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Timecard System Server"

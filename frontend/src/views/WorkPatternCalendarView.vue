@@ -111,7 +111,7 @@ async function onWorkPatternCalendarClick(date: Date) {
   else {
     selectedWorkPatternName.value = '';
   }
-  selectedDate.value = date;
+  selectedDate.value = new Date(date);
   isModalOpened.value = true;
 }
 
@@ -192,43 +192,22 @@ function getWorkPatternNameOfDay(date: Date) {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="勤務体系設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="勤務体系設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <WorkPatternCalendarEdit
-        v-model:isOpened="isModalOpened"
-        v-model:selectedWorkPatternName="selectedWorkPatternName"
-        :workPatternNames="workPatterNames"
-        v-on:submit="onSubmit"
-        :date="selectedDate"
-        :isHoliday="isHoliday(selectedDate)"
-      ></WorkPatternCalendarEdit>
+      <WorkPatternCalendarEdit v-model:isOpened="isModalOpened"
+        v-model:selectedWorkPatternName="selectedWorkPatternName" :workPatternNames="workPatterNames"
+        v-on:submit="onSubmit" :date="selectedDate" :isHoliday="isHoliday(selectedDate)"></WorkPatternCalendarEdit>
     </Teleport>
     <div class="row justify-content-end p-2">
       <div class="col-md-3">
         <div class="input-group">
-          <input
-            class="form-control form-control-sm"
-            type="number"
-            min="1970"
-            v-model="selectedYear"
-          />
+          <input class="form-control form-control-sm" type="number" min="1970" v-model="selectedYear" />
           <span class="input-group-text">年</span>
-          <input
-            class="form-control form-control-sm"
-            type="number"
-            min="1"
-            max="12"
-            v-model="selectedMonth"
-          />
+          <input class="form-control form-control-sm" type="number" min="1" max="12" v-model="selectedMonth" />
           <span class="input-group-text">月</span>
         </div>
       </div>
@@ -245,16 +224,12 @@ function getWorkPatternNameOfDay(date: Date) {
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(date, index) in datesOfMonth.slice((n - 1) * Math.ceil(31 / 3), n * Math.ceil(31 / 3))"
-              :class="isHoliday(date) ? 'table-danger' : 'table-primary'"
-            >
+            <tr v-for="(date, index) in datesOfMonth.slice((n - 1) * Math.ceil(31 / 3), n * Math.ceil(31 / 3))"
+              :class="isHoliday(date) ? 'table-danger' : 'table-primary'">
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onWorkPatternCalendarClick(date)"
-                >{{ `${date.getMonth() + 1}/${date.getDate()}(${getDayOfWeekName(date)})` }}</button>
+                <button type="button" class="btn btn-link" v-on:click="onWorkPatternCalendarClick(date)">{{
+                    `${date.getMonth() + 1}/${date.getDate()}(${getDayOfWeekName(date)})`
+                }}</button>
               </td>
               <td class="text-start">{{ getWorkPatternNameOfDay(date) }}</td>
             </tr>
@@ -268,7 +243,9 @@ function getWorkPatternNameOfDay(date: Date) {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

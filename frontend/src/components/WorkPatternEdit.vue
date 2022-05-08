@@ -10,7 +10,7 @@ const store = useSessionStore();
 
 const props = defineProps<{
   isOpened: boolean,
-  workPattern?: apiif.WorkPatternResponseData
+  workPattern?: apiif.WorkPatternRequestData
 }>();
 
 const isOpened = ref(false);
@@ -82,7 +82,7 @@ if (props.workPattern?.wagePatterns) {
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'update:workPattern', value: apiif.WorkPatternResponseData): void,
+  (event: 'update:workPattern', value: apiif.WorkPatternRequestData): void,
   (event: 'submit'): void,
 }>();
 
@@ -95,7 +95,7 @@ function onClose(event: Event) {
 
 function onSubmit(event: Event) {
 
-  const resultWorkPattern: apiif.WorkPatternResponseData = {
+  const resultWorkPattern: apiif.WorkPatternRequestData = {
     id: props.workPattern?.id,
     name: editedWorkPattern.value.name,
     onTimeStart: addNextDayTime(editedWorkPattern.value.isOnTimeStartNextDay, editedWorkPattern.value.onTimeStart),

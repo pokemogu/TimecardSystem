@@ -10,17 +10,14 @@
     "outDir": "dist",
     "sourceMap": true,
     "allowJs": false,
-    "paths": {
-      "shared/*": [
-        "../shared/*"
-      ]
-    }
+    "strict": true
   },
   "include": [
-    "src/**/*"
+    "./src/**/*"
   ],
   "exclude": [
     "node_modules",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "**/*.test.ts"
   ]
 }

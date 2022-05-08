@@ -1,5 +1,5 @@
 import { DatabaseAccess } from '../dataaccess';
-import type * as apiif from 'shared/APIInterfaces';
+import type * as apiif from '../APIInterfaces';
 
 export async function setSystemConfig(this: DatabaseAccess, key: string, value: string) {
 

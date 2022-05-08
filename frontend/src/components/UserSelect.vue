@@ -80,9 +80,9 @@ watch(selectedSectionName, async () => {
     const token = await store.getToken();
     if (token) {
       const access = new backendAccess.TokenAccess(token);
-      const userInfos = await access.getUserInfos({
-        byDepartment: selectedDepartmentName.value,
-        bySection: selectedSectionName.value
+      const userInfos = await access.getUsersInfo({
+        department: selectedDepartmentName.value,
+        section: selectedSectionName.value
       });
 
       if (userInfos) {
@@ -99,10 +99,10 @@ watch(phoneticSearch, lodash.debounce(async () => {
     const token = await store.getToken();
     if (token) {
       const access = new backendAccess.TokenAccess(token);
-      const userInfos = await access.getUserInfos({
-        byDepartment: selectedDepartmentName.value,
-        bySection: selectedSectionName.value,
-        byPhonetic: phoneticSearch.value
+      const userInfos = await access.getUsersInfo({
+        department: selectedDepartmentName.value,
+        section: selectedSectionName.value,
+        phonetic: phoneticSearch.value
       });
 
       if (userInfos) {
@@ -128,29 +128,19 @@ watch(phoneticSearch, lodash.debounce(async () => {
             <div class="col">
               <p>所属</p>
               <select class="form-select" size="8" v-model="selectedDepartmentName">
-                <option
-                  v-for="departmentName in departmentNameList"
-                  :value="departmentName"
-                >{{ departmentName }}</option>
+                <option v-for="departmentName in departmentNameList" :value="departmentName">{{ departmentName }}
+                </option>
               </select>
             </div>
             <div class="col">
               <p>部署</p>
               <select class="form-select" size="8" v-model="selectedSectionName">
-                <option
-                  v-for="sectionName in sectionNameList"
-                  :value="sectionName"
-                >{{ sectionName }}</option>
+                <option v-for="sectionName in sectionNameList" :value="sectionName">{{ sectionName }}</option>
               </select>
             </div>
             <div class="col">
               <p>氏名</p>
-              <input
-                class="form-control form-control-sm"
-                type="text"
-                placeholder="カナ検索"
-                v-model="phoneticSearch"
-              />
+              <input class="form-control form-control-sm" type="text" placeholder="カナ検索" v-model="phoneticSearch" />
               <select class="form-select" size="8" v-model="selectedUserAccount">
                 <option v-for="user in userList" :value="user.account">{{ user.name }}</option>
               </select>
@@ -159,12 +149,8 @@ watch(phoneticSearch, lodash.debounce(async () => {
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            v-bind:disabled="selectedUserAccount === ''"
-            v-on:click="onSubmit"
-          >選択</button>
+          <button type="button" class="btn btn-primary" v-bind:disabled="selectedUserAccount === ''"
+            v-on:click="onSubmit">選択</button>
         </div>
       </div>
     </div>
@@ -181,6 +167,7 @@ watch(phoneticSearch, lodash.debounce(async () => {
   width: 100%;
   background-color: rgba(0, 0, 0, 0.5);
 }
+
 .vue-modal {
   position: fixed;
   z-index: 999;

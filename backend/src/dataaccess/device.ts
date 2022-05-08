@@ -1,4 +1,6 @@
-import type * as apiif from 'shared/APIInterfaces';
+import createHttpError from 'http-errors';
+
+import type * as apiif from '../APIInterfaces';
 import { DatabaseAccess } from '../dataaccess';
 
 ///////////////////////////////////////////////////////////////////////
@@ -12,10 +14,10 @@ export async function getDevices(this: DatabaseAccess, params?: { limit?: number
     .where('available', true)
     .andWhere('isDevice', true)
     .modify(function (builder) {
-      if (params.limit) {
+      if (params?.limit) {
         builder.limit(params.limit);
       }
-      if (params.offset) {
+      if (params?.offset) {
         builder.offset(params.offset);
       }
     })
@@ -42,7 +44,11 @@ export async function addDevice(this: DatabaseAccess, device: apiif.DeviceReques
     .from('privilege')
     .where('name', '__SYSTEM_DEVICE_PRIVILEGE__')
     .first()
-  ).id;
+  )?.id;
+
+  if (!privilegeIdDevice) {
+    throw createHttpError(500, '内部エラーです', { internalMessage: '機器用の内部権限である __SYSTEM_DEVICE_PRIVILEGE__ が見つかりません' });
+  }
 
   await this.knex('user').insert({
     available: true, registeredAt: new Date(),
@@ -63,7 +69,11 @@ export async function updateDevice(this: DatabaseAccess, device: apiif.DeviceReq
 
 export async function deleteDevice(this: DatabaseAccess, deviceAccount: string) {
 
-  const deviceUserId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', deviceAccount).first()).id;
+  const deviceUserId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', deviceAccount).first())?.id;
+
+  if (!deviceUserId) {
+    throw new createHttpError.NotFound(`指定された機器ID ${deviceAccount} が見つかりません`);
+  }
 
   await this.knex('token')
     .where('user', deviceUserId)

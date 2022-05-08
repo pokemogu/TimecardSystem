@@ -1,7 +1,8 @@
+import createHttpError from 'http-errors';
+
 import { DatabaseAccess } from '../dataaccess';
 import type { UserInfo } from '../dataaccess';
-import type * as apiif from 'shared/APIInterfaces';
-import createHttpError from 'http-errors';
+import type * as apiif from '../APIInterfaces';
 
 function dateToStr(date: Date) {
   return date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
@@ -44,7 +45,10 @@ export async function addWorkPattern(this: DatabaseAccess, workPattern: apiif.Wo
     onTimeEnd: workPattern.onTimeEnd
   });
 
-  const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first()).id;
+  const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first())?.id;
+  if (!workPatternId) {
+    throw new createHttpError.NotFound(`指定された勤務体系 ${workPattern.name} が見つかりません`);
+  }
 
   // 勤務時間帯情報を追加する
   const wagePatterns: {
@@ -141,19 +145,24 @@ export async function updateWorkPattern(this: DatabaseAccess, workPattern: apiif
       onTimeEnd: workPattern.onTimeEnd
     });
 
-  const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first()).id;
-
+  const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first())?.id;
+  if (!workPatternId) {
+    throw new createHttpError.NotFound(`指定された勤務体系 ${workPattern.name} が見つかりません`);
+  }
 
   // 勤務時間帯情報を追加する
   const wagePatterns: {
     workPattern: number, name: string, timeStart: string, timeEnd: string,
     normalWagePercentage: number, holidayWagePercentage: number
   }[] = [];
-  for (const pattern of workPattern.wagePatterns) {
-    wagePatterns.push({
-      workPattern: workPatternId, name: pattern.name, timeStart: pattern.timeStart, timeEnd: pattern.timeEnd,
-      normalWagePercentage: pattern.normalWagePercentage, holidayWagePercentage: pattern.holidayWagePercentage
-    });
+
+  if (workPattern.wagePatterns && workPattern.wagePatterns.length > 0) {
+    for (const pattern of workPattern.wagePatterns) {
+      wagePatterns.push({
+        workPattern: workPatternId, name: pattern.name, timeStart: pattern.timeStart, timeEnd: pattern.timeEnd,
+        normalWagePercentage: pattern.normalWagePercentage, holidayWagePercentage: pattern.holidayWagePercentage
+      });
+    }
   }
 
   if (wagePatterns.length > 0) {
@@ -173,7 +182,7 @@ export async function deleteWorkPattern(this: DatabaseAccess, id: number) {
     });
   }
   catch (error: unknown) {
-    if (error.toString().includes('foreign key constraint fails')) {
+    if (error instanceof Error && error.toString().includes('foreign key constraint fails')) {
       throw createHttpError(403, 'この勤務体系を使用しているユーザーがいる為、削除できません', { internalMessage: (error as Error).message });
     }
     else {
@@ -201,7 +210,13 @@ export async function setUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
       .from('workPattern')
       .where('name', workPatternCalendar.name)
       .first();
-    workPatternId = workPatternResult.id;
+
+    if (!workPatternResult) {
+      throw new createHttpError.NotFound(`指定された勤務体系 ${workPatternCalendar.name} が見つかりません`);
+    }
+    else {
+      workPatternId = workPatternResult.id;
+    }
   }
   await this.knex('userWorkPatternCalendar').insert({ user: userId, date: new Date(workPatternCalendar.date), workPattern: workPatternId })
     .onConflict(['user', 'date']).merge(['workPattern']); // ON DUPLICATE KEY UPDATE
@@ -274,7 +289,7 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
 
   // 日付範囲指定がある場合は、勤務体系設定が無い日でも、
   // デフォルト設定の勤務体系(平日は勤務体系1、休日は勤務なし)を返す
-  const users = await this.getUsers({ byAccounts: params.accounts ?? [userInfo.account] });
+  const users = await this.getUsersInfo({ accounts: params.accounts ?? [userInfo.account] });
   const holidays = await this.getHolidays({ from: params.from, to: params.to });
   const workPatterns = await this.getWorkPatterns();
 
@@ -283,19 +298,18 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
   const dateTo = strToDate(params.to);
 
   for (const user of users) {
+    const userDefaultWorkPattern = workPatterns.find(workPattern => workPattern.name === user.defaultWorkPatternName);
+    if (!userDefaultWorkPattern) {
+      continue;
+    }
     for (const date = new Date(dateFrom); date.getTime() <= dateTo.getTime(); date.setDate(date.getDate() + 1)) {
       const dateStr = dateToStr(date);
       const userWorkPattern = userNonDefaultWorkPatterns.find(workPattern => workPattern.user.id === user.id && workPattern.date === dateStr);
-      const userDefaultWorkPattern = workPatterns.find(workPattern => workPattern.name === user.defaultWorkPatternName);
       const isHoliday = date.getDay() === 0 || date.getDay() === 6 || holidays.some(holiday => dateToStr(new Date(holiday.date)) === dateStr);
 
       userWorkPatterns.push({
         date: dateToStr(date),
-        user: {
-          id: user.id,
-          account: user.account,
-          name: user.name
-        },
+        user: { ...user },
         workPattern: userWorkPattern?.workPattern !== undefined ? userWorkPattern?.workPattern : (isHoliday ? null : {
           name: userDefaultWorkPattern.name,
           onDateTimeStart: getTimeAddedDate(date, userDefaultWorkPattern.onTimeStart).toISOString(),

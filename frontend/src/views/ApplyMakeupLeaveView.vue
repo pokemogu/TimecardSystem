@@ -23,6 +23,7 @@ const dateFrom = ref('');
 const timeFrom = ref('');
 const timeTo = ref('');
 const reason = ref('');
+const isMounted = ref(false);
 
 const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
@@ -38,13 +39,13 @@ async function onRouteSubmit() {
       if (token) {
         const access = new backendAccess.TokenAccess(token);
         await access.submitApply('makeup-leave', {
-          date: dateFrom.value,
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`).toISOString(),
-          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`).toISOString(),
-          dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`).toISOString(),
-          timestamp: new Date().toISOString(),
+          date: new Date(dateFrom.value),
+          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+          dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`),
+          timestamp: new Date(),
           reason: reason.value,
-          route: routeName.value
+          routeName: routeName.value
         });
 
         router.push({ name: 'dashboard' });
@@ -74,7 +75,7 @@ async function onRouteSubmit() {
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
-          <ApplyForm applyName="代休" applyType="leave-proxy" v-model:dateOptional="dateHolidayWork"
+          <ApplyForm v-if="isMounted" applyName="代休" applyType="leave-proxy" v-model:dateOptional="dateHolidayWork"
             dateOptionalType="休出日" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
             v-model:reason="reason" v-on:submit="onFormSubmit"></ApplyForm>
         </div>

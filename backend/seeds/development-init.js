@@ -1,10 +1,13 @@
-import { Knex } from 'knex';
-import uuidAPIKey from 'uuid-apikey';
+const Knex = require('knex').Knex;
+const crypto = require('crypto');
+const uuidAPIKey = require('uuid-apikey');
+const fakeNames = require('../fakeNames').fakeNames;
 
-import { hashPassword } from '../src/verify';
-import { fakeNames } from '../../fakeNames';
-import * as models from '../../shared/models';
-import * as apiif from '../../shared/APIInterfaces';
+/** @param {string} password */
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return salt + ':' + crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+}
 
 function generateRandom(min = 0, max = 100) {
 
@@ -23,7 +26,8 @@ function generateRandom(min = 0, max = 100) {
   return rand;
 }
 
-const lookupTable: number[] = [];
+/** @type {number[]} */
+const lookupTable = [];
 for (let i = 1e6; i--;) {
   lookupTable.push(Math.random() * 101 | 0);
 }
@@ -33,14 +37,20 @@ function randomTableLookup() {
   return ++randomTableIndex >= lookupTable.length ? lookupTable[randomTableIndex = 0] : lookupTable[randomTableIndex];
 }
 
-function dateToLocalString(date: Date) {
+/** @param { Date } date  */
+function dateToLocalString(date) {
   return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
 }
 
-export async function seed(knex: Knex) {
+/** @param { Knex } knex  */
+async function seed(knex) {
 
-  const getUserIdFromAccount = async (account: string) => {
-    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', account).first()).id;
+  /**
+   * @param { string } account
+   * @returns { Promise<number> }
+   */
+  const getUserIdFromAccount = async (account) => {
+    return (await knex.select({ id: 'id' }).from('user').where('account', account).first()).id;
   };
 
   await knex('record').truncate();
@@ -65,10 +75,14 @@ export async function seed(knex: Knex) {
     { name: '[所属なし]' }
   ]);
 
-  const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
-  const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
-  const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
-  const departmentNone = (await knex.first<{ id: number }>('id').from('department').where('name', '[所属なし]')).id;
+  /** @type {number} */
+  const departmentNagoya = (await knex.first('id').from('department').where('name', '名古屋事業所')).id;
+  /** @type {number} */
+  const departmentHamamatsu = (await knex.first('id').from('department').where('name', '浜松工場')).id;
+  /** @type {number} */
+  const departmentTomei = (await knex.first('id').from('department').where('name', '東名工場')).id;
+  /** @type {number} */
+  const departmentNone = (await knex.first('id').from('department').where('name', '[所属なし]')).id;
   await knex('section').insert([
     { department: departmentNagoya, name: '第一営業部' },
     { department: departmentNagoya, name: '第二営業部' },
@@ -94,9 +108,8 @@ export async function seed(knex: Knex) {
     { name: 'other-leave', isSystemType: false, description: 'その他休暇' }
   ]);
 
-  const applyTypes = await knex.select<{
-    id: number, name: string, isSystemType: boolean, description: string
-  }[]>({
+  /** @type {{id: number, name: string, isSystemType: boolean, description: string}[]} */
+  const applyTypes = await knex.select({
     id: 'id', name: 'name', isSystemType: 'isSystemType', description: 'description'
   }).from('applyType');
 
@@ -145,9 +158,8 @@ export async function seed(knex: Knex) {
     },
   ]);
 
-  const privileges = await knex
-    .select<{ id: number, name: string }[]>()
-    .from('privilege');
+  /** @type {{id: number, name: string}[]} */
+  const privileges = await knex.select({ id: 'id', name: 'name' }).from('privilege');
 
   // 端末情報
   const devicesData = [
@@ -159,19 +171,7 @@ export async function seed(knex: Knex) {
     { account: 'DKK00006', name: '打刻端末6' },
     { account: 'DKK00007', name: '打刻端末7' },
     { account: 'DKK00008', name: '打刻端末8' }
-  ]
-  /*
-  await knex('user').insert([
-    { available: true, registeredAt: new Date(), account: 'DKK00001', name: "打刻端末1", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00002', name: "打刻端末2", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00003', name: "打刻端末3", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00004', name: "打刻端末4", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00005', name: "打刻端末5", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00006', name: "打刻端末6", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00007', name: "打刻端末7", privilege: privilegeIdDevice, isDevice: true },
-    { available: true, registeredAt: new Date(), account: 'DKK00008', name: "打刻端末8", privilege: privilegeIdDevice, isDevice: true },
-  ]);
-  */
+  ];
 
   const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
   const dateNow = new Date();
@@ -200,48 +200,6 @@ export async function seed(knex: Knex) {
       })
     )
   );
-
-  /*
-  let userIdDevice = await getUserIdFromAccount('DKK00001');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00002');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00003');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00004');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00005');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00006');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00007');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-
-  userIdDevice = await getUserIdFromAccount('DKK00008');
-  await knex('token').insert({
-    user: userIdDevice, refreshToken: uuidAPIKey.create({ noDashes: true }).apiKey, isQrToken: true, refreshTokenExpiration: dateExpiration
-  });
-  */
 
   // 申請権限
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
@@ -313,13 +271,20 @@ export async function seed(knex: Knex) {
     { name: '名古屋事業所社員', onTimeStart: '9:00', onTimeEnd: '18:00' }
   ]);
 
-  const workHamamatsuDayId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(日勤)')).id;
-  const workHamamatsuDawnId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(準夜勤)')).id;
-  const workHamamatsuNightId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '浜松工場社員(夜勤)')).id;
-  const workTomeiDayId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(日勤)')).id;
-  const workTomeiDawnId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(準夜勤)')).id;
-  const workTomeiNightId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '東名工場社員(夜勤)')).id;
-  const workNagoyaId = (await knex.first<{ id: number }>('id').from('workPattern').where('name', '名古屋事業所社員')).id;
+  /** @type {number} */
+  const workHamamatsuDayId = (await knex.first('id').from('workPattern').where('name', '浜松工場社員(日勤)')).id;
+  /** @type {number} */
+  const workHamamatsuDawnId = (await knex.first('id').from('workPattern').where('name', '浜松工場社員(準夜勤)')).id;
+  /** @type {number} */
+  const workHamamatsuNightId = (await knex.first('id').from('workPattern').where('name', '浜松工場社員(夜勤)')).id;
+  /** @type {number} */
+  const workTomeiDayId = (await knex.first('id').from('workPattern').where('name', '東名工場社員(日勤)')).id;
+  /** @type {number} */
+  const workTomeiDawnId = (await knex.first('id').from('workPattern').where('name', '東名工場社員(準夜勤)')).id;
+  /** @type {number} */
+  const workTomeiNightId = (await knex.first('id').from('workPattern').where('name', '東名工場社員(夜勤)')).id;
+  /** @type {number} */
+  const workNagoyaId = (await knex.first('id').from('workPattern').where('name', '名古屋事業所社員')).id;
 
   await knex('wagePattern').insert([
     { workPattern: workHamamatsuDayId, name: '通常勤務', timeStart: '8:30', timeEnd: '17:30', normalWagePercentage: 100, holidayWagePercentage: 115 },
@@ -352,13 +317,14 @@ export async function seed(knex: Knex) {
   ]);
 
   // ユーザー情報
+
+  /** @type {{department: number, section: number, departmentName: string, sectionName: string}[]} */
   const sections = await knex
-    .select<{ department: number, section: number, departmentName: string, sectionName: string }[]>
-    ({ department: 'department.id' }, { section: 'section.id' }, { departmentName: 'department.name' }, { sectionName: 'section.name' })
+    .select({ department: 'department.id', section: 'section.id', departmentName: 'department.name', sectionName: 'section.name' })
     .from('section')
     .join('department', { 'department.id': 'section.department' });
 
-  const fakeUsers: models.User[] = [];
+  const fakeUsers /*: models.User[] */ = [];
   for (let i = 0; i < fakeNames.length + 1; i++) {
 
     let section = 0;
@@ -576,7 +542,7 @@ export async function seed(knex: Knex) {
   await knex('user').insert(fakeUsers);
 
   // 申請ルート情報
-  const routes: apiif.ApprovalRouteRequestData[] = [
+  const routes /*: apiif.ApprovalRouteRequestData[] */ = [
     {
       name: '総務社員',
       approvalLevel1MainUserId: await getUserIdFromAccount('USR00276'),
@@ -699,10 +665,11 @@ export async function seed(knex: Knex) {
   }
 
   // テスト打刻
-  const recordTypeCache: Record<string, number> = {};
-  const recordTypes = await knex.select<{
-    id: number, name: string, description: string
-  }[]>({ id: 'id', name: 'name', description: 'description' })
+  /** @type {Record<string, number>} */
+  const recordTypeCache = {};
+  /** @type {{id: number, name: string, description: string}[]} */
+  const recordTypes = await knex
+    .select({ id: 'id', name: 'name', description: 'description' })
     .from('recordType');
 
   for (const recordType of recordTypes) {
@@ -715,12 +682,14 @@ export async function seed(knex: Knex) {
   baseDate.setDate(1);
 
   // 浜松工場日勤
+  /** @type {{id: number}[]} */
   const hamamatsuUsers = await knex
-    .select<{ id: number }[]>({ id: 'id' }).from('user').where('defaultWorkPattern', workHamamatsuDayId)
+    .select({ id: 'id' }).from('user').where('defaultWorkPattern', workHamamatsuDayId)
 
   let tempDate = new Date(baseDate);
 
-  const records: { user: number, date: string, clockin: Date, break: Date, reenter: Date, clockout: Date }[] = [];
+  /** @type {{user: number, date: string, clockin: Date, break: Date, reenter: Date, clockout: Date}[]} */
+  const records = [];
   for (let i = 0; i < 90; i++) { // 90日間(3ヶ月)のデータを生成する
     const dayOfWeek = tempDate.getDay();
     if (dayOfWeek !== 0 && dayOfWeek !== 6) {
@@ -757,8 +726,12 @@ export async function seed(knex: Knex) {
 
 
   // 承認テストデータ生成
-  const getRouteIdFromName = async (name: string) => {
-    return (await knex.select<{ id: number }[]>({ id: 'id' }).from('approvalRoute').where('name', name).first())?.id;
+  /**
+   * @param {string} name
+   * @returns {Promise<number|undefined>}
+   * */
+  const getRouteIdFromName = async (name) => {
+    return (await knex.select({ id: 'id' }).from('approvalRoute').where('name', name).first())?.id;
   };
 
   const hamamatsuSeizouRouteId = await getRouteIdFromName('浜松製造部社員');
@@ -954,10 +927,14 @@ export async function seed(knex: Knex) {
     });
 
     // 打刻申請
-    const optionTypeRecord1 = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionType').where('name', 'situation').first()).id;
-    const optionTypeRecord2 = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionType').where('name', 'recordType').first()).id;
-    const optionType1ValueNotyet = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionValue').where('name', 'notyet').first()).id;
-    const optionType2ValueClockin = (await knex.select<{ id: number }[]>({ id: 'id' }).from('applyOptionValue').where('name', 'clockin').first()).id;
+    /** @type {number} */
+    const optionTypeRecord1 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'situation').first()).id;
+    /** @type {number} */
+    const optionTypeRecord2 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'recordType').first()).id;
+    /** @type {number} */
+    const optionType1ValueNotyet = (await knex.select({ id: 'id' }).from('applyOptionValue').where('name', 'notyet').first()).id;
+    /** @type {number} */
+    const optionType2ValueClockin = (await knex.select({ id: 'id' }).from('applyOptionValue').where('name', 'clockin').first()).id;
     const dateRecord = new Date(dateNow);
     dateRecord.setHours(8);
     dateRecord.setMinutes(30);
@@ -975,7 +952,8 @@ export async function seed(knex: Knex) {
       currentApprovingSubUser: await getUserIdFromAccount('USR00227'),
     });
 
-    let lastApplyResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
     let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
 
     await knex('applyOption').insert({
@@ -1011,7 +989,8 @@ export async function seed(knex: Knex) {
       isApproved: true
     });
 
-    lastApplyResult = await knex.select<{ [name: string]: number }>(knex.raw('LAST_INSERT_ID()')).first();
+    /** @type {{[name: string]: number}} */
+    lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
     lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
 
     await knex('applyOption').insert({
@@ -1045,3 +1024,4 @@ export async function seed(knex: Knex) {
   await knex('systemConfig').update({ value: '有給未取得メール' }).where('key', 'mailSubjectLeave');
   await knex('systemConfig').update({ value: '未取得の有給がありますので取得をお願い致します。' }).where('key', 'mailTemplateLeave');
 };
+exports.seed = seed;

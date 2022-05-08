@@ -1,14 +1,19 @@
+import createHttpError from 'http-errors';
+
 import { DatabaseAccess } from '../dataaccess';
 import type { UserInfo } from '../dataaccess';
-import * as apiif from 'shared/APIInterfaces';
-import createHttpError from 'http-errors';
+import * as apiif from '../APIInterfaces';
 
 ///////////////////////////////////////////////////////////////////////
 // 申請関連
 ///////////////////////////////////////////////////////////////////////
 export async function submitApply(this: DatabaseAccess, userInfo: UserInfo, applyType: string, apply: apiif.ApplyRequestBody) {
 
-  const applyTypeInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('applyType').where('name', applyType).first();
+  const applyTypeId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('applyType').where('name', applyType).first())?.id;
+  if (!applyTypeId) {
+    throw new createHttpError.NotFound(`指定された申請種類 ${applyType} が見つかりません`);
+  }
+
   let userId = userInfo.id;
   if (apply.targetUserAccount) {
     const targetUserInfo = await this.knex.select<{ id: number }[]>({ id: 'id' }).from('user').where('account', apply.targetUserAccount).first();
@@ -30,52 +35,65 @@ export async function submitApply(this: DatabaseAccess, userInfo: UserInfo, appl
     approvalLevel3MainUser: 'approvalLevel3MainUser', approvalLevel3SubUser: 'approvalLevel3SubUser',
     approvalDecisionUser: 'approvalDecisionUser'
   })
-    .from('approvalRoute').where('name', apply.route).first();
+    .from('approvalRoute').where('name', apply.routeName).first();
   if (!routeInfo) {
-    throw new Error(`invalid route name ${apply.route} specified`);
+    throw new createHttpError.BadRequest(`承認ルート ${apply.routeName} が見つかりません`);
   }
 
-  await this.knex('apply').insert({
-    type: applyTypeInfo.id,
-    user: userId,
-    appliedUser: userInfo.id,
-    timestamp: new Date(apply.timestamp),
-    date: apply.date,
-    dateTimeFrom: new Date(apply.dateTimeFrom),
-    dateTimeTo: apply.dateTimeTo ? new Date(apply.dateTimeTo) : undefined,
-    dateRelated: apply.dateRelated ? new Date(apply.dateRelated) : undefined,
-    reason: apply.reason ? apply.reason : undefined,
-    contact: apply.contact ? apply.contact : undefined,
-    route: routeInfo.id,
-    currentApprovingMainUser:
-      routeInfo.approvalLevel1MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalDecisionUser,
-    currentApprovingSubUser:
-      routeInfo.approvalLevel1SubUser ?? routeInfo.approvalLevel2SubUser ?? routeInfo.approvalLevel2SubUser
-  });
+  let lastApplyId = -1;
 
-  const lastApplyResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
-  const lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+  await this.knex.transaction(async function (trx) {
+    await trx('apply').insert({
+      type: applyTypeId,
+      user: userId,
+      appliedUser: userInfo.id,
+      timestamp: apply.timestamp,
+      date: apply.date,
+      dateTimeFrom: apply.dateTimeFrom,
+      dateTimeTo: apply.dateTimeTo,
+      dateRelated: apply.dateRelated,
+      reason: apply.reason,
+      contact: apply.contact,
+      route: routeInfo.id,
+      currentApprovingMainUser:
+        routeInfo.approvalLevel1MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalLevel2MainUser ?? routeInfo.approvalDecisionUser,
+      currentApprovingSubUser:
+        routeInfo.approvalLevel1SubUser ?? routeInfo.approvalLevel2SubUser ?? routeInfo.approvalLevel2SubUser
+    });
 
-  // オプション指定があれば合わせて保存する
-  if (apply.options) {
-    const applyOptionTypeInfo = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionType')
-    const applyOptionValueInfo = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionValue')
-
-    const applyOptions: { apply: number, optionType: number, optionValue: number }[] = [];
-    for (const option of apply.options) {
-      applyOptions.push({
-        apply: lastApplyId,
-        optionType: applyOptionTypeInfo.find(info => info.name === option.name).id,
-        optionValue: applyOptionValueInfo.find(info => info.name === option.value).id
-      });
+    const lastApplyResult = await trx.select<{ [name: string]: number }>(trx.raw('LAST_INSERT_ID()')).first();
+    if (!lastApplyResult) {
+      throw createHttpError(500, '', { internalMessage: 'MySQLの LAST_INSERT_ID() 実行に失敗しました' });
     }
-    await this.knex('applyOption').insert(applyOptions);
-  }
+    lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    // オプション指定があれば合わせて保存する
+    if (apply.options) {
+      const applyOptionTypeInfo = await trx.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionType')
+      const applyOptionValueInfo = await trx.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' }).from('applyOptionValue')
+
+      const applyOptions: { apply: number, optionType: number, optionValue: number }[] = [];
+      for (const option of apply.options) {
+        const optionTypeId = applyOptionTypeInfo.find(info => info.name === option.name)?.id;
+        const optionValueId = applyOptionValueInfo.find(info => info.name === option.value)?.id;
+
+        if (!optionTypeId || !optionValueId) {
+          throw new createHttpError.BadRequest(`指定されたオプション種類 ${option.name} かオプション値 ${option.value} が正しくありません`);
+        }
+        applyOptions.push({
+          apply: lastApplyId,
+          optionType: optionTypeId,
+          optionValue: optionValueId
+        });
+      }
+      await trx('applyOption').insert(applyOptions);
+    }
+  });
 
   return lastApplyId;
 }
 
-export async function getApplyTypeOfApply(this: DatabaseAccess, accessToken: string, applyId: number) {
+export async function getApplyTypeOfApply(this: DatabaseAccess, applyId: number) {
 
   const result = await this.knex.select<{ typeId: number, typeName: string, typeDescription: string, isSystemType: boolean }[]>({
     id: 'apply.id', typeName: 'applyType.name', typeDescription: 'applyType.description', isSystemType: 'applyType.isSystemType'
@@ -85,6 +103,10 @@ export async function getApplyTypeOfApply(this: DatabaseAccess, accessToken: str
     .where('apply.id', applyId)
     .first();
 
+  if (!result) {
+    throw new createHttpError.NotFound('指定されたIDの申請が見つかりません');
+  }
+
   return <apiif.ApplyTypeResponseData>{
     id: result.typeId,
     name: result.typeName,
@@ -93,12 +115,27 @@ export async function getApplyTypeOfApply(this: DatabaseAccess, accessToken: str
   }
 }
 
+export async function getApplyOptions(this: DatabaseAccess, applyId: number) {
+
+  return await this.knex.select<{
+    id: number, optionTypeId: number, optionTypeName: string, optionValueId: number, optionValueName: string
+  }[]>({
+    id: 'applyOption.id',
+    optionTypeId: 'applyOption.optionType', optionTypeName: 'applyOptionType.name',
+    optionValueId: 'applyOptionValue.id', optionValueName: 'applyOptionValue.name',
+  })
+    .from('applyOption')
+    .leftJoin('applyOptionType', { 'applyOptionType.id': 'applyOption.optionType' })
+    .leftJoin('applyOptionValue', { 'applyOptionValue.id': 'applyOption.optionValue' })
+    .where('applyOption.apply', applyId);
+}
+
 export async function getApply(this: DatabaseAccess, applyId: number) {
 
   const result = await this.knex.select<{
-    id: number, timestamp: Date, typeName: string, typeDescription: string,
-    targetUserId: number, targetUserAccount: string, targetUserName: string, targetUserEmail: string,
-    appliedUserId: number, appliedUserAccount: string, appliedUserName: string, appliedUserEmail: string,
+    id: number, timestamp: Date, typeName: string, typeDescription: string, typeIsSystemType: boolean,
+    targetUserId: number, targetUserAccount: string, targetUserName: string, targetUserEmail: string, targetUserSectionId: number,
+    appliedUserId: number, appliedUserAccount: string, appliedUserName: string, appliedUserEmail: string, appliedUserSectionId: number,
     approvedLevel1UserId: number, approvedLevel1UserAccount: string, approvedLevel1UserName: string, approvedLevel1Timestamp: Date,
     approvedLevel2UserId: number, approvedLevel2UserAccount: string, approvedLevel2UserName: string, approvedLevel2Timestamp: Date,
     approvedLevel3UserId: number, approvedLevel3UserAccount: string, approvedLevel3UserName: string, approvedLevel3Timestamp: Date,
@@ -106,9 +143,9 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
     date: Date, dateTimeFrom: Date, dateTimeTo: Date, dateRelated: Date,
     reason: string, contact: string, routeName: string, isApproved: boolean
   }[]>({
-    id: 'apply.id', timestamp: 'apply.timestamp', typeName: 'applyType.name', typeDescription: 'applyType.description',
-    targetUserId: 'u0.id', targetUserAccount: 'u0.account', targetUserName: 'u0.name', targetUserEmail: 'u0.email',
-    appliedUserId: 'u1.id', appliedUserAccount: 'u1.account', appliedUserName: 'u1.name', appliedUserEmail: 'u1.email',
+    id: 'apply.id', timestamp: 'apply.timestamp', typeName: 'applyType.name', typeDescription: 'applyType.description', typeIsSystemType: 'applyType.isSystemType',
+    targetUserId: 'u0.id', targetUserAccount: 'u0.account', targetUserName: 'u0.name', targetUserEmail: 'u0.email', targetUserSectionId: 'u0.section',
+    appliedUserId: 'u1.id', appliedUserAccount: 'u1.account', appliedUserName: 'u1.name', appliedUserEmail: 'u1.email', appliedUserSectionId: 'u1.section',
     approvedLevel1UserId: 'u2.id', approvedLevel1UserAccount: 'u2.account', approvedLevel1UserName: 'u2.name', approvedLevel1Timestamp: 'apply.approvedLevel1UserTimestamp',
     approvedLevel2UserId: 'u3.id', approvedLevel2UserAccount: 'u3.account', approvedLevel2UserName: 'u3.name', approvedLevel2Timestamp: 'apply.approvedLevel2UserTimestamp',
     approvedLevel3UserId: 'u4.id', approvedLevel3UserAccount: 'u4.account', approvedLevel3UserName: 'u4.name', approvedLevel3Timestamp: 'apply.approvedLevel3UserTimestamp',
@@ -128,8 +165,15 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
     .where('apply.id', applyId)
     .first();
 
+  if (!result) {
+    throw new createHttpError.NotFound('指定されたIDの申請が見つかりません');
+  }
+
+  const resultOptions = await this.getApplyOptions(applyId);
+  const sections = await this.getSections();
+
   return <apiif.ApplyResponseData>{
-    id: result.id, timestamp: result.timestamp.toISOString(),
+    id: result.id, timestamp: result.timestamp,
     type: {
       name: result.typeName,
       description: result.typeDescription
@@ -139,14 +183,18 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
       id: result.targetUserId,
       account: result.targetUserAccount,
       name: result.targetUserName,
-      email: result.targetUserEmail
+      email: result.targetUserEmail,
+      section: sections.find(section => section.id === result.targetUserSectionId)?.sectionName,
+      department: sections.find(section => section.id === result.targetUserSectionId)?.departmentName
     },
 
     appliedUser: result.appliedUserId ? {
       id: result.appliedUserId,
       account: result.appliedUserAccount,
       name: result.appliedUserName,
-      email: result.appliedUserEmail
+      email: result.appliedUserEmail,
+      section: sections.find(section => section.id === result.appliedUserSectionId)?.sectionName,
+      department: sections.find(section => section.id === result.appliedUserSectionId)?.departmentName
     } : undefined,
 
     approvedLevel1User: result.approvedLevel1UserId ? {
@@ -154,49 +202,52 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
       account: result.approvedLevel1UserAccount,
       name: result.approvedLevel1UserName
     } : undefined,
-    approvedLevel1Timestamp: result.approvedLevel1Timestamp ? result.approvedLevel1Timestamp.toISOString() : undefined,
+    approvedLevel1Timestamp: result.approvedLevel1Timestamp ? result.approvedLevel1Timestamp : undefined,
 
     approvedLevel2User: result.approvedLevel2UserId ? {
       id: result.approvedLevel2UserId,
       account: result.approvedLevel2UserAccount,
       name: result.approvedLevel2UserName
     } : undefined,
-    approvedLevel2Timestamp: result.approvedLevel2Timestamp ? result.approvedLevel2Timestamp.toISOString() : undefined,
+    approvedLevel2Timestamp: result.approvedLevel2Timestamp ? result.approvedLevel2Timestamp : undefined,
 
     approvedLevel3User: result.approvedLevel3UserId ? {
       id: result.approvedLevel3UserId,
       account: result.approvedLevel3UserAccount,
       name: result.approvedLevel3UserName
     } : undefined,
-    approvedLevel3Timestamp: result.approvedLevel3Timestamp ? result.approvedLevel3Timestamp.toISOString() : undefined,
+    approvedLevel3Timestamp: result.approvedLevel3Timestamp ? result.approvedLevel3Timestamp : undefined,
 
     approvedDecisionUser: result.approvedDecisionUserId ? {
       id: result.approvedDecisionUserId,
       account: result.approvedDecisionUserAccount,
       name: result.approvedDecisionUserName
     } : undefined,
-    approvedDecisionTimestamp: result.approvedDecisionTimestamp ? result.approvedDecisionTimestamp.toISOString() : undefined,
+    approvedDecisionTimestamp: result.approvedDecisionTimestamp ? result.approvedDecisionTimestamp : undefined,
 
-    date: result.date.toISOString(),
-    dateTimeFrom: result.dateTimeFrom.toISOString(),
-    dateTimeTo: result.dateTimeTo ? result.dateTimeTo.toISOString() : undefined,
-    dateRelated: result.dateRelated ? result.dateRelated.toISOString() : undefined,
+    date: result.date,
+    dateTimeFrom: result.dateTimeFrom,
+    dateTimeTo: result.dateTimeTo ? result.dateTimeTo : undefined,
+    dateRelated: result.dateRelated ? result.dateRelated : undefined,
     reason: result.reason ?? undefined,
     contact: result.contact ?? undefined,
     routeName: result.routeName ?? undefined,
-    isApproved: result.isApproved
+    isApproved: result.isApproved,
+
+    options: (!resultOptions || resultOptions.length < 1) ? undefined : resultOptions.map(resultOption => {
+      return { name: resultOption.optionTypeName, value: resultOption.optionValueName };
+    })
   }
 }
-
 
 export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyId: number) {
 
   const result = await this.knex.select<{
-    approvedLevel1UserId: number, approvedLevel1UserAccount: string, approvedLevel1UserName: string, approvedLevel1UserEmail: string,
-    approvedLevel2UserId: number, approvedLevel2UserAccount: string, approvedLevel2UserName: string, approvedLevel2UserEmail: string
+    currentApprovingMainUserId: number, currentApprovingMainUserAccount: string, currentApprovingMainUserName: string, currentApprovingMainUserEmail: string,
+    currentApprovingSubUserId: number, currentApprovingSubUserAccount: string, currentApprovingSubUserName: string, currentApprovingSubUserEmail: string
   }[]>({
-    approvedLevel1UserId: 'u1.id', approvedLevel1UserAccount: 'u1.account', approvedLevel1UserName: 'u1.name', approvedLevel1UserEmail: 'u1.email',
-    approvedLevel2UserId: 'u2.id', approvedLevel2UserAccount: 'u2.account', approvedLevel2UserName: 'u2.name', approvedLevel2UserEmail: 'u2.email'
+    currentApprovingMainUserId: 'u1.id', currentApprovingMainUserAccount: 'u1.account', currentApprovingMainUserName: 'u1.name', currentApprovingMainUserEmail: 'u1.email',
+    currentApprovingSubUserId: 'u2.id', currentApprovingSubUserAccount: 'u2.account', currentApprovingSubUserName: 'u2.name', currentApprovingSubUserEmail: 'u2.email'
   })
     .from('apply')
     .leftJoin('user as u1', { 'u1.id': 'apply.currentApprovingMainUser' })
@@ -204,18 +255,22 @@ export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyI
     .where('apply.id', applyId)
     .first();
 
+  if (!result) {
+    throw new createHttpError.NotFound('指定されたIDの申請が見つかりません');
+  }
+
   return <apiif.UserInfoResponseData[]>[
-    result.approvedLevel1UserId ? {
-      id: result.approvedLevel1UserId,
-      account: result.approvedLevel1UserAccount,
-      name: result.approvedLevel1UserName,
-      email: result.approvedLevel1UserEmail
+    result.currentApprovingMainUserId ? {
+      id: result.currentApprovingMainUserId,
+      account: result.currentApprovingMainUserAccount,
+      name: result.currentApprovingMainUserName,
+      email: result.currentApprovingMainUserEmail
     } : undefined,
-    result.approvedLevel2UserId ? {
-      id: result.approvedLevel2UserId,
-      account: result.approvedLevel2UserAccount,
-      name: result.approvedLevel2UserName,
-      email: result.approvedLevel2UserEmail
+    result.currentApprovingSubUserId ? {
+      id: result.currentApprovingSubUserId,
+      account: result.currentApprovingSubUserAccount,
+      name: result.currentApprovingSubUserName,
+      email: result.currentApprovingSubUserEmail
     } : undefined
   ];
 }
@@ -228,23 +283,34 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     approvalLevel1MainUser: number, approvalLevel1SubUser: number,
     approvalLevel2MainUser: number, approvalLevel2SubUser: number,
     approvalLevel3MainUser: number, approvalLevel3SubUser: number,
-    approvalDecisionUser: number
-  }>({
+    approvalDecisionUser: number,
+    currentApprovingMainUser: number, currentApprovingSubUser: number
+  }[]>({
     applyId: 'apply.id', isApproved: 'apply.isApproved',
     approvalLevel1MainUser: 'approvalRoute.approvalLevel1MainUser', approvalLevel1SubUser: 'approvalRoute.approvalLevel1SubUser',
     approvalLevel2MainUser: 'approvalRoute.approvalLevel2MainUser', approvalLevel2SubUser: 'approvalRoute.approvalLevel2SubUser',
     approvalLevel3MainUser: 'approvalRoute.approvalLevel3MainUser', approvalLevel3SubUser: 'approvalRoute.approvalLevel3SubUser',
-    approvalDecisionUser: 'approvalRoute.approvalDecisionUser'
+    approvalDecisionUser: 'approvalRoute.approvalDecisionUser',
+    currentApprovingMainUser: 'apply.currentApprovingMainUser', currentApprovingSubUser: 'apply.currentApprovingSubUser'
   })
     .from('apply')
     .leftJoin('applyType', { 'applyType.id': 'apply.type' })
     .leftJoin('approvalRoute', { 'approvalRoute.id': 'apply.route' })
-    .where('id', applyId)
+    .where('apply.id', applyId)
+    .first();
+
+  if (!apply) {
+    throw new createHttpError.NotFound(`指定された申請ID ${applyId} が見つかりません`);
+  }
+
+  if (apply.isApproved !== null) {
+    throw new createHttpError.Forbidden('回付が完了しています');
+  }
 
   // 自分が承認者1の場合
   if (userInfo.id === apply.approvalLevel1MainUser || userInfo.id === apply.approvalLevel1SubUser) {
-    let currentApprovingMainUser: number = null;
-    let currentApprovingSubUser: number = null;
+    let currentApprovingMainUser: number | null = null;
+    let currentApprovingSubUser: number | null = null;
 
     if (apply.approvalLevel2MainUser || apply.approvalLevel2SubUser) {
       currentApprovingMainUser = apply.approvalLevel2MainUser;
@@ -260,9 +326,9 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     }
 
     await this.knex('apply').where('id', applyId).update({
-      approvedLevel1User: approve === true ? userInfo.id : undefined,
-      approvedLevel1UserTimestamp: approve === true ? new Date() : undefined,
-      currentApprovingMainUser: approve === true ? currentApprovingMainUser : userInfo.id,
+      approvedLevel1User: userInfo.id,
+      approvedLevel1UserTimestamp: new Date(),
+      currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
       currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
       // 承認者2〜3か決裁者がいないのであれば承認扱いとする
       isApproved: approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false // 否認の場合は後続の承認者の有無に関わらず否認扱いとする
@@ -270,8 +336,8 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
   }
   // 自分が承認者2の場合
   else if (userInfo.id === apply.approvalLevel2MainUser || userInfo.id === apply.approvalLevel2SubUser) {
-    let currentApprovingMainUser: number = null;
-    let currentApprovingSubUser: number = null;
+    let currentApprovingMainUser: number | null = null;
+    let currentApprovingSubUser: number | null = null;
 
     if (apply.approvalLevel3MainUser || apply.approvalLevel3SubUser) {
       currentApprovingMainUser = apply.approvalLevel3MainUser;
@@ -283,9 +349,9 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     }
 
     await this.knex('apply').where('id', applyId).update({
-      approvedLevel2User: approve === true ? userInfo.id : undefined,
-      approvedLevel2UserTimestamp: approve === true ? new Date() : undefined,
-      currentApprovingMainUser: approve === true ? currentApprovingMainUser : userInfo.id,
+      approvedLevel2User: userInfo.id,
+      approvedLevel2UserTimestamp: new Date(),
+      currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
       currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
       // 承認者3か決裁者がいないのであれば承認扱いとする
       isApproved: approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false
@@ -294,9 +360,9 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
   // 自分が承認者3の場合
   else if (userInfo.id === apply.approvalLevel3MainUser || userInfo.id === apply.approvalLevel3SubUser) {
     await this.knex('apply').where('id', applyId).update({
-      approvedLevel3User: approve === true ? userInfo.id : undefined,
-      approvedLevel3UserTimestamp: approve === true ? new Date() : undefined,
-      currentApprovingMainUser: approve === true ? (apply.approvalDecisionUser) : userInfo.id,
+      approvedLevel3User: userInfo.id,
+      approvedLevel3UserTimestamp: new Date(),
+      currentApprovingMainUser: approve === true ? (apply.approvalDecisionUser) : null,
       currentApprovingSubUser: null,
       // 決裁者がいないのであれば承認扱いとする
       isApproved: approve === true ? (apply.approvalDecisionUser ? undefined : true) : false
@@ -305,8 +371,8 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
   // 自分が決裁者の場合
   else if (userInfo.id === apply.approvalDecisionUser) {
     await this.knex('apply').where('id', applyId).update({
-      approvedDecisionUser: approve === true ? userInfo.id : undefined,
-      approvedDecisionUserTimestamp: approve === true ? new Date() : undefined,
+      approvedDecisionUser: userInfo.id,
+      approvedDecisionUserTimestamp: new Date(),
       currentApprovingMainUser: null,
       currentApprovingSubUser: null,
       isApproved: approve // 決裁者の承認/否認で完了とする
@@ -408,6 +474,9 @@ export async function addApplyType(this: DatabaseAccess, applyType: apiif.ApplyT
     .merge(['name', 'isSystemType', 'description']); // ON DUPLICATE KEY UPDATE
 
   const lastApplyTypeResult = await this.knex.select<{ [name: string]: number }>(this.knex.raw('LAST_INSERT_ID()')).first();
+  if (!lastApplyTypeResult) {
+    throw createHttpError(500, '', { internalMessage: 'MySQLの LAST_INSERT_ID() 実行に失敗しました' });
+  }
   const lastApplyTypeId = lastApplyTypeResult['LAST_INSERT_ID()'];
 
   return lastApplyTypeId;
@@ -420,11 +489,15 @@ export async function updateApplyType(this: DatabaseAccess, applyType: apiif.App
 
 export async function deleteApplyType(this: DatabaseAccess, name: string) {
 
-  const applyType = await this.knex
-    .select<apiif.ApplyTypeResponseData[]>({ id: 'id' }).from('applyType').where('name', name).first();
+  const applyTypeId = (await this.knex
+    .select<apiif.ApplyTypeResponseData[]>({ id: 'id' }).from('applyType').where('name', name).first())?.id;
+
+  if (!applyTypeId) {
+    throw new createHttpError.NotFound(`指定された申請種類 ${name} が見つかりません`);
+  }
 
   await this.knex.transaction(async (trx) => {
-    await this.knex('applyPrivilege').del().where('type', applyType.id);
+    await this.knex('applyPrivilege').del().where('type', applyTypeId);
     await this.knex('applyType').del().where('name', name);
   });
 }

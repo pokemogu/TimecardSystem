@@ -1,0 +1,6 @@
+version: "2"
+services:
+  timecard-backend:
+    build: .
+    image: "pokemogu/timecard-backend:0.7.0"
+

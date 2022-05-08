@@ -1,6 +1,7 @@
 import { Knex } from "knex";
 
-export async function seed(knex: Knex) {
+/** @param { Knex } knex  */
+export async function seed(knex) {
 
   await knex("user").del();
   await knex("privilege").del();
@@ -16,10 +17,10 @@ export async function seed(knex: Knex) {
     { name: '[所属なし]' }
   ]);
 
-  const departmentNagoya = (await knex.first<{ id: number }>('id').from('department').where('name', '名古屋事業所')).id;
-  const departmentHamamatsu = (await knex.first<{ id: number }>('id').from('department').where('name', '浜松工場')).id;
-  const departmentTomei = (await knex.first<{ id: number }>('id').from('department').where('name', '東名工場')).id;
-  const departmentNone = (await knex.first<{ id: number }>('id').from('department').where('name', '[所属なし]')).id;
+  const departmentNagoya = (await knex.first < { id: number } > ('id').from('department').where('name', '名古屋事業所')).id;
+  const departmentHamamatsu = (await knex.first < { id: number } > ('id').from('department').where('name', '浜松工場')).id;
+  const departmentTomei = (await knex.first < { id: number } > ('id').from('department').where('name', '東名工場')).id;
+  const departmentNone = (await knex.first < { id: number } > ('id').from('department').where('name', '[所属なし]')).id;
   await knex('section').insert([
     { department: departmentNagoya, name: '第一営業部' },
     { department: departmentNagoya, name: '第二営業部' },
@@ -82,7 +83,8 @@ export async function seed(knex: Knex) {
     },
   ]);
 
-  const privileges = await knex.select<{ id: number, name: string }[]>().from('privilege');
+  /** @type {{id: number, name: string}[]} */
+  const privileges = await knex.select({ id: 'id', name: 'name' }).from('privilege');
 
   // 端末情報
   const privilegeIdDevice = privileges.find(privilege => privilege.name === '__SYSTEM_DEVICE_PRIVILEGE__').id
