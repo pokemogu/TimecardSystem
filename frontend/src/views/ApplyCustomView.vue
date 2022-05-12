@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -8,6 +8,7 @@ import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
+import { putErrorToDB } from '@/ErrorDB';
 
 const route = useRoute();
 const router = useRouter();
@@ -15,7 +16,6 @@ const store = useSessionStore();
 
 const applyTypeOptions1 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'applyType', options: [] });
 const applyTypeValue1 = ref('');
-
 const dateFrom = ref('');
 const dateTo = ref('');
 const timeFrom = ref('');
@@ -26,18 +26,25 @@ const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
 
 onMounted(async () => {
-  const applyTypes = await backendAccess.getApplyTypes();
-  if (applyTypes) {
-    const customApplyTypes = applyTypes.filter(applyType => applyType.isSystemType !== true);
-    if (customApplyTypes) {
-      applyTypeOptions1.value.options.splice(0);
-      Array.prototype.push.apply(
-        applyTypeOptions1.value,
-        customApplyTypes.map(applyType => {
-          return { name: applyType.name, description: applyType.description };
-        })
-      );
+  try {
+    const applyTypes = await backendAccess.getApplyTypes();
+    if (applyTypes) {
+      const customApplyTypes = applyTypes.filter(applyType => applyType.isSystemType !== true);
+      if (customApplyTypes) {
+        applyTypeOptions1.value.options.splice(0);
+        Array.prototype.push.apply(
+          applyTypeOptions1.value,
+          customApplyTypes.map(applyType => {
+            return { name: applyType.name, description: applyType.description };
+          })
+        );
+      }
     }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
   }
 });
 
@@ -67,6 +74,8 @@ async function onRouteSubmit() {
       }
     }
   } catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -97,10 +106,24 @@ async function onRouteSubmit() {
         </div>
       </div>
       <div class="col-2">
-        <div class="row">承認待ち</div>
-        <div class="row">否認</div>
-        <div class="row">決済済</div>
-        <div class="row">申請</div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'unapproved' } }" class="btn btn-warning btn-sm"
+              role="button">未承認一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'rejected' } }" class="btn btn-warning btn-sm"
+              role="button">否認済一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'approved' } }" class="btn btn-warning btn-sm"
+              role="button">承認済一覧</RouterLink>
+          </div>
+        </div>
       </div>
     </div>
   </div>

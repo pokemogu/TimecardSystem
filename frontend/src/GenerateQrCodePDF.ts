@@ -152,7 +152,7 @@ export default async function generateQrCodePDF(users: {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
-
 }

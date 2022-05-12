@@ -88,7 +88,7 @@ const router = createRouter({
             }
           }
           catch (error) {
-            console.log(error);
+            console.error(error);
           }
         }
         return { name: 'home' };
@@ -252,19 +252,19 @@ const router = createRouter({
       component: () => import('@/views/ApplyCustomView.vue'),
       meta: { title: `${appName} - その他申請` }
     },
+    // 申請一覧
+    {
+      path: '/apply/list',
+      name: 'apply-list',
+      component: () => import('@/views/ApplyListView.vue'),
+      meta: { title: `${appName} - 申請一覧` }
+    },
     // 承認関連
     {
-      path: '/approval/pending',
-      name: 'approval-pending',
-      component: () => import('@/views/ApproveView.vue'),
-      meta: { title: `${appName} - 未承認一覧` },
-      beforeEnter: () => { return verifyApprove() }
-    },
-    {
-      path: '/approval/pending',
-      name: 'approval-all',
-      component: () => { },
-      meta: { title: `${appName} - 全ての申請` },
+      path: '/approval/list',
+      name: 'approval-list',
+      component: () => import('@/views/ApplyListView.vue'),
+      meta: { title: `${appName} - 承認一覧` },
       beforeEnter: () => { return verifyApprove() }
     },
     // 管理関連
@@ -382,6 +382,7 @@ router.beforeEach(async (to, from) => {
     }
     catch (error) {
       // リフレッシュトークンが有効でないので、ログアウトする。
+      console.error(error);
       await store.logout();
       return { name: 'home', params: { status: 'forcedLogout' } };
     }
@@ -399,6 +400,7 @@ router.beforeEach(async (to, from) => {
       }
       catch (error) {
         // リフレッシュトークンが有効でないので、ログアウトする。
+        console.error(error);
         await store.logout();
         return { name: 'home', params: { status: 'forcedLogout' } };
       }

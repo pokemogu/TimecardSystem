@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import DeviceEdit from '@/components/DeviceEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -36,9 +37,10 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
-
 }
 
 onMounted(async () => {
@@ -90,6 +92,8 @@ async function onDeviceDelete() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -120,6 +124,8 @@ async function onDeviceSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   await updateTable();
@@ -131,42 +137,24 @@ async function onDeviceSubmit() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="打刻端末設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="打刻端末設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <DeviceEdit
-        v-model:isOpened="isModalOpened"
-        v-model:account="selectedDeviceAccount"
-        v-model:name="selectedDeviceName"
-        v-on:submit="onDeviceSubmit"
-      ></DeviceEdit>
+      <DeviceEdit v-model:isOpened="isModalOpened" v-model:account="selectedDeviceAccount"
+        v-model:name="selectedDeviceName" v-on:submit="onDeviceSubmit"></DeviceEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onDeviceClick()"
-        >打刻端末追加</button>
+        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onDeviceClick()">打刻端末追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onDeviceDelete"
-        >チェックした打刻端末を削除</button>
+          v-on:click="onDeviceDelete">チェックした打刻端末を削除</button>
       </div>
     </div>
 
@@ -183,19 +171,12 @@ async function onDeviceSubmit() {
           <tbody>
             <tr v-for="(device, index) in deviceInfos.slice(0, limit)">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[device.account]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index"
+                  v-model="checks[device.account]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onDeviceClick(device.account)"
-                >{{ device.account }}</button>
+                <button type="button" class="btn btn-link" v-on:click="onDeviceClick(device.account)">{{ device.account
+                }}</button>
               </td>
               <td>{{ device.name }}</td>
             </tr>
@@ -229,7 +210,9 @@ async function onDeviceSubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

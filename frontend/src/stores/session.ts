@@ -11,7 +11,8 @@ export const useSessionStore = defineStore({
     userName: '',
     userDepartment: '',
     userSection: '',
-    privilege: <apiif.PrivilegeResponseData | null>null
+    privilege: <apiif.PrivilegeResponseData | null>null,
+    lastApplyListViewTab: <string | null>null
   }),
   getters: {
     token: (state) => state.refreshToken
@@ -25,6 +26,7 @@ export const useSessionStore = defineStore({
       this.userDepartment = '';
       this.userSection = '';
       this.privilege = null;
+      this.lastApplyListViewTab = null;
     },
     async login(account: string, password: string) {
       try {

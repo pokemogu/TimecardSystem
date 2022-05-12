@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue';
-import { useRouter, RouterLink } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
@@ -32,9 +32,9 @@ async function updateTable() {
 
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
-
 }
 
 onMounted(async () => {
@@ -85,6 +85,7 @@ async function onApplyTypeDelete() {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
 
@@ -142,6 +143,7 @@ async function onSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
   await updateTable();
@@ -153,42 +155,25 @@ async function onSubmit() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="その他申請種類設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="その他申請種類設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <CustomApplyEdit
-        v-model:isOpened="isModalOpened"
-        v-model:applyType="selectedCustomApplyType"
-        v-model:applyPermissionNames="selectedApplyPermissionNames"
-        v-on:submit="onSubmit"
-      ></CustomApplyEdit>
+      <CustomApplyEdit v-model:isOpened="isModalOpened" v-model:applyType="selectedCustomApplyType"
+        v-model:applyPermissionNames="selectedApplyPermissionNames" v-on:submit="onSubmit"></CustomApplyEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onCustomApplyTypeClick()"
-        >その他申請種類の追加</button>
+        <button type="button" class="btn btn-primary" id="new-route"
+          v-on:click="onCustomApplyTypeClick()">その他申請種類の追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onApplyTypeDelete"
-        >チェックした申請種類を削除</button>
+          v-on:click="onApplyTypeDelete">チェックした申請種類を削除</button>
       </div>
     </div>
 
@@ -205,19 +190,13 @@ async function onSubmit() {
           <tbody>
             <tr v-for="(applyType, index) in customApplyTypes">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[applyType.name]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index"
+                  v-model="checks[applyType.name]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onCustomApplyTypeClick(applyType.name)"
-                >{{ applyType.description }}</button>
+                <button type="button" class="btn btn-link" v-on:click="onCustomApplyTypeClick(applyType.name)">{{
+                    applyType.description
+                }}</button>
               </td>
             </tr>
           </tbody>
@@ -255,7 +234,9 @@ async function onSubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

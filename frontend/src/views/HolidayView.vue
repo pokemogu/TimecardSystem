@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { useRouter, RouterLink } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import HolidayEdit from '@/components/HolidayEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -22,7 +23,6 @@ const limit = ref(10);
 const offset = ref(0);
 
 async function updateTable() {
-
   try {
     const infos = await backendAccess.getHolidays({
       from: `${selectedYear.value.toString()}-01-01T00:00:00`,
@@ -36,9 +36,10 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
-
 }
 
 onMounted(async () => {
@@ -89,6 +90,8 @@ async function onHolidayDelete() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -109,6 +112,8 @@ async function onHolidaySubmit() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   await updateTable();
@@ -120,23 +125,14 @@ async function onHolidaySubmit() {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="store.isLoggedIn()"
-          titleName="休日設定"
-          v-bind:userName="store.userName"
-          customButton1="メニュー画面"
-          v-on:customButton1="router.push({ name: 'dashboard' })"
-        ></Header>
+        <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="休日設定" v-bind:userName="store.userName"
+          customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
 
     <Teleport to="body" v-if="isModalOpened">
-      <HolidayEdit
-        v-model:isOpened="isModalOpened"
-        v-model:date="selectedHoliday.date"
-        v-model:name="selectedHoliday.name"
-        v-on:submit="onHolidaySubmit"
-      ></HolidayEdit>
+      <HolidayEdit v-model:isOpened="isModalOpened" v-model:date="selectedHoliday.date"
+        v-model:name="selectedHoliday.name" v-on:submit="onHolidaySubmit"></HolidayEdit>
     </Teleport>
     <!--
     <Teleport to="body" v-if="isModalOpened">
@@ -149,30 +145,16 @@ async function onHolidaySubmit() {
     -->
     <div class="row justify-content-start p-2">
       <div class="d-grid gap-2 col-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="new-route"
-          v-on:click="onHolidayClick()"
-        >休日追加</button>
+        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onHolidayClick()">休日追加</button>
       </div>
       <div class="d-grid gap-2 col-4">
-        <button
-          type="button"
-          class="btn btn-primary"
-          id="export"
+        <button type="button" class="btn btn-primary" id="export"
           v-bind:disabled="Object.values(checks).every(check => check === false)"
-          v-on:click="onHolidayDelete()"
-        >チェックした休日を削除</button>
+          v-on:click="onHolidayDelete()">チェックした休日を削除</button>
       </div>
       <div class="col-md-2">
         <div class="input-group">
-          <input
-            class="form-control form-control-sm"
-            type="number"
-            min="1970"
-            v-model="selectedYear"
-          />
+          <input class="form-control form-control-sm" type="number" min="1970" v-model="selectedYear" />
           <span class="input-group-text">年</span>
         </div>
       </div>
@@ -191,19 +173,12 @@ async function onHolidaySubmit() {
           <tbody>
             <tr v-for="(holiday, index) in holidayInfos.slice(0, limit)">
               <th scope="row">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  :id="'checkbox' + index"
-                  v-model="checks[holiday.date]"
-                />
+                <input class="form-check-input" type="checkbox" :id="'checkbox' + index"
+                  v-model="checks[holiday.date]" />
               </th>
               <td>
-                <button
-                  type="button"
-                  class="btn btn-link"
-                  v-on:click="onHolidayClick({ date: holiday.date, name: holiday.name })"
-                >{{ holiday.date }}</button>
+                <button type="button" class="btn btn-link"
+                  v-on:click="onHolidayClick({ date: holiday.date, name: holiday.name })">{{ holiday.date }}</button>
               </td>
               <td>{{ holiday.name }}</td>
             </tr>
@@ -237,7 +212,9 @@ async function onHolidaySubmit() {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

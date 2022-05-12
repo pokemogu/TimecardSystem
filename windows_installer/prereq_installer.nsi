@@ -44,6 +44,16 @@ Section "MySQL" MySQLSectionID
 
 SectionEnd
 
+Section "MySQL Workbench"
+
+  # 出力先を指定します。
+  SetOutPath "$INSTDIR"
+
+  File "mysql-workbench-community-8.0.28-winx64.msi"
+  ExecWait 'msiexec /i "$INSTDIR\mysql-workbench-community-8.0.28-winx64.msi" /qn /norestart'
+
+SectionEnd
+
 Section "Apache"
 
   File "httpd-2.4.53-o111n-x64-vs16.exe"

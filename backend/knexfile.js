@@ -27,7 +27,7 @@ const config = {
       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
       database: process.env.DB_NAME || 'my_db',
       user: process.env.DB_USER || 'my_user',
-      password: process.env.DB_PASSWORD || 'password$001',
+      password: process.env.DB_PASSWORD || '',
       multipleStatements: true
       //filename: process.env.DB_TYPE === "sqlite3" ? process.env.DB_NAME + ".sqlite" : undefined
     },
@@ -47,7 +47,7 @@ const config = {
       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
       database: process.env.DB_NAME || 'my_db',
       user: process.env.DB_USER || 'my_user',
-      password: process.env.DB_PASSWORD || 'password$001'
+      password: process.env.DB_PASSWORD || ''
     },
     pool: {
       min: 2,

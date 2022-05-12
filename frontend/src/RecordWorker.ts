@@ -1,5 +1,6 @@
 import { openRecordDB, openDeviceDB, openCacheInfoDB, openUserCacheDB } from '@/RecordDBSchema';
 import * as backendAccess from '@/BackendAccess';
+import { putErrorToDB } from './ErrorDB';
 
 function dateToStr(date: Date) {
   return date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
@@ -14,7 +15,7 @@ async function loadUserCache(accessToken: string) {
 
     const minuteDiff = Math.floor((new Date().getTime() - timestamp.getTime()) / (1000 * 60));
     if (minuteDiff > 60) {
-      console.log('Updating user info cache...');
+      console.info('Updating user info cache...');
       const access = new backendAccess.TokenAccess(accessToken);
       const userInfos = await access.getUsersInfo({ isQrCodeIssued: true });
 
@@ -79,13 +80,14 @@ async function recordSenderJob() {
 
         if (deviceRefreshToken !== '') {
           const result = await backendAccess.getToken(deviceRefreshToken);
-          if (result?.token) {
-            await loadUserCache(result.token.accessToken);
+          if (result?.accessToken) {
+            await loadUserCache(result.accessToken);
           }
         }
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      await putErrorToDB('', error as Error, true);
       postMessage({ type: 'error', message: error });
     }
 
@@ -100,8 +102,8 @@ async function recordSenderJob() {
           const recordData = await recordDb.get('timecard-record', key);
           if (recordData && recordData.isSent === false) {
             const token = await backendAccess.getToken(recordData.refreshToken);
-            if (token?.token) {
-              const access = new backendAccess.TokenAccess(token.token.accessToken);
+            if (token?.accessToken) {
+              const access = new backendAccess.TokenAccess(token.accessToken);
               await access.record(recordData.type, recordData.timestamp, deviceAccount !== '' ? deviceAccount : undefined);
               recordData.isSent = true;
               recordData.refreshToken = '';
@@ -112,13 +114,15 @@ async function recordSenderJob() {
           }
 
         } catch (error) {
-          console.log(error);
+          console.error(error);
+          await putErrorToDB('', error as Error, true);
           postMessage({ type: 'error', message: error });
         }
       }
     }
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await putErrorToDB('', error as Error, true);
     postMessage({ type: 'error', message: error });
   }
 }
@@ -139,7 +143,8 @@ async function recordCacheDeleteJob() {
       }
     }
   } catch (error) {
-    console.log(error);
+    console.error(error);
+    await putErrorToDB('', error as Error, true);
     postMessage({ type: 'error', message: error });
   }
 }
@@ -148,7 +153,7 @@ const intervalRecordSender = setInterval(recordSenderJob, 5 * 1000);
 const intervalRecordCacheDelete = setInterval(recordCacheDeleteJob, 60 * 60 * 1000);
 
 onmessage = function (event) {
-  console.log(event.data);
+  console.info(event.data);
   if ((event.data as string) === 'ending') {
     clearInterval(intervalRecordSender);
     setTimeout(recordSenderJob, 10000); // 未送信の打刻を最後に送信する

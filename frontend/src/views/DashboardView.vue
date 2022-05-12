@@ -50,6 +50,7 @@ if (applyPrivileges) {
   if (applyPrivileges.some(applyPrivilege => (applyPrivilege.isSystemType === false) && (applyPrivilege.permitted === true))) {
     applyMenus.push({ description: 'その他申請', linkName: 'apply-custom' });
   }
+  applyMenus.push({ description: '申請一覧', linkName: 'apply-list' });
 }
 
 for (let i = 0, j = -1; i < applyMenus.length; i++) {
@@ -59,12 +60,11 @@ for (let i = 0, j = -1; i < applyMenus.length; i++) {
   }
   applyMenusPerCol[j].push(applyMenus[i]);
 }
-console.log(applyMenusPerCol);
 
 // 承認メニューの登録
 if (store.privilege?.approve) {
-  approvalMenus.push({ description: '未承認一覧', linkName: 'approval-pending' });
-  approvalMenus.push({ description: '全ての申請', linkName: 'approval-all' });
+  approvalMenus.push({ description: '承認一覧', linkName: 'approval-list' });
+  //approvalMenus.push({ description: '全ての申請', linkName: 'approval-all' });
 }
 if (store.privilege?.configurePrivilege) {
   approvalMenus.push({ description: 'ルート設定', linkName: 'admin-route' });
@@ -74,13 +74,13 @@ if (store.privilege?.configurePrivilege) {
 // 管理メニューの登録
 if (store.privilege?.viewRecord) { adminMenus.push({ description: '未打刻一覧', linkName: 'view-record' }); }
 if (store.privilege?.viewAllUserInfo || store.privilege?.viewDepartmentUserInfo || store.privilege?.viewSectionUserInfo) {
-  adminMenus.push({ description: '有給取得状況', linkName: 'view-leave' });
-  adminMenus.push({ description: '残業状況', linkName: 'view-overtime' });
-  adminMenus.push({ description: '勤務実態照会', linkName: 'view-work' });
+  //  adminMenus.push({ description: '有給取得状況', linkName: 'view-leave' });
+  //  adminMenus.push({ description: '残業状況', linkName: 'view-overtime' });
+  //  adminMenus.push({ description: '勤務実態照会', linkName: 'view-work' });
 }
-if (store.privilege?.viewRecordPerDevice) { adminMenus.push({ description: '簡易工程管理', linkName: 'view-device-record' }); }
+//if (store.privilege?.viewRecordPerDevice) { adminMenus.push({ description: '簡易工程管理', linkName: 'view-device-record' }); }
 if (store.privilege?.registerDevice) { adminMenus.push({ description: '打刻端末設定', linkName: 'admin-device' }); }
-if (store.privilege?.approve) { adminMenus.push({ description: '一括申請機能', linkName: 'apply-bulk' }); }
+//if (store.privilege?.approve) { adminMenus.push({ description: '一括申請機能', linkName: 'apply-bulk' }); }
 if (store.privilege?.configurePrivilege) { adminMenus.push({ description: '権限設定', linkName: 'admin-privilege' }); }
 if (store.privilege?.configureWorkPattern) { adminMenus.push({ description: '勤務体系設定', linkName: 'admin-workpattern' }); }
 if (store.privilege?.issueQr || store.privilege?.registerUser) {
@@ -98,7 +98,6 @@ for (let i = 0, j = -1; i < adminMenus.length; i++) {
   }
   adminMenusPerCol[j].push(adminMenus[i]);
 }
-console.log(adminMenusPerCol);
 
 </script>
 
@@ -142,7 +141,7 @@ console.log(adminMenusPerCol);
           <p>申請</p>
         </div>
         <div class="row">
-          <div v-for="(applyMenusInCol, index) in applyMenusPerCol" class="col p-0">
+          <div v-for="(applyMenusInCol, index) in applyMenusPerCol" class="col-6 p-0">
             <div class="d-flex flex-column">
               <div v-for="(item, index) in applyMenusInCol" class="p-1 d-grid">
                 <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"
@@ -178,7 +177,7 @@ console.log(adminMenusPerCol);
           <p>管理</p>
         </div>
         <div class="row">
-          <div v-for="(adminMenusInCol, index) in adminMenusPerCol" class="col p-0">
+          <div v-for="(adminMenusInCol, index) in adminMenusPerCol" class="col-6 p-0">
             <div class="d-flex flex-column">
               <div v-for="(item, index) in adminMenusInCol" class="p-1 d-grid">
                 <RouterLink v-if="item.linkName" :to="{ name: item.linkName }" class="btn btn-warning btn-sm"

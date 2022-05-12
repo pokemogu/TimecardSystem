@@ -129,12 +129,14 @@ describe('データアクセス', () => {
     await expect(access.deleteUser(testUserAccount)).resolves.not.toThrow();
 
     // 勤務体系を削除する
-    const workPatternId = workPatterns.find(workPattern => workPattern.name === testWorkPatternName).id;
+    const workPatternId = workPatterns.find(workPattern => workPattern.name === testWorkPatternName)?.id;
     //await expect(access.deleteWorkPattern(workPatternId)).resolves.not.toThrow();
 
     // 権限を削除する
-    const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName).id;
-    await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+    const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName)?.id;
+    if (privilegeId) {
+      await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+    }
   });
 
   describe('一般情報取得テスト', () => {
@@ -238,8 +240,10 @@ describe('データアクセス', () => {
 
       await expect(access.deleteUser(testUserAccount)).resolves.not.toThrow();
       const privileges = await access.getPrivileges();
-      const privilegeId = privileges.find(privilege => privilege.name === testUserPrivilegeName).id;
-      await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+      const privilegeId = privileges.find(privilege => privilege.name === testUserPrivilegeName)?.id;
+      if (privilegeId) {
+        await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+      }
     });
 
     test('issueRefreshToken, issueAccessToken, revokeRefreshToken', async () => {
@@ -340,8 +344,10 @@ describe('データアクセス', () => {
       await expect(access.deleteUser(testUserAccount[3])).resolves.not.toThrow();
 
       const privileges = await access.getPrivileges();
-      const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName).id;
-      await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+      const privilegeId = privileges.find(privilege => privilege.name === testPrivilegeName)?.id;
+      if (privilegeId) {
+        await expect(access.deletePrivilege(privilegeId)).resolves.not.toThrow();
+      }
     });
 
     test('getUsersInfo', async () => {

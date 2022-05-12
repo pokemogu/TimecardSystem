@@ -22,19 +22,20 @@ export async function sendQueuedMails(knex: Knex) {
   }
 
   const errors: Error[] = [];
+  const transporter = nodemailer.createTransport({
+    host: smtpInfo.host,
+    port: smtpInfo.port,
+    secure: false,
+    auth: {
+      user: smtpInfo.username,
+      pass: smtpInfo.password
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+
   for (const mail of mails) {
-    const transporter = nodemailer.createTransport({
-      host: smtpInfo.host,
-      port: smtpInfo.port,
-      secure: false,
-      auth: {
-        user: smtpInfo.username,
-        pass: smtpInfo.password
-      },
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
 
     try {
       await transporter.sendMail({

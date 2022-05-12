@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -9,12 +9,11 @@ import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
 import type * as apiif from 'shared/APIInterfaces';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const route = useRoute();
 const store = useSessionStore();
-
-// 権限チェック
 
 const applyTypeOptions1 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'situation', options: [] });
 const applyTypeValue1 = ref('');
@@ -24,7 +23,6 @@ const dateFrom = ref(new Date().toISOString().slice(0, 10));
 const timeFrom = ref('');
 const reason = ref('');
 const apply = ref<apiif.ApplyResponseData>();
-
 const isMounted = ref(false);
 
 onMounted(async () => {
@@ -49,6 +47,8 @@ onMounted(async () => {
     }
     isMounted.value = true;
   } catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 });
@@ -59,11 +59,17 @@ const isApprovalRouteSelectOpened = ref(false);
 async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
-    console.log('承認されました');
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      await access.approveApply(apply.value.id);
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        await access.approveApply(apply.value.id);
+      }
+    }
+    catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
     }
     router.push({ name: 'dashboard' });
   }
@@ -74,12 +80,18 @@ async function onFormSubmit() {
 }
 
 async function onFormSubmitReject() {
-  console.log('否認されました');
   if (apply.value) {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      await access.rejectApply(apply.value.id);
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        await access.rejectApply(apply.value.id);
+      }
+    }
+    catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
     }
     router.push({ name: 'dashboard' });
   }
@@ -107,6 +119,8 @@ async function onRouteSubmit() {
       }
     }
   } catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -138,10 +152,24 @@ async function onRouteSubmit() {
         </template>
       </div>
       <div class="col-2">
-        <div class="row">承認待ち</div>
-        <div class="row">否認</div>
-        <div class="row">決済済</div>
-        <div class="row">申請</div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'unapproved' } }" class="btn btn-warning btn-sm"
+              role="button">未承認一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'rejected' } }" class="btn btn-warning btn-sm"
+              role="button">否認済一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'approved' } }" class="btn btn-warning btn-sm"
+              role="button">承認済一覧</RouterLink>
+          </div>
+        </div>
       </div>
     </div>
   </div>

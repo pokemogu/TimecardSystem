@@ -22,6 +22,7 @@ const axiosConfig: AxiosRequestConfig = {
 }
 
 function handleAxiosError(axiosError: unknown) {
+  console.error(axiosError);
   if (axios.isAxiosError(axiosError)) {
     const error = new Error();
     if (axiosError.response) {
@@ -121,6 +122,22 @@ export class TokenAccess {
     }
   }
 
+  public async disableUser(account: string) {
+    try {
+      await this.axios.delete(`/api/user/disable/${account}`);
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async enableUser(account: string) {
+    try {
+      await this.axios.put(`/api/user/enable/${account}`);
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async getUserInfo(account: string) {
     try {
       return (await this.axios.get<apiif.UserInfoResponseData>(`/api/user/${account}`)).data;
@@ -131,7 +148,7 @@ export class TokenAccess {
 
   public async getUsersInfo(params: apiif.UserInfoRequestQuery) {
     try {
-      return (await this.axios.get<apiif.UserInfoResponseData[]>('/api/user', { params: params })).data;
+      return (await this.axios.get<apiif.UserInfoResponseData[]>('/api/user', { params: { json: JSON.stringify(params) } })).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -149,7 +166,7 @@ export class TokenAccess {
 
   public async getRecords(params: apiif.RecordRequestQuery) {
     try {
-      return (await this.axios.get<apiif.RecordResponseData[]>('/api/record', { params: params })).data;
+      return (await this.axios.get<apiif.RecordResponseData[]>('/api/record', { params: { json: JSON.stringify(params) } })).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -175,6 +192,14 @@ export class TokenAccess {
       if (applies && applies.length > 0) {
         return applies[0];
       }
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getApplies(params: apiif.ApplyRequestQuery) {
+    try {
+      return (await this.axios.get<apiif.ApplyResponseData[]>('/api/apply', { params: { json: JSON.stringify(params) } })).data;
     } catch (error) {
       handleAxiosError(error);
     }
@@ -231,7 +256,7 @@ export class TokenAccess {
 
   public async issueRefreshTokenForOtherUser(account: string) {
     try {
-      return (await this.axios.post<apiif.IssueTokenResponseBody>(`/api/token/issue/${account}`, {})).data;
+      return (await this.axios.post<apiif.IssueTokenResponseData>(`/api/token/issue/${account}`, {})).data;
     } catch (error) {
       handleAxiosError(error);
     }

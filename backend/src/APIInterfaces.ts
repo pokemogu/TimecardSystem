@@ -74,9 +74,9 @@ export interface UserInfoResponseData {
   email?: string,
   section?: string,
   department?: string,
-  privilegeName: string,
+  privilegeName?: string,
   qrCodeIssueNum?: number,
-  defaultWorkPatternName: string,
+  defaultWorkPatternName?: string,
   optional1WorkPatternName?: string,
   optional2WorkPatternName?: string
 }
@@ -243,7 +243,7 @@ export interface ApplyRequestQuery {
   dateTimeFrom?: Date,
   dateTimeTo?: Date,
 
-  isApproved?: boolean | null, // trueの場合は承認済の申請、falseの場合は否認済の申請、nullの場合は回付中の申請
+  isApproved?: boolean | null | (boolean | null)[], // trueの場合は承認済の申請、falseの場合は否認済の申請、nullの場合は回付中の申請
 
   limit?: number,
   offset?: number

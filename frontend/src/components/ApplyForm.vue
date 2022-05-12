@@ -58,7 +58,6 @@ const timeTo = ref(props.timeTo ?? '');
 const reason = ref(props.reason ?? '');
 const contact = ref(props.contact ?? '');
 const approvingUsersInfo = ref<apiif.UserInfoResponseData[]>([]);
-console.log(props.apply);
 
 if (props.apply?.options && props.applyTypeOptions1) {
   //  console.log(props.applyTypeOptions1.find(applyTypeOption =>
@@ -95,13 +94,19 @@ onMounted(async () => {
   }
 
   if (props.apply) {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      const users = await access.getApplyCurrentApprovingUsers(props.apply.id);
-      if (users) {
-        Array.prototype.push.apply(approvingUsersInfo.value, users);
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        const users = await access.getApplyCurrentApprovingUsers(props.apply.id);
+        if (users) {
+          Array.prototype.push.apply(approvingUsersInfo.value, users);
+        }
       }
+    }
+    catch (error) {
+      console.error(error);
+      alert(error);
     }
   }
 
@@ -473,7 +478,7 @@ function onDeleteSubmit() {
           <div v-else-if="apply?.isApproved === true" class="alert alert-primary" role="alert">承認済</div>
           <div v-else-if="apply?.isApproved === false" class="alert alert-danger" role="alert">否認済</div>
           <template
-            v-else-if="apply?.isApproved !== false && approvingUsersInfo.some(userInfo => userInfo.account === store.userAccount) === true">
+            v-else-if="apply?.isApproved !== false && approvingUsersInfo.length > 0 && approvingUsersInfo.some(userInfo => userInfo.account === store.userAccount) === true">
             <input type="submit" class="btn btn-warning btn-lg" value="承認" />
             <input type="button" class="btn btn-danger btn-lg" v-on:click="onDeleteSubmit" value="否認" />
           </template>

@@ -33,14 +33,14 @@ async function onSubmit(event: Event) {
     if (token) {
       const access = new backendAccess.TokenAccess(token);
       const tokenInfo = await access.issueRefreshTokenForOtherUser(selectedDevice.account);
-      if (tokenInfo?.token) {
+      if (tokenInfo?.refreshToken) {
         const db = await openDeviceDB();
         if (db) {
           await db.clear('timecard-device');
           await db.put('timecard-device', {
             name: selectedDevice.name,
             timestamp: new Date(),
-            refreshToken: tokenInfo.token.refreshToken
+            refreshToken: tokenInfo.refreshToken
           }, selectedDeviceAccount.value);
         }
       }
@@ -97,12 +97,8 @@ onMounted(async () => {
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
-          <button
-            type="button"
-            class="btn btn-primary"
-            v-bind:disabled="selectedDeviceAccount === ''"
-            v-on:click="onSubmit"
-          >保存</button>
+          <button type="button" class="btn btn-primary" v-bind:disabled="selectedDeviceAccount === ''"
+            v-on:click="onSubmit">保存</button>
         </div>
       </div>
     </div>
@@ -119,6 +115,7 @@ onMounted(async () => {
   width: 100%;
   background-color: rgba(0, 0, 0, 0.5);
 }
+
 .vue-modal {
   position: fixed;
   z-index: 999;

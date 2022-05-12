@@ -21,16 +21,37 @@ export async function queueMail(this: DatabaseAccess, params: {
   ]);
 }
 
-export async function getMails(this: DatabaseAccess) {
+type MailRecord = {
+  id: number,
+  from: string, to: string, cc: string,
+  subject: string, body: string, timestamp: Date, replyTo: string
+};
 
-  return await this.knex
-    .select<{ id: number, from: string, to: string, cc: string, subject: string, body: string, timestamp: Date, replyTo: string }[]>
+export async function getMails(this: DatabaseAccess) {
+  return await this.knex.select<MailRecord[]>
     ({ id: 'id', from: 'from', to: 'to', cc: 'cc', subject: 'subject', body: 'body', timestamp: 'timestamp', replyTo: 'replyTo' })
     .from('mailQueue');
 }
 
 export async function deleteMail(this: DatabaseAccess, id: number) {
   await this.knex('mailQueue').where('id', id).del();
+}
+
+export async function getMailsAndDelete(this: DatabaseAccess, mailProcessingCallback: (mailRecord: MailRecord) => boolean) {
+  await this.knex.transaction(async function (trx) {
+    const mails = await trx.select<MailRecord[]>
+      ({ id: 'id', from: 'from', to: 'to', cc: 'cc', subject: 'subject', body: 'body', timestamp: 'timestamp', replyTo: 'replyTo' })
+      .from('mailQueue').forUpdate();
+
+    const deleteMailIds: number[] = [];
+    for (const mail of mails) {
+      if (mailProcessingCallback(mail) === true) {
+        deleteMailIds.push(mail.id);
+      }
+    }
+
+    await trx.del().from('mailQueue').whereIn('id', deleteMailIds);
+  });
 }
 
 ///////////////////////////////////////////////////////////////////////

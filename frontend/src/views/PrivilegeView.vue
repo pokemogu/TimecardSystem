@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import PrivilegeEdit from '@/components/PrivilegeEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -53,6 +54,8 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -63,22 +66,22 @@ onMounted(async () => {
     applyTypes.value.splice(0);
     applyTypes.value = types.filter(applyType => applyType.isSystemType === true);
   }
-  updateTable();
+  await updateTable();
 });
 
 async function onPageBack() {
   const backTo = offset.value - limit.value;
   offset.value = backTo > 0 ? backTo : 0;
-  updateTable();
+  await updateTable();
 }
 
 async function onPageForward() {
   const forwardTo = offset.value + limit.value;
   offset.value = forwardTo > 0 ? forwardTo : 0;
-  updateTable();
+  await updateTable();
 }
 
-async function onPrivilegeClick(privilegeId?: number) {
+function onPrivilegeClick(privilegeId?: number) {
 
   if (privilegeId) {
     const selectedPrivilegeIndex = privilegeInfos.value.findIndex(priv => priv.id === privilegeId);
@@ -117,8 +120,11 @@ async function onPrivilegeDelete() {
         }
       }
     }
+    await updateTable();
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -126,8 +132,6 @@ async function onPrivilegeDelete() {
   for (const key in checks.value) {
     checks.value[key] = false;
   }
-
-  updateTable();
 }
 
 async function onPrivilegeSubmit() {
@@ -149,12 +153,13 @@ async function onPrivilegeSubmit() {
         }
       }
     }
+    await updateTable();
   }
   catch (error) {
-    console.log(error);
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
-  updateTable();
 }
 
 </script>

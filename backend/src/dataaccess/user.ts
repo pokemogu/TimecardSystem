@@ -9,14 +9,14 @@ import type * as apiif from '../APIInterfaces';
 
 export async function getUsersInfo(this: DatabaseAccess, params?: apiif.UserInfoRequestQuery) {
 
-  return await this.knex
+  const results = await this.knex
     .select<apiif.UserInfoResponseData[]>
     ({
       id: 'user.id', registeredAt: 'user.registeredAt', account: 'user.account', name: 'user.name', email: 'user.email',
       phonetic: 'user.phonetic', department: 'department.name', section: 'section.name', privilegeName: 'privilege.name',
       defaultWorkPatternName: 'w1.name', optional1WorkPatternName: 'w2.name', optional2WorkPatternName: 'w3.name'//, qrCodeIssuedNum: 'qrCodeIssuedNum'
     })
-    .sum('token.isQrToken', { as: 'qrCodeIssuedNum' })
+    .sum('token.isQrToken', { as: 'qrCodeIssueNum' })
     .from('user')
     .leftJoin('section', { 'section.id': 'user.section' })
     .leftJoin('department', { 'department.id': 'section.department' })
@@ -63,19 +63,19 @@ export async function getUsersInfo(this: DatabaseAccess, params?: apiif.UserInfo
         builder.where('registeredAt', '<=', params.registeredTo);
       }
     })
-    .modify(function (builder) {
+    .modify<any, apiif.UserInfoResponseData[]>(function (builder) {
       if (params?.isQrCodeIssued !== undefined && params?.isQrCodeIssued !== null) {
-        if (params.isQrCodeIssued.toString() === 'true') {
-          builder.having('qrCodeIssuedNum', '>', 0);
+        if (params.isQrCodeIssued === true) {
+          builder.having('qrCodeIssueNum', '>', 0);
         }
-        else if (params.isQrCodeIssued.toString() === 'false') {
-          builder.havingRaw('qrCodeIssuedNum is null');
-          builder.orHaving('qrCodeIssuedNum', '=', 0);
+        else if (params.isQrCodeIssued === false) {
+          builder.havingRaw('qrCodeIssueNum is null');
+          builder.orHaving('qrCodeIssueNum', '=', 0);
         }
       }
     })
     .groupBy('user.id')
-    .modify(function (builder) {
+    .modify<any, apiif.UserInfoResponseData[]>(function (builder) {
       if (params?.limit) {
         builder.limit(params.limit);
       }
@@ -83,7 +83,36 @@ export async function getUsersInfo(this: DatabaseAccess, params?: apiif.UserInfo
         builder.offset(params.offset);
       }
     })
-    .orderBy('user.registeredAt', 'desc') as apiif.UserInfoResponseData[];
+    .orderBy('user.registeredAt', 'desc');
+
+  // Knex(かmysql2ドライバ)のsumはnumberではなくstringで結果を返してくるのでstringからnumberに変換する
+  for (const result of results) {
+    if (result.qrCodeIssueNum && typeof result.qrCodeIssueNum === 'string') {
+      result.qrCodeIssueNum = parseInt(result.qrCodeIssueNum);
+    }
+  }
+
+  return results;
+}
+
+export async function getUserInfoById(this: DatabaseAccess, id: number) {
+  const usersInfo = await this.getUsersInfo({ id: id });
+  if (!usersInfo || usersInfo.length < 1) {
+    throw new createHttpError.NotFound('指定されたIDのユーザーが見つかりません');
+  }
+  else {
+    return usersInfo[0];
+  }
+}
+
+export async function getUserInfoByAccount(this: DatabaseAccess, account: string) {
+  const usersInfo = await this.getUsersInfo({ accounts: [account] });
+  if (!usersInfo || usersInfo.length < 1) {
+    throw new createHttpError.NotFound('指定されたIDのユーザーが見つかりません');
+  }
+  else {
+    return usersInfo[0];
+  }
 }
 
 export async function generateAvailableUserAccount(this: DatabaseAccess) {

@@ -112,10 +112,13 @@ export class DatabaseAccess {
   // ユーザー情報関連 dataaccess.user
   ///////////////////////////////////////////////////////////////////////
   public getUsersInfo = user.getUsersInfo;
+  public getUserInfoById = user.getUserInfoById;
+  public getUserInfoByAccount = user.getUserInfoByAccount;
   public generateAvailableUserAccount = user.generateAvailableUserAccount;
   public addUsers = user.addUsers;
   public deleteUser = user.deleteUser;
   public disableUser = user.disableUser;
+  public enableUser = user.enableUser;
 
   ///////////////////////////////////////////////////////////////////////
   // 申請関連 dataaccess.apply

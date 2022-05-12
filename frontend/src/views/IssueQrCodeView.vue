@@ -13,6 +13,8 @@ import * as backendAccess from '@/BackendAccess';
 import generateQrCodePDF from '@/GenerateQrCodePDF';
 
 import UserEdit from '@/components/UserEdit.vue';
+import PasswordChange from '@/components/PasswordChange.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -21,6 +23,7 @@ const userInfos = ref<apiif.UserInfoResponseData[]>([]);
 const selectedUserInfo = ref<apiif.UserInfoRequestData>({ account: '', name: '', privilegeName: '', defaultWorkPatternName: '' });
 const checks = ref<boolean[]>([]);
 const isModalOpened = ref(false);
+const isPasswordChangeOpened = ref(false);
 
 const limit = ref(10);
 const offset = ref(0);
@@ -67,11 +70,14 @@ const updateUserList = async () => {
       if (infos) {
         userInfos.value.splice(0);
         Array.prototype.push.apply(userInfos.value, infos);
+        console.log(infos);
       }
       checks.value = Array.from({ length: userInfos.value.length }, () => false);
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -80,28 +86,39 @@ onMounted(async () => {
   await updateUserList();
 })
 
+const isNewAccount = ref(true);
+
 async function onUserClick(account?: string) {
-  if (account) {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const userInfo = await tokenAccess.getUserInfo(account);
-      if (userInfo) {
-        selectedUserInfo.value = {
-          account: userInfo.account, name: userInfo.name, phonetic: userInfo.phonetic,
-          email: userInfo.email, section: userInfo.section, department: userInfo.department,
-          privilegeName: userInfo.privilegeName,
-          defaultWorkPatternName: userInfo.defaultWorkPatternName,
-          optional1WorkPatternName: userInfo.optional1WorkPatternName,
-          optional2WorkPatternName: userInfo.optional2WorkPatternName
-        };
+  try {
+    if (account) {
+      const token = await store.getToken();
+      if (token) {
+        const tokenAccess = new backendAccess.TokenAccess(token);
+        const userInfo = await tokenAccess.getUserInfo(account);
+        if (userInfo) {
+          selectedUserInfo.value = {
+            account: userInfo.account, name: userInfo.name, phonetic: userInfo.phonetic,
+            email: userInfo.email, section: userInfo.section, department: userInfo.department,
+            privilegeName: userInfo.privilegeName,
+            defaultWorkPatternName: userInfo.defaultWorkPatternName,
+            optional1WorkPatternName: userInfo.optional1WorkPatternName,
+            optional2WorkPatternName: userInfo.optional2WorkPatternName
+          };
+        }
       }
+      isNewAccount.value = false;
     }
+    else {
+      selectedUserInfo.value = { account: '', name: '', privilegeName: '', defaultWorkPatternName: '' };
+      isNewAccount.value = true;
+    }
+    isModalOpened.value = true;
   }
-  else {
-    selectedUserInfo.value = { account: '', name: '', privilegeName: '', defaultWorkPatternName: '' };
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
   }
-  isModalOpened.value = true;
 }
 
 async function onIssueQrCode() {
@@ -119,11 +136,11 @@ async function onIssueQrCode() {
         if (token) {
           const tokenAccess = new backendAccess.TokenAccess(token);
           const issuedToken = await tokenAccess.issueRefreshTokenForOtherUser(userInfos.value[i].account);
-          if (issuedToken?.token) {
+          if (issuedToken?.refreshToken) {
             userInfoforQrCode.push({
               name: userInfos.value[i].name,
               account: userInfos.value[i].account,
-              refreshToken: issuedToken.token.refreshToken,
+              refreshToken: issuedToken.refreshToken,
               section: userInfos.value[i].section ?? ''
             });
           }
@@ -131,13 +148,25 @@ async function onIssueQrCode() {
       }
     }
     catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
       alert(error);
     }
   }
-  if (userInfoforQrCode.length > 0) {
-    generateQrCodePDF(userInfoforQrCode).then(() => {
-      alert('QRコードの発行が完了しました。発行されたQRコードが各打刻端末で使用できるのは1時間後となります。');
-    });
+
+  try {
+    console.log(userInfoforQrCode);
+    if (userInfoforQrCode.length > 0) {
+      console.log(userInfoforQrCode);
+      await generateQrCodePDF(userInfoforQrCode).then(() => {
+        alert('QRコードの発行が完了しました。発行されたQRコードが各打刻端末で使用できるのは1時間後となります。');
+      });
+    }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
   }
 
   checks.value = [];
@@ -157,12 +186,43 @@ async function onPageForward() {
 }
 
 async function onSubmit() {
-  console.log(selectedUserInfo.value);
-  console.log(selectedUserInfo.value.account);
+  try {
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.addUsers([selectedUserInfo.value]);
+      if (isNewAccount.value === true) {
+        isPasswordChangeOpened.value = true;
+      }
+    }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  await updateUserList();
+}
+
+async function onPasswordChange() {
+  isPasswordChangeOpened.value = true;
+  await updateUserList();
 }
 
 async function onDelete() {
-
+  try {
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.disableUser(selectedUserInfo.value.account);
+    }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  await updateUserList();
 }
 
 </script>
@@ -178,7 +238,12 @@ async function onDelete() {
 
     <Teleport to="body" v-if="isModalOpened">
       <UserEdit v-model:isOpened="isModalOpened" v-model:userInfo="selectedUserInfo" v-on:submit="onSubmit"
-        v-on:submitDelete="onDelete"></UserEdit>
+        v-on:submitDelete="onDelete" v-on:submitPasswordChange="onPasswordChange"></UserEdit>
+    </Teleport>
+
+    <Teleport to="body" v-if="isPasswordChangeOpened">
+      <PasswordChange v-model:isOpened="isPasswordChangeOpened" :confirmOldPasword="false"
+        :account="selectedUserInfo.account"></PasswordChange>
     </Teleport>
 
     <div class="row justify-content-end p-2">

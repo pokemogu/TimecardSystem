@@ -109,7 +109,7 @@ async function onSubmit() {
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
           <button type="button" class="btn btn-primary"
-            v-bind:disabled="oldPassword === '' || newPassword === '' || newPasswordConfirm === ''"
+            v-bind:disabled="(props.confirmOldPasword === true && oldPassword === '') || newPassword === '' || newPasswordConfirm === ''"
             v-on:click="onSubmit">変更</button>
         </div>
       </div>

@@ -1,70 +1,108 @@
 ﻿const path = require('path');
+const readline = require('readline');
 const Service = require('node-windows').Service;
+
+function waitForInput() {
+  return new Promise(function (resolve) {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question('Enterキーを押して終了してください。', function (ans) {
+      rl.close();
+      resolve();
+    });
+  });
+}
 
 function installService(svc, startAfterInstall = false) {
   //svc.logOnAs.domain = 'NT AUTHORITY';
   //svc.logOnAs.account = 'LocalService';
-  svc.on('install', function () {
-    console.log('サービスのインストールが完了しました。');
-    if (startAfterInstall) {
-      svc.start();
-    }
+  return new Promise(function (resolve, reject) {
+
+    svc.on('install', function () {
+      console.log('サービスのインストールが完了しました。');
+      if (startAfterInstall) {
+        svc.start();
+      }
+      resolve();
+    });
+    svc.on('alreadyinstalled', function () {
+      console.warn('サービスは既にインストールされています。');
+      process.exitCode = 1;
+      resolve();
+    });
+    svc.on('error', function () {
+      console.error('サービスのインストールに失敗しました。');
+      process.exitCode = 255;
+      reject(new Error());
+    });
+    svc.install();
+
   });
-  svc.on('alreadyinstalled', function () {
-    console.warn('サービスは既にインストールされています。');
-    process.exitCode = 1;
-  });
-  svc.on('error', function () {
-    console.error('サービスのインストールに失敗しました。');
-    process.exitCode = 255;
-  });
-  svc.install();
 }
 exports.installService = installService;
 
 function uninstallService(svc) {
-  svc.on('uninstall', function () {
-    if (svc.exists === false) {
-      console.log('サービスのアンインストールが完了しました。');
-    }
-    else {
-      console.error('サービスのアンインストール後にサービスが残存しています。');
+  return new Promise(function (resolve, reject) {
+
+    svc.on('uninstall', function () {
+      if (svc.exists === false) {
+        console.log('サービスのアンインストールが完了しました。');
+        resolve();
+      }
+      else {
+        console.error('サービスのアンインストール後にサービスが残存しています。');
+        process.exitCode = 255;
+        reject(new Error());
+      }
+    });
+    svc.on('alreadyuninstalled', function () {
+      console.error('サービスがインストールされていないか、既にアンインストールされています。');
+      process.exitCode = 1;
+      resolve();
+    });
+    svc.on('error', function () {
+      console.error('サービスのアンインストールに失敗しました。');
       process.exitCode = 255;
-    }
+      reject(new Error());
+    });
+    svc.uninstall();
+
   });
-  svc.on('alreadyuninstalled', function () {
-    console.error('サービスがインストールされていないか、既にアンインストールされています。');
-    process.exitCode = 1;
-  });
-  svc.on('error', function () {
-    console.error('サービスのアンインストールに失敗しました。');
-    process.exitCode = 255;
-  });
-  svc.uninstall();
 }
 exports.uninstallService = uninstallService;
 
 function startService(svc) {
-  svc.on('start', function () {
-    console.log('サービスを開始しました。');
+  return new Promise(function (resolve, reject) {
+
+    svc.on('start', function () {
+      console.log('サービスを開始しました。');
+      resolve();
+    });
+    svc.on('error', function () {
+      console.error('サービスの開始に失敗しました。');
+      process.exitCode = 255;
+      reject(new Error());
+    });
+    svc.start();
+
   });
-  svc.on('error', function () {
-    console.error('サービスの開始に失敗しました。');
-    process.exitCode = 255;
-  });
-  svc.start();
 }
 exports.startService = startService;
 
 function stopService(svc) {
-  svc.on('stop', function () {
-    console.log('サービスを停止しました。');
+  return new Promise(function (resolve, reject) {
+
+    svc.on('stop', function () {
+      console.log('サービスを停止しました。');
+      resolve();
+    });
+    svc.on('error', function () {
+      console.error('サービスの停止に失敗しました。');
+      process.exitCode = 255;
+      reject(new Error());
+    });
+    svc.stop();
+
   });
-  svc.on('error', function () {
-    console.error('サービスの停止に失敗しました。');
-    process.exitCode = 255;
-  });
-  svc.stop();
 }
 exports.stopService = stopService;
 
@@ -85,33 +123,48 @@ const svc = new Service({
 });
 exports.svc = svc;
 
+// このモジュールを node で直接起動した場合のみ実行される
 if (require.main === module) {
-  // このモジュールを node で直接起動した場合のみ実行される
-  if (process?.argv && process.argv?.length && process.argv.length >= 3) {
-    const command = process.argv[2];
+  (async function () {
 
-    switch (command) {
-      case 'install':
-        installService(svc);
-        break;
-      case 'uninstall':
-        uninstallService(svc);
-        break;
-      case 'start':
-        startService(svc);
-        break;
-      case 'stop':
-        stopService(svc);
-        break;
-      default:
-        console.error('指定されたオプション ' + command + ' が正しくありません');
-        showUsage();
-        process.exitCode = 1;
-        break;
+    if (process?.argv && process.argv?.length && process.argv.length >= 3) {
+      const command = process.argv[2];
+      const waitForEnterToExit = (process.argv.length >= 4) && (process.argv[3] === 'wait')
+
+      console.clear();
+
+      try {
+        switch (command) {
+          case 'install':
+            await installService(svc);
+            break;
+          case 'uninstall':
+            await uninstallService(svc);
+            break;
+          case 'start':
+            await startService(svc);
+            break;
+          case 'stop':
+            await stopService(svc);
+            break;
+          default:
+            console.error('指定されたオプション ' + command + ' が正しくありません');
+            showUsage();
+            process.exitCode = 1;
+            break;
+        }
+      }
+      catch (error) { }
+
+      if (waitForEnterToExit) {
+        await waitForInput();
+      }
+
     }
-  }
-  else {
-    showUsage();
-    process.exitCode = 1;
-  }
+    else {
+      showUsage();
+      process.exitCode = 1;
+    }
+
+  })();
 }

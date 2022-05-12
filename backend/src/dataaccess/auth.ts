@@ -21,6 +21,8 @@ export async function issueRefreshToken(this: DatabaseAccess, account: string, p
     .leftJoin('section', { 'user.section': 'section.id' })
     .leftJoin('department', { 'section.department': 'department.id' })
     .where('user.account', account)
+    .andWhere('user.available', true)
+    .andWhere('user.isDevice', false)
     .first();
 
   if (!user) {
@@ -62,6 +64,8 @@ export async function issueQrCodeRefreshToken(this: DatabaseAccess, account: str
     .leftJoin('section', { 'user.section': 'section.id' })
     .leftJoin('department', { 'section.department': 'department.id' })
     .where('user.account', account)
+    .andWhere('user.available', true)
+    // 打刻端末用のトークンを発行することがあるので、isDeviceはtrueである可能性がある
     .first()
 
   if (!user?.available) {
@@ -92,6 +96,7 @@ export async function issueAccessToken(this: DatabaseAccess, refreshToken: strin
     .from('user')
     .join('token', { 'user.id': 'token.user' })
     .where('token.refreshToken', refreshToken)
+    .andWhere('user.available', true)
     .first();
 
   if (!tokenData) {

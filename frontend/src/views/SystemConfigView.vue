@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import SystemConfigEdit from '@/components/SystemConfigEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -34,6 +35,8 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -79,6 +82,8 @@ async function onConfigSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   await updateTable();
@@ -113,7 +118,7 @@ async function onConfigSubmit() {
               <div v-for="(config, index) in configInfos.slice(0, limit)" class="card">
                 <div class="card-header">
                   <button type="button" class="btn btn-link" v-on:click="onConfigClick(config.key)">{{
-                    config.title
+                      config.title
                   }}</button> ({{ config.key }})
                 </div>
                 <div class="card-body">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -8,28 +8,79 @@ import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
+import { putErrorToDB } from '@/ErrorDB';
 
-const route = useRoute();
 const router = useRouter();
+const route = useRoute();
 const store = useSessionStore();
-
-const userDepartment = ref('');
-const userSection = ref('');
-
-route.query.relatedDate
 
 const dateHolidayWork = ref(route.query.relatedDate ? route.query.relatedDate as string : '');
 const dateFrom = ref('');
 const timeFrom = ref('');
 const timeTo = ref('');
 const reason = ref('');
+const apply = ref<apiif.ApplyResponseData>();
 const isMounted = ref(false);
+
+onMounted(async () => {
+  try {
+    if (route.params.id) {
+      const applyId = parseInt(route.params.id as string);
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      apply.value = await access.getApply(applyId);
+    }
+    isMounted.value = true;
+  } catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+});
 
 const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
 
 async function onFormSubmit() {
-  isApprovalRouteSelectOpened.value = true;
+  // 回付中の場合は承認処理を行なう
+  if (apply.value) {
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        await access.approveApply(apply.value.id);
+      }
+    }
+    catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
+    }
+    router.push({ name: 'dashboard' });
+  }
+  // 起票中の場合は承認ルート選択モーダルを表示する
+  else {
+    isApprovalRouteSelectOpened.value = true;
+  }
+}
+
+async function onFormSubmitReject() {
+  if (apply.value) {
+    try {
+      const token = await store.getToken();
+      if (token) {
+        const access = new backendAccess.TokenAccess(token);
+        await access.rejectApply(apply.value.id);
+      }
+    }
+    catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
+    }
+    router.push({ name: 'dashboard' });
+  }
 }
 
 async function onRouteSubmit() {
@@ -52,6 +103,8 @@ async function onRouteSubmit() {
       }
     }
   } catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -77,14 +130,28 @@ async function onRouteSubmit() {
         <div class="row">
           <ApplyForm v-if="isMounted" applyName="代休" applyType="leave-proxy" v-model:dateOptional="dateHolidayWork"
             dateOptionalType="休出日" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
-            v-model:reason="reason" v-on:submit="onFormSubmit"></ApplyForm>
+            v-model:reason="reason" v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject"></ApplyForm>
         </div>
       </div>
       <div class="col-2">
-        <div class="row">承認待ち</div>
-        <div class="row">否認</div>
-        <div class="row">決済済</div>
-        <div class="row">申請</div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'unapproved' } }" class="btn btn-warning btn-sm"
+              role="button">未承認一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'rejected' } }" class="btn btn-warning btn-sm"
+              role="button">否認済一覧</RouterLink>
+          </div>
+        </div>
+        <div class="row">
+          <div class="p-1 d-grid">
+            <RouterLink :to="{ name: 'apply-list', query: { approved: 'approved' } }" class="btn btn-warning btn-sm"
+              role="button">承認済一覧</RouterLink>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -131,11 +131,11 @@ async function seed(knex) {
     },
     {
       name: '製造社員',
-      recordByLogin: true
+      recordByLogin: true, approve: true
     },
     {
       name: '事務社員',
-      recordByLogin: true
+      recordByLogin: true, approve: true
     },
     {
       name: '製造パート'
@@ -152,7 +152,7 @@ async function seed(knex) {
     },
     {
       name: '役員',
-      recordByLogin: true, configureWorkPattern: true, configurePrivilege: true, viewRecordPerDevice: true, issueQr: true,
+      recordByLogin: true, approve: true, configureWorkPattern: true, configurePrivilege: true, viewRecordPerDevice: true, issueQr: true,
       registerUser: true, registerDevice: true,
       viewAllUserInfo: true
     },
@@ -551,13 +551,7 @@ async function seed(knex) {
       approvalLevel2SubUserId: await getUserIdFromAccount('USR00282'),
       approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
       approvalLevel3SubUserId: await getUserIdFromAccount('USR00294'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00276' }, { role: '承認者1(副)', account: 'USR00277' }] },
-        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00290' }, { role: '承認者2(副)', account: 'USR00282' }] },
-        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00294' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '開発部社員',
@@ -567,13 +561,7 @@ async function seed(knex) {
       // approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
       approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
       approvalLevel3SubUserId: await getUserIdFromAccount('USR00292'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00273' }, { role: '承認者1(副)', account: 'USR00274' }] },
-        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00289' }] },
-        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '開発部課長',
@@ -583,12 +571,7 @@ async function seed(knex) {
       approvalLevel2SubUserId: await getUserIdFromAccount('USR00292'),
       //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00289' }] },
-        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '開発部長',
@@ -598,11 +581,7 @@ async function seed(knex) {
       //approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '浜松製造部社員',
@@ -612,13 +591,7 @@ async function seed(knex) {
       approvalLevel2SubUserId: await getUserIdFromAccount('USR00228'),
       approvalLevel3MainUserId: await getUserIdFromAccount('USR00291'),
       approvalLevel3SubUserId: await getUserIdFromAccount('USR00292'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00226' }, { role: '承認者1(副)', account: 'USR00227' }] },
-        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00229' }, { role: '承認者2(副)', account: 'USR00228' }] },
-        { level: 3, users: [{ role: '承認者3(主)', account: 'USR00291' }, { role: '承認者3(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '製造部課長',
@@ -628,12 +601,7 @@ async function seed(knex) {
       approvalLevel2SubUserId: await getUserIdFromAccount('USR00292'),
       //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00229' }, { role: '承認者1(副)', account: 'USR00228' }] },
-        { level: 2, users: [{ role: '承認者2(主)', account: 'USR00291' }, { role: '承認者2(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
     {
       name: '製造部長',
@@ -643,11 +611,7 @@ async function seed(knex) {
       //approvalLevel2SubUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3MainUserId: await getUserIdFromAccount('????????'),
       //approvalLevel3SubUserId: await getUserIdFromAccount('????????'),
-      approvalDecisionUserId: await getUserIdFromAccount('USR00300'),
-      roles: [
-        { level: 1, users: [{ role: '承認者1(主)', account: 'USR00291' }, { role: '承認者1(副)', account: 'USR00292' }] },
-        { level: 10, users: [{ role: '決済者', account: 'USR00300' }] },
-      ]
+      approvalDecisionUserId: await getUserIdFromAccount('USR00300')
     },
   ];
 
@@ -736,6 +700,28 @@ async function seed(knex) {
 
   const hamamatsuSeizouRouteId = await getRouteIdFromName('浜松製造部社員');
 
+  // 打刻申請オプション
+  /** @type {number} */
+  const optionTypeRecord1 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'situation').first()).id;
+  /** @type {number} */
+  const optionTypeRecord2 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'recordType').first()).id;
+  /** @type {number} */
+  const optionType1ValueNotyet = (await knex.select({ id: 'id' }).from('applyOptionValue')
+    .where('optionType', optionTypeRecord1).andWhere('name', 'notyet').first()).id;
+  /** @type {number} */
+  const optionType2ValueClockin = (await knex.select({ id: 'id' }).from('applyOptionValue')
+    .where('optionType', optionTypeRecord2).andWhere('name', 'clockin').first()).id;
+
+  // 休暇申請オプション
+  /** @type {number} */
+  const optionTypeLeave = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'leaveType').first()).id;
+  /** @type {number} */
+  const optionTypeLeaveValueNormal = (await knex.select({ id: 'id' }).from('applyOptionValue')
+    .where('optionType', optionTypeLeave).andWhere('name', 'normal').first()).id;
+  /** @type {number} */
+  const optionTypeLeaveValueHalfday = (await knex.select({ id: 'id' }).from('applyOptionValue')
+    .where('optionType', optionTypeLeave).andWhere('name', 'halfday').first()).id;
+
   for (let i = 80; i < 90; i++) {
     const userAccount = 'USR' + i.toString().padStart(5, '0');
     const dateNow = new Date();
@@ -755,6 +741,16 @@ async function seed(knex) {
       route: hamamatsuSeizouRouteId,
       currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
       currentApprovingSubUser: await getUserIdFromAccount('USR00227')
+    });
+
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
     });
   }
 
@@ -779,6 +775,16 @@ async function seed(knex) {
       approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
       currentApprovingMainUser: await getUserIdFromAccount('USR00229'),
       currentApprovingSubUser: await getUserIdFromAccount('USR00228')
+    });
+
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
     });
   }
 
@@ -805,6 +811,16 @@ async function seed(knex) {
       approvedLevel2UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
       currentApprovingMainUser: await getUserIdFromAccount('USR00291'),
       currentApprovingSubUser: await getUserIdFromAccount('USR00292')
+    });
+
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
     });
   }
 
@@ -833,6 +849,16 @@ async function seed(knex) {
       approvedLevel3UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
       currentApprovingMainUser: await getUserIdFromAccount('USR00300'),
       currentApprovingSubUser: null
+    });
+
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
     });
   }
 
@@ -865,6 +891,16 @@ async function seed(knex) {
       currentApprovingSubUser: null,
       isApproved: true
     });
+
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
+    });
   }
 
   for (let i = 0; i < 5; i++) {
@@ -875,7 +911,6 @@ async function seed(knex) {
       dateFrom.setDate(dateFrom.getDate() + generateRandom(3, 14));
     } while (dateFrom.getDay() === 0 || dateFrom.getDay() === 6);
 
-    // 休暇申請
     await knex('apply').insert({
       type: typeLeave,
       user: await getUserIdFromAccount(userAccount),
@@ -889,19 +924,38 @@ async function seed(knex) {
       currentApprovingSubUser: await getUserIdFromAccount('USR00227'),
     });
 
+    /** @type {{[name: string]: number}} */
+    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
+    });
+
     await knex('apply').insert({
       type: typeLeave,
       user: await getUserIdFromAccount(userAccount),
       timestamp: new Date(dateNow.getTime() - generateRandom(1000 * 60 * 60 * 1, 1000 * 60 * 60 * 2)),
       date: dateToLocalString(dateNow),
       dateTimeFrom: dateToLocalString(dateFrom),
-      reason: '休暇取得のため',
+      reason: '子供のお迎えのため',
       contact: '090-9999-0000',
       route: hamamatsuSeizouRouteId,
-      currentApprovingMainUser: await getUserIdFromAccount('USR00226'),
-      currentApprovingSubUser: null,
+      approvedLevel1User: await getUserIdFromAccount('USR00226'),
       approvedLevel1UserTimestamp: new Date(dateNow.getTime() - generateRandom(0, 1000 * 60 * 60 * 1)),
       isApproved: false
+    });
+
+    /** @type {{[name: string]: number}} */
+    lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueHalfday
     });
 
     await knex('apply').insert({
@@ -926,15 +980,16 @@ async function seed(knex) {
       isApproved: true
     });
 
-    // 打刻申請
-    /** @type {number} */
-    const optionTypeRecord1 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'situation').first()).id;
-    /** @type {number} */
-    const optionTypeRecord2 = (await knex.select({ id: 'id' }).from('applyOptionType').where('name', 'recordType').first()).id;
-    /** @type {number} */
-    const optionType1ValueNotyet = (await knex.select({ id: 'id' }).from('applyOptionValue').where('name', 'notyet').first()).id;
-    /** @type {number} */
-    const optionType2ValueClockin = (await knex.select({ id: 'id' }).from('applyOptionValue').where('name', 'clockin').first()).id;
+    /** @type {{[name: string]: number}} */
+    lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+
+    await knex('applyOption').insert({
+      apply: lastApplyId,
+      optionType: optionTypeLeave,
+      optionValue: optionTypeLeaveValueNormal
+    });
+
     const dateRecord = new Date(dateNow);
     dateRecord.setHours(8);
     dateRecord.setMinutes(30);
@@ -953,8 +1008,8 @@ async function seed(knex) {
     });
 
     /** @type {{[name: string]: number}} */
-    let lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
-    let lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
+    lastApplyResult = await knex.select(knex.raw('LAST_INSERT_ID()')).first();
+    lastApplyId = lastApplyResult['LAST_INSERT_ID()'];
 
     await knex('applyOption').insert({
       apply: lastApplyId,

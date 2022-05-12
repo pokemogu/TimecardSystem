@@ -173,6 +173,15 @@ async function up(knex) {
     await knex.schema.raw('ALTER TABLE token MODIFY refreshToken VARCHAR(255) CHARACTER SET ascii;');
     await knex.schema.raw('ALTER TABLE token MODIFY accessToken VARCHAR(255) CHARACTER SET ascii;');
 
+    await knex.schema.createTable('annualLeave', function (table) {
+      table.increments('id');
+      table.integer('user').unsigned().notNullable().index();
+      table.date('grantedAt').notNullable();
+      table.date('expireAt').notNullable();
+
+      table.foreign('user').references('id').inTable('user');
+    });
+
     ///////////////////////////////////////////////////////////////////////
     // 申請関連
     ///////////////////////////////////////////////////////////////////////
@@ -705,6 +714,7 @@ async function down(knex) {
   await knex.schema.dropTableIfExists('token');
   await knex.schema.dropTableIfExists('userWorkPattern');
   await knex.schema.dropTableIfExists('userWorkPatternCalendar');
+  await knex.schema.dropTableIfExists('annualLeave');
   await knex.schema.dropTableIfExists('user');
   await knex.schema.dropTableIfExists('wagePattern');
   await knex.schema.dropTableIfExists('workPattern');

@@ -142,7 +142,7 @@ noError_ApacheConf:
 
   !if "$%TEMP%" != "${U+24}%TEMP%"
     !define TEMPPATH "$%TEMP%\backend_${TEMPDIR}"
-    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* /s /mir'
+    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* docker-compose.yml Dockerfile /s /mir'
     !cd '${TEMPPATH}'
     !system 'npm.cmd install --production'
     File /r '${TEMPPATH}\*'
@@ -205,23 +205,23 @@ noError_ApacheConf:
   CreateDirectory "$SMPROGRAMS\Timecard System Server"
   SetOutPath "$INSTDIR"
 
-  #CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "$INSTDIR\configure.bat" ""
-  CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "npm.cmd" "run configure-windows-service"
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\設定.lnk" "node" "configure.js"
   Push "$SMPROGRAMS\Timecard System Server\設定.lnk"
   Call ShellLinkSetRunAs
   Pop $0
 
-  #CreateShortcut "$SMPROGRAMS\MailToStarPRNT\印刷アプリケーションの停止.lnk" "$INSTDIR\stop-service.bat" ""
-  #Push "$SMPROGRAMS\MailToStarPRNT\印刷アプリケーションの停止.lnk"
-  #Call ShellLinkSetRunAs
-  #Pop $0
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\サービスの開始.lnk" "node" "windows-service.js start wait"
+  Push "$SMPROGRAMS\Timecard System Server\サービスの開始.lnk"
+  Call ShellLinkSetRunAs
+  Pop $0
 
-  #CreateShortcut "$SMPROGRAMS\MailToStarPRNT\設定.lnk" "$INSTDIR\Configure.exe" ""
-  #Push "$SMPROGRAMS\MailToStarPRNT\設定.lnk"
-  #Call ShellLinkSetRunAs
-  #Pop $0
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\サービスの停止.lnk" "node" "windows-service.js stop wait"
+  Push "$SMPROGRAMS\Timecard System Server\サービスの停止.lnk"
+  Call ShellLinkSetRunAs
+  Pop $0
 
-  #CreateShortcut "$SMPROGRAMS\MailToStarPRNT\ログ表示.lnk" "$SYSDIR\eventvwr.exe" '/v:"$INSTDIR\MailToStarPRNT_EventLog.xml"'
+  File TimecardSystem_EventLog.xml
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\ログ表示.lnk" "$SYSDIR\eventvwr.exe" '/v:"$INSTDIR\TimecardSystem_EventLog.xml"'
   CreateShortcut "$SMPROGRAMS\Timecard System Server\アンインストール.lnk" "$INSTDIR\Uninstall.exe" ""
 
   # レジストリに登録
@@ -247,6 +247,7 @@ Section "Uninstall"
   #SetOutPath "$OUTDIR"
 
   # ファイルを削除
+  Delete "$INSTDIR\TimecardSystem_EventLog.xml"
   Delete "$INSTDIR\package.json"
   Delete "$INSTDIR\package-lock.json"
   Delete "$INSTDIR\windows-service.js"
@@ -278,7 +279,11 @@ Section "Uninstall"
   RMDir "$INSTDIR"
 
   Delete "$SMPROGRAMS\Timecard System Server\設定.lnk"
-  RMDir /r "$SMPROGRAMS\Timecard System Server"
+  Delete "$SMPROGRAMS\Timecard System Server\サービスの開始.lnk"
+  Delete "$SMPROGRAMS\Timecard System Server\サービスの停止.lnk"
+  Delete "$SMPROGRAMS\Timecard System Server\ログ表示.lnk"
+  Delete "$SMPROGRAMS\Timecard System Server\アンインストール.lnk"
+  RMDir "$SMPROGRAMS\Timecard System Server"
 
   # 共通パッケージのアンインストール
   ExecWait 'npm.cmd uninstall -g node-windows'

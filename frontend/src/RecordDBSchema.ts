@@ -1,6 +1,5 @@
 import { openDB } from 'idb';
 import type { DBSchema } from 'idb';
-import type * as apiif from 'shared/APIInterfaces';
 
 export interface RecordDB extends DBSchema {
   'timecard-record': {

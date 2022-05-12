@@ -115,24 +115,24 @@ export async function getApplyTypeOfApply(this: DatabaseAccess, applyId: number)
   }
 }
 
-export async function getApplyOptions(this: DatabaseAccess, applyId: number) {
+export async function getApplyOptions(this: DatabaseAccess, applyIds: number[]) {
 
   return await this.knex.select<{
-    id: number, optionTypeId: number, optionTypeName: string, optionValueId: number, optionValueName: string
+    id: number, applyId: number, optionTypeId: number, optionTypeName: string, optionValueId: number, optionValueName: string
   }[]>({
-    id: 'applyOption.id',
+    id: 'applyOption.id', applyId: 'applyOption.apply',
     optionTypeId: 'applyOption.optionType', optionTypeName: 'applyOptionType.name',
     optionValueId: 'applyOptionValue.id', optionValueName: 'applyOptionValue.name',
   })
     .from('applyOption')
     .leftJoin('applyOptionType', { 'applyOptionType.id': 'applyOption.optionType' })
     .leftJoin('applyOptionValue', { 'applyOptionValue.id': 'applyOption.optionValue' })
-    .where('applyOption.apply', applyId);
+    .whereIn('applyOption.apply', applyIds);
 }
 
-export async function getApply(this: DatabaseAccess, applyId: number) {
+export async function getApply(this: DatabaseAccess, params?: apiif.ApplyRequestQuery) {
 
-  const result = await this.knex.select<{
+  type RecordResult = {
     id: number, timestamp: Date, typeName: string, typeDescription: string, typeIsSystemType: boolean,
     targetUserId: number, targetUserAccount: string, targetUserName: string, targetUserEmail: string, targetUserSectionId: number,
     appliedUserId: number, appliedUserAccount: string, appliedUserName: string, appliedUserEmail: string, appliedUserSectionId: number,
@@ -142,7 +142,9 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
     approvedDecisionUserId: number, approvedDecisionUserAccount: string, approvedDecisionUserName: string, approvedDecisionTimestamp: Date,
     date: Date, dateTimeFrom: Date, dateTimeTo: Date, dateRelated: Date,
     reason: string, contact: string, routeName: string, isApproved: boolean
-  }[]>({
+  };
+
+  const results = await this.knex.select<RecordResult[]>({
     id: 'apply.id', timestamp: 'apply.timestamp', typeName: 'applyType.name', typeDescription: 'applyType.description', typeIsSystemType: 'applyType.isSystemType',
     targetUserId: 'u0.id', targetUserAccount: 'u0.account', targetUserName: 'u0.name', targetUserEmail: 'u0.email', targetUserSectionId: 'u0.section',
     appliedUserId: 'u1.id', appliedUserAccount: 'u1.account', appliedUserName: 'u1.name', appliedUserEmail: 'u1.email', appliedUserSectionId: 'u1.section',
@@ -150,6 +152,8 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
     approvedLevel2UserId: 'u3.id', approvedLevel2UserAccount: 'u3.account', approvedLevel2UserName: 'u3.name', approvedLevel2Timestamp: 'apply.approvedLevel2UserTimestamp',
     approvedLevel3UserId: 'u4.id', approvedLevel3UserAccount: 'u4.account', approvedLevel3UserName: 'u4.name', approvedLevel3Timestamp: 'apply.approvedLevel3UserTimestamp',
     approvedDecisionUserId: 'u5.id', approvedDecisionUserAccount: 'u5.account', approvedDecisionUserName: 'u5.name', approvedDecisionTimestamp: 'apply.approvedDecisionUserTimestamp',
+    currentApprovingMainUserId: 'u6.id', currentApprovingMainUserAccount: 'u6.account', currentApprovingMainUserName: 'u6.name',
+    currentApprovingSubUserId: 'u7.id', currentApprovingSubUserAccount: 'u7.account', currentApprovingSubUserName: 'u7.name',
     date: 'apply.date', dateTimeFrom: 'apply.dateTimeFrom', dateTimeTo: 'apply.dateTimeTo', dateRelated: 'apply.dateRelated',
     reason: 'apply.reason', contact: 'apply.contact', routeName: 'approvalRoute.name', isApproved: 'apply.isApproved'
   })
@@ -162,89 +166,160 @@ export async function getApply(this: DatabaseAccess, applyId: number) {
     .leftJoin('user as u3', { 'u3.id': 'apply.approvedLevel2User' })
     .leftJoin('user as u4', { 'u4.id': 'apply.approvedLevel3User' })
     .leftJoin('user as u5', { 'u5.id': 'apply.approvedDecisionUser' })
-    .where('apply.id', applyId)
-    .first();
+    .leftJoin('user as u6', { 'u6.id': 'apply.currentApprovingMainUser' })
+    .leftJoin('user as u7', { 'u7.id': 'apply.currentApprovingSubUser' })
+    .where(function (builder) {
+      if (params?.id) {
+        builder.where('apply.id', params.id);
+      }
 
-  if (!result) {
-    throw new createHttpError.NotFound('指定されたIDの申請が見つかりません');
+      // ユーザーで検索
+      if (params?.targetedUserAccount) {
+        builder.where('u0.account', params.targetedUserAccount);
+      }
+      if (params?.approvingUserAccount) {
+        builder.where(function (builder) {
+          builder
+            .where('u6.account', params.approvingUserAccount)
+            .orWhere('u7.account', params.approvingUserAccount);
+        });
+      }
+      if (params?.approvedUserAccount) {
+        builder.where(function (builder) {
+          builder
+            .where('u2.account', params.approvedUserAccount)
+            .orWhere('u3.account', params.approvedUserAccount)
+            .orWhere('u4.account', params.approvedUserAccount)
+            .orWhere('u5.account', params.approvedUserAccount);
+        });
+      }
+
+      // 回付状況で検索
+      if (params?.isApproved !== undefined) {
+        builder.where(function (builder) {
+          if (Array.isArray(params.isApproved)) {
+            params.isApproved.forEach(approve => builder.orWhere('apply.isApproved', approve));
+          }
+          else if (params?.isApproved !== undefined) {
+            builder.where('apply.isApproved', params.isApproved);
+          }
+        });
+      }
+
+      // 申請日付で検索
+      if (params?.timestampFrom && params?.timestampTo) {
+        builder.whereBetween('apply.timestamp', [params.timestampFrom, params.timestampTo]);
+      }
+      else if (params?.timestampFrom) {
+        builder.where('apply.timestamp', '>=', params.timestampFrom);
+      }
+      else if (params?.timestampTo) {
+        builder.where('apply.timestamp', '<=', params.timestampTo);
+      }
+
+      // 申請対象日付で検索
+      if (params?.dateTimeFrom) {
+        builder.where('apply.dateTimeFrom', '>=', params.dateTimeFrom);
+      }
+      else if (params?.dateTimeTo) {
+        builder.where('apply.dateTimeTo', '<=', params.dateTimeTo);
+      }
+    })
+    .modify<any, RecordResult[]>(function (builder) {
+      if (params?.limit) {
+        builder.limit(params.limit);
+      }
+      if (params?.offset) {
+        builder.offset(params.offset);
+      }
+    })
+
+  if (!results) {
+    throw new createHttpError.NotFound('指定された申請が見つかりません');
   }
 
-  const resultOptions = await this.getApplyOptions(applyId);
+  const resultOptions = await this.getApplyOptions(results.map(result => result.id));
   const sections = await this.getSections();
 
-  return <apiif.ApplyResponseData>{
-    id: result.id, timestamp: result.timestamp,
-    type: {
-      name: result.typeName,
-      description: result.typeDescription
-    },
+  return results.map<apiif.ApplyResponseData>(result => {
+    return {
+      id: result.id, timestamp: result.timestamp,
+      type: {
+        name: result.typeName,
+        description: result.typeDescription
+      },
 
-    targetUser: {
-      id: result.targetUserId,
-      account: result.targetUserAccount,
-      name: result.targetUserName,
-      email: result.targetUserEmail,
-      section: sections.find(section => section.id === result.targetUserSectionId)?.sectionName,
-      department: sections.find(section => section.id === result.targetUserSectionId)?.departmentName
-    },
+      targetUser: {
+        id: result.targetUserId,
+        account: result.targetUserAccount,
+        name: result.targetUserName,
+        email: result.targetUserEmail,
+        section: sections.find(section => section.id === result.targetUserSectionId)?.sectionName,
+        department: sections.find(section => section.id === result.targetUserSectionId)?.departmentName
+      },
 
-    appliedUser: result.appliedUserId ? {
-      id: result.appliedUserId,
-      account: result.appliedUserAccount,
-      name: result.appliedUserName,
-      email: result.appliedUserEmail,
-      section: sections.find(section => section.id === result.appliedUserSectionId)?.sectionName,
-      department: sections.find(section => section.id === result.appliedUserSectionId)?.departmentName
-    } : undefined,
+      appliedUser: result.appliedUserId ? {
+        id: result.appliedUserId,
+        account: result.appliedUserAccount,
+        name: result.appliedUserName,
+        email: result.appliedUserEmail,
+        section: sections.find(section => section.id === result.appliedUserSectionId)?.sectionName,
+        department: sections.find(section => section.id === result.appliedUserSectionId)?.departmentName
+      } : undefined,
 
-    approvedLevel1User: result.approvedLevel1UserId ? {
-      id: result.approvedLevel1UserId,
-      account: result.approvedLevel1UserAccount,
-      name: result.approvedLevel1UserName
-    } : undefined,
-    approvedLevel1Timestamp: result.approvedLevel1Timestamp ? result.approvedLevel1Timestamp : undefined,
+      approvedLevel1User: result.approvedLevel1UserId ? {
+        id: result.approvedLevel1UserId,
+        account: result.approvedLevel1UserAccount,
+        name: result.approvedLevel1UserName
+      } : undefined,
+      approvedLevel1Timestamp: result.approvedLevel1Timestamp ? result.approvedLevel1Timestamp : undefined,
 
-    approvedLevel2User: result.approvedLevel2UserId ? {
-      id: result.approvedLevel2UserId,
-      account: result.approvedLevel2UserAccount,
-      name: result.approvedLevel2UserName
-    } : undefined,
-    approvedLevel2Timestamp: result.approvedLevel2Timestamp ? result.approvedLevel2Timestamp : undefined,
+      approvedLevel2User: result.approvedLevel2UserId ? {
+        id: result.approvedLevel2UserId,
+        account: result.approvedLevel2UserAccount,
+        name: result.approvedLevel2UserName
+      } : undefined,
+      approvedLevel2Timestamp: result.approvedLevel2Timestamp ? result.approvedLevel2Timestamp : undefined,
 
-    approvedLevel3User: result.approvedLevel3UserId ? {
-      id: result.approvedLevel3UserId,
-      account: result.approvedLevel3UserAccount,
-      name: result.approvedLevel3UserName
-    } : undefined,
-    approvedLevel3Timestamp: result.approvedLevel3Timestamp ? result.approvedLevel3Timestamp : undefined,
+      approvedLevel3User: result.approvedLevel3UserId ? {
+        id: result.approvedLevel3UserId,
+        account: result.approvedLevel3UserAccount,
+        name: result.approvedLevel3UserName
+      } : undefined,
+      approvedLevel3Timestamp: result.approvedLevel3Timestamp ? result.approvedLevel3Timestamp : undefined,
 
-    approvedDecisionUser: result.approvedDecisionUserId ? {
-      id: result.approvedDecisionUserId,
-      account: result.approvedDecisionUserAccount,
-      name: result.approvedDecisionUserName
-    } : undefined,
-    approvedDecisionTimestamp: result.approvedDecisionTimestamp ? result.approvedDecisionTimestamp : undefined,
+      approvedDecisionUser: result.approvedDecisionUserId ? {
+        id: result.approvedDecisionUserId,
+        account: result.approvedDecisionUserAccount,
+        name: result.approvedDecisionUserName
+      } : undefined,
+      approvedDecisionTimestamp: result.approvedDecisionTimestamp ? result.approvedDecisionTimestamp : undefined,
 
-    date: result.date,
-    dateTimeFrom: result.dateTimeFrom,
-    dateTimeTo: result.dateTimeTo ? result.dateTimeTo : undefined,
-    dateRelated: result.dateRelated ? result.dateRelated : undefined,
-    reason: result.reason ?? undefined,
-    contact: result.contact ?? undefined,
-    routeName: result.routeName ?? undefined,
-    isApproved: result.isApproved,
+      date: result.date,
+      dateTimeFrom: result.dateTimeFrom,
+      dateTimeTo: result.dateTimeTo ? result.dateTimeTo : undefined,
+      dateRelated: result.dateRelated ? result.dateRelated : undefined,
+      reason: result.reason ?? undefined,
+      contact: result.contact ?? undefined,
+      routeName: result.routeName ?? undefined,
+      isApproved: result.isApproved,
 
-    options: (!resultOptions || resultOptions.length < 1) ? undefined : resultOptions.map(resultOption => {
-      return { name: resultOption.optionTypeName, value: resultOption.optionValueName };
-    })
-  }
+      options: (!resultOptions || resultOptions.length < 1) ? undefined :
+        resultOptions.reduce((filtered, current) => {
+          if (current.applyId === result.id) {
+            filtered.push({ name: current.optionTypeName, value: current.optionValueName });
+          }
+          return filtered;
+        }, <{ name: string, value: string }[]>[])
+    }
+  });
 }
 
 export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyId: number) {
 
   const result = await this.knex.select<{
     currentApprovingMainUserId: number, currentApprovingMainUserAccount: string, currentApprovingMainUserName: string, currentApprovingMainUserEmail: string,
-    currentApprovingSubUserId: number, currentApprovingSubUserAccount: string, currentApprovingSubUserName: string, currentApprovingSubUserEmail: string
+    currentApprovingSubUserId: number, currentApprovingSubUserAccount: string, currentApprovingSubUserName: string, currentApprovingSubUserEmail: string,
   }[]>({
     currentApprovingMainUserId: 'u1.id', currentApprovingMainUserAccount: 'u1.account', currentApprovingMainUserName: 'u1.name', currentApprovingMainUserEmail: 'u1.email',
     currentApprovingSubUserId: 'u2.id', currentApprovingSubUserAccount: 'u2.account', currentApprovingSubUserName: 'u2.name', currentApprovingSubUserEmail: 'u2.email'
@@ -259,34 +334,44 @@ export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyI
     throw new createHttpError.NotFound('指定されたIDの申請が見つかりません');
   }
 
-  return <apiif.UserInfoResponseData[]>[
-    result.currentApprovingMainUserId ? {
+  const approvingUsers: apiif.UserInfoResponseData[] = [];
+
+  if (result.currentApprovingMainUserId) {
+    approvingUsers.push({
       id: result.currentApprovingMainUserId,
       account: result.currentApprovingMainUserAccount,
       name: result.currentApprovingMainUserName,
       email: result.currentApprovingMainUserEmail
-    } : undefined,
-    result.currentApprovingSubUserId ? {
+    });
+  }
+  if (result.currentApprovingSubUserId) {
+    approvingUsers.push({
       id: result.currentApprovingSubUserId,
       account: result.currentApprovingSubUserAccount,
       name: result.currentApprovingSubUserName,
       email: result.currentApprovingSubUserEmail
-    } : undefined
-  ];
+    });
+  }
+
+  return approvingUsers;
 }
 
 
 export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, applyId: number, approve: boolean = true) {
 
   const apply = await this.knex.select<{
-    applyId: number, isApproved: boolean,
+    applyId: number, isApproved: boolean, applyTypeName: string,
+    applyDateTimeFrom: Date, applyDateTimeTo: Date,
+    targetUserId: number,
     approvalLevel1MainUser: number, approvalLevel1SubUser: number,
     approvalLevel2MainUser: number, approvalLevel2SubUser: number,
     approvalLevel3MainUser: number, approvalLevel3SubUser: number,
     approvalDecisionUser: number,
     currentApprovingMainUser: number, currentApprovingSubUser: number
   }[]>({
-    applyId: 'apply.id', isApproved: 'apply.isApproved',
+    applyId: 'apply.id', isApproved: 'apply.isApproved', applyTypeName: 'applyType.name',
+    applyDateTimeFrom: 'apply.dateTimeFrom', applyDateTimeTo: 'apply.dateTimeTo',
+    targetUserId: 'apply.user',
     approvalLevel1MainUser: 'approvalRoute.approvalLevel1MainUser', approvalLevel1SubUser: 'approvalRoute.approvalLevel1SubUser',
     approvalLevel2MainUser: 'approvalRoute.approvalLevel2MainUser', approvalLevel2SubUser: 'approvalRoute.approvalLevel2SubUser',
     approvalLevel3MainUser: 'approvalRoute.approvalLevel3MainUser', approvalLevel3SubUser: 'approvalRoute.approvalLevel3SubUser',
@@ -307,6 +392,8 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     throw new createHttpError.Forbidden('回付が完了しています');
   }
 
+  let isApproved: boolean | undefined = approve;
+
   // 自分が承認者1の場合
   if (userInfo.id === apply.approvalLevel1MainUser || userInfo.id === apply.approvalLevel1SubUser) {
     let currentApprovingMainUser: number | null = null;
@@ -325,13 +412,16 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
       currentApprovingSubUser = null;
     }
 
+    // 否認の場合は後続の承認者の有無に関わらず否認扱いとする
+    // 承認者2〜3か決裁者がいないのであれば承認扱いとする
+    isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
+
     await this.knex('apply').where('id', applyId).update({
       approvedLevel1User: userInfo.id,
       approvedLevel1UserTimestamp: new Date(),
       currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
       currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
-      // 承認者2〜3か決裁者がいないのであれば承認扱いとする
-      isApproved: approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false // 否認の場合は後続の承認者の有無に関わらず否認扱いとする
+      isApproved: isApproved
     });
   }
   // 自分が承認者2の場合
@@ -348,24 +438,28 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
       currentApprovingSubUser = null;
     }
 
+    // 承認者3か決裁者がいないのであれば承認扱いとする
+    isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
+
     await this.knex('apply').where('id', applyId).update({
       approvedLevel2User: userInfo.id,
       approvedLevel2UserTimestamp: new Date(),
       currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
       currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
-      // 承認者3か決裁者がいないのであれば承認扱いとする
-      isApproved: approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false
+      isApproved: isApproved
     });
   }
   // 自分が承認者3の場合
   else if (userInfo.id === apply.approvalLevel3MainUser || userInfo.id === apply.approvalLevel3SubUser) {
+    // 決裁者がいないのであれば承認扱いとする
+    isApproved = approve === true ? (apply.approvalDecisionUser ? undefined : true) : false;
+
     await this.knex('apply').where('id', applyId).update({
       approvedLevel3User: userInfo.id,
       approvedLevel3UserTimestamp: new Date(),
       currentApprovingMainUser: approve === true ? (apply.approvalDecisionUser) : null,
       currentApprovingSubUser: null,
-      // 決裁者がいないのであれば承認扱いとする
-      isApproved: approve === true ? (apply.approvalDecisionUser ? undefined : true) : false
+      isApproved: isApproved
     });
   }
   // 自分が決裁者の場合
@@ -382,18 +476,45 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
   else {
     throw new createHttpError.Forbidden('承認ルートに含まれていません');
   }
-}
 
-export async function getUnapprovedApplies(this: DatabaseAccess, accessToken: string) {
-
-}
-
-export async function getRejectedApplies(this: DatabaseAccess, accessToken: string) {
-
-}
-
-export async function getMyApprovedApplies(this: DatabaseAccess, accessToken: string) {
-
+  // 承認された場合は申請種類に応じた処理を行なう
+  if (isApproved === true) {
+    switch (apply.applyTypeName) {
+      case 'record': // 打刻
+        const recordOption = (await this.getApplyOptions([applyId])).find(applyOption => applyOption.optionTypeName === 'recordType');
+        if (recordOption) {
+          console.log(recordOption.optionValueName)
+          const targetUser = await this.getUserInfoById(apply.targetUserId);
+          if (targetUser) {
+            await this.submitRecord(
+              userInfo, recordOption.optionValueName,
+              { account: targetUser.account, timestamp: apply.applyDateTimeFrom, applyId: applyId }
+            );
+          }
+        }
+        break;
+      case 'leave': // 有給
+        break;
+      case 'halfday-leave': // 半休
+        break;
+      case 'makeup-leave': // 代休
+        break;
+      case 'mourning-leave': // 慶弔休
+        break;
+      case 'measure-leave': // 措置休
+        break;
+      case 'overtime': // 早出・残業
+        break;
+      case 'lateness': // 遅刻
+        break;
+      case 'leave-early': // 早退
+        break;
+      case 'break': // 外出
+        break;
+      case 'holiday-work': // 休日出勤
+        break;
+    }
+  }
 }
 
 export async function getEmailsOfApply(this: DatabaseAccess, applyId: number) {

@@ -15,6 +15,7 @@ const emits = defineEmits<{
   (event: 'update:userInfo', value: apiif.UserInfoRequestData): void,
   (event: 'submit'): void,
   (event: 'submitDelete'): void,
+  (event: 'submitPasswordChange'): void
 }>();
 
 const store = useSessionStore();
@@ -109,6 +110,11 @@ async function onDeleteAccount() {
 
 function onClose() {
   emits('update:isOpened', false);
+}
+
+function onPasswordChange() {
+  emits('update:isOpened', false);
+  emits('submitPasswordChange');
 }
 
 </script>
@@ -282,6 +288,13 @@ function onClose() {
                   </div>
                 </div>
                 -->
+                <div v-if="!isNewAccount" class="row m-1">
+                  <div class="col-3">
+                  </div>
+                  <div class="col-9">
+                    <button type="button" class="btn btn-warning" v-on:click="onPasswordChange">パスワード変更</button>
+                  </div>
+                </div>
               </div>
             </div>
             <div class="modal-footer">

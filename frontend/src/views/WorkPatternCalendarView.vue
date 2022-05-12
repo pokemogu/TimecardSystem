@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import WorkPatternCalendarEdit from '@/components/WorkPatternCalendarEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 function dateToStr(date: Date) {
   return date.getFullYear() + '-' + (date.getMonth() + 1).toString().padStart(2, '0') + '-' + date.getDate().toString().padStart(2, '0');
@@ -21,9 +22,6 @@ const isModalOpened = ref(false);
 const holidayInfos = ref<apiif.HolidayResponseData[]>([]);
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref((new Date().getMonth()) + 1);
-
-const limit = ref(10);
-const offset = ref(0);
 
 const datesOfMonth = ref<Date[]>([]);
 
@@ -56,12 +54,12 @@ async function updateTable() {
         console.log(userWorkPatternCalendars.value);
       }
     }
-
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
-
 }
 
 const defaultWorkPattern = ref<apiif.WorkPatternResponseData>();
@@ -156,6 +154,8 @@ async function onSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }

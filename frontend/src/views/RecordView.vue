@@ -107,7 +107,7 @@ async function initStatus() {
 
 const recordTokenCatch = (error: Error) => {
   if (error.name === '401') {
-    console.log(error);
+    console.error(error);
     errorName.value = 'TokenAuthFailedError';
   }
   else {
@@ -123,7 +123,6 @@ let qrCodeString = '';
 async function onKeyPressed(event: KeyboardEvent) {
   if (event.key === 'Enter') {
     await onDecode(qrCodeString);
-    console.log('ENTER');
     qrCodeString = '';
   }
   else {
@@ -178,6 +177,7 @@ onMounted(async () => {
     await initStatus();
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
 });
@@ -210,6 +210,7 @@ async function onRecord(event: Event) {
     timeout = setTimeout(initStatus, 3000);
 
   } catch (error) {
+    console.error(error);
     recordTokenCatch(error as Error);
   }
 }
@@ -290,7 +291,7 @@ async function onDecode(decodedQrcode: string) {
       }
     }
     catch (error) {
-      console.log(error);
+      console.error(error);
       alert(error);
     }
   }

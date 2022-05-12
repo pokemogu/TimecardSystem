@@ -12,7 +12,7 @@ module.exports = () => {
   });
 
   // MySQLのrootパスワードを読み込む
-  if (fs.existsSync(path.join('docker', '.env'))) {
-    dotenv.config({ path: path.join('docker', '.env') });
+  if (fs.existsSync(path.join('mysql', '.env'))) {
+    dotenv.config({ path: path.join('mysql', '.env') });
   }
 }

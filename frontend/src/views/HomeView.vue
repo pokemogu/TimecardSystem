@@ -19,28 +19,26 @@ if (redirectedStatus === 'forcedLogout') {
   alertMessage.value = 'セッションが無効となり強制ログアウトしました';
 }
 
-function onLogin(event: Event): void {
-
-  store.login(userId.value, userPassword.value)
-    .then((success) => {
-      if (success) {
-        if (route.params.redirect) {
-          router.push({ path: route.params.redirect as string });
-        }
-        else {
-          router.push({ name: 'dashboard' });
-        }
+async function onLogin() {
+  try {
+    if (await store.login(userId.value, userPassword.value)) {
+      if (route.params.redirect) {
+        router.push({ path: route.params.redirect as string });
       }
       else {
-        alertMessage.value = 'IDかPASSが間違っています';
-        userPassword.value = '';
+        router.push({ name: 'dashboard' });
       }
-    })
-    .catch((error) => {
-      console.log(error)
-      alertMessage.value = 'システムエラーが発生しました';
+    }
+    else {
+      alertMessage.value = 'IDかPASSが間違っています';
       userPassword.value = '';
-    });
+    }
+  }
+  catch (error) {
+    console.error(error)
+    alertMessage.value = 'システムエラーが発生しました';
+    userPassword.value = '';
+  }
 }
 
 </script>
@@ -49,27 +47,14 @@ function onLogin(event: Event): void {
   <div class="container">
     <div class="row justify-content-center">
       <div class="col-12 p-0">
-        <Header
-          v-bind:isAuthorized="false"
-          titleName="ログイン画面"
-          customButton1="QR打刻画面"
-          v-on:customButton1="router.push({ name: 'record' })"
-        ></Header>
+        <Header v-bind:isAuthorized="false" titleName="ログイン画面" customButton1="QR打刻画面"
+          v-on:customButton1="router.push({ name: 'record' })"></Header>
       </div>
     </div>
     <div class="row justify-content-center">
-      <div
-        v-show="alertMessage"
-        class="col-8 alert alert-danger alert-dismissible fade show"
-        role="alert"
-      >
+      <div v-show="alertMessage" class="col-8 alert alert-danger alert-dismissible fade show" role="alert">
         {{ alertMessage }}
-        <button
-          type="button"
-          class="btn-close"
-          aria-label="Close"
-          @click="alertMessage = null"
-        ></button>
+        <button type="button" class="btn-close" aria-label="Close" @click="alertMessage = null"></button>
       </div>
     </div>
 
@@ -111,7 +96,9 @@ function onLogin(event: Event): void {
 <style>
 body {
   background: navajowhite !important;
-} /* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
+}
+
+/* Adding !important forces the browser to overwrite the default style applied by Bootstrap */
 
 .btn-primary {
   background-color: orange !important;

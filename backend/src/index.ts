@@ -14,7 +14,7 @@ import { Worker } from 'worker_threads';
 import dotenv from 'dotenv';
 
 import getLogger from './logger';
-import registerHandlers from './webapp';
+import registerHandlers, { isoDateStringToDateJSONReviver } from './webapp';
 import { DatabaseAccess } from './dataaccess';
 
 dotenv.config({
@@ -90,21 +90,7 @@ execWorker();
 };
 
 const app = express();
-
-// クライアントからのリクエストJSONにISO日付形式の文字列がある場合は自動的にDate型に変換する
-const reISO = /^(?:[+-]\d{6}|\d{4})-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-function isoDateStringToDate(key: any, value: any) {
-  if (typeof value === 'string') {
-    if ((value.length === 24 || value.length === 27) && value.charAt(value.length - 1) === 'Z') {
-      if (reISO.exec(value)) {
-        return new Date(value);
-      }
-    }
-  }
-  return value;
-}
-
-app.use(express.json({ reviver: isoDateStringToDate }));
+app.use(express.json({ reviver: isoDateStringToDateJSONReviver }));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(bearerToken());

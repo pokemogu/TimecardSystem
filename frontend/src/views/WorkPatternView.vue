@@ -8,6 +8,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import WorkPatternEdit from '@/components/WorkPatternEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 function formatTimeString(time: string) {
   const hourMinSec = time.split(':');
@@ -31,7 +32,6 @@ const limit = ref(10);
 const offset = ref(0);
 
 async function updateTable() {
-
   try {
     const token = await store.getToken();
     if (token) {
@@ -44,9 +44,10 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
-
 }
 
 onMounted(async () => {
@@ -66,7 +67,6 @@ async function onPageForward() {
 }
 
 async function onWorkPatternClick(workPatternName?: string) {
-
   if (workPatternName) {
     try {
       const token = await store.getToken();
@@ -77,10 +77,12 @@ async function onWorkPatternClick(workPatternName?: string) {
           selectedWorkPattern.value = JSON.parse(JSON.stringify(workPattern));
         }
       }
+      isModalOpened.value = true;
     }
     catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
       alert(error);
-      return;
     }
   }
   else {
@@ -89,26 +91,8 @@ async function onWorkPatternClick(workPatternName?: string) {
     selectedWorkPattern.value.onTimeStart = '';
     selectedWorkPattern.value.onTimeEnd = '';
     selectedWorkPattern.value.wagePatterns = undefined;
+    isModalOpened.value = true;
   }
-
-
-  isModalOpened.value = true;
-
-  // 作成済みルートがクリックされた場合は設定更新画面、そうでなければ新規作成画面にする
-  /*
-  const targetRouteInfo = routeName ? routeInfos.value.find(routeInfo => routeInfo.name === routeName) : undefined;
-    if (targetRouteInfo) {
-      selectedWorkPattern.value = {
-        id: targetRouteInfo?.id ? targetRouteInfo?.id : undefined,
-        name: targetRouteInfo?.name ? targetRouteInfo?.name : '',
-        roles: targetRouteInfo?.roles ? targetRouteInfo?.roles : []
-      };
-    }
-    else {
-      selectedWorkPattern.value = { name: '', roles: [] };
-    }
-    isApprovalRouteSelected.value = true;
-  */
 }
 
 async function onWorkPatternDelete() {
@@ -127,6 +111,8 @@ async function onWorkPatternDelete() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -156,21 +142,11 @@ async function onWorkPatternSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   await updateTable();
-}
-
-function sliceDictionary(dict: Record<string, string[]>, limit: number) {
-  const newDict: Record<string, string[]> = {};
-  for (const key in dict) {
-    if (limit <= 0) {
-      break;
-    }
-    newDict[key] = dict[key];
-    limit--;
-  }
-  return newDict;
 }
 
 </script>
@@ -220,7 +196,7 @@ function sliceDictionary(dict: Record<string, string[]>, limit: number) {
               </th>
               <td>
                 <button type="button" class="btn btn-link" v-on:click="onWorkPatternClick(workPattern.name)">{{
-                    workPattern.name
+                workPattern.name
                 }}</button>
               </td>
               <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>

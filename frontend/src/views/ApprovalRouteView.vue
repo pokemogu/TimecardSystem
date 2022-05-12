@@ -34,6 +34,7 @@ async function updateTable() {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
 }
@@ -83,6 +84,7 @@ async function onRouteDelete() {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
 
@@ -109,6 +111,7 @@ async function onSubmit() {
     }
   }
   catch (error) {
+    console.error(error);
     alert(error);
   }
   await updateTable();
