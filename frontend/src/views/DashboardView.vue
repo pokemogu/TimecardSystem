@@ -40,13 +40,15 @@ if (applyPrivileges) {
     return applyPrivileges.find(privilege => privilege.applyTypeName === name)?.permitted === true;
   }
   if (applyPermitted('record')) { applyMenus.push({ description: '打刻申請', linkName: 'apply-record' }); }
-  if (applyPermitted('leave')) { applyMenus.push({ description: '休暇申請', linkName: 'apply-leave' }); }
+  //if (applyPermitted('leave')) { applyMenus.push({ description: '休暇申請', linkName: 'apply-leave' }); }
+  /*
   if (applyPermitted('overtime')) { applyMenus.push({ description: '早出・残業申請', linkName: 'apply-overtime' }); }
   if (applyPermitted('lateness')) { applyMenus.push({ description: '遅刻申請', linkName: 'apply-lateness' }); }
   if (applyPermitted('leave-early')) { applyMenus.push({ description: '早退申請', linkName: 'apply-leave-early' }); }
   if (applyPermitted('break')) { applyMenus.push({ description: '外出申請', linkName: 'apply-break' }); }
   if (applyPermitted('holiday-work')) { applyMenus.push({ description: '休日出勤申請', linkName: 'apply-holiday-work' }); }
   if (applyPermitted('makeup-leave')) { applyMenus.push({ description: '代休申請', linkName: 'apply-makeup-leave' }); }
+  */
   if (applyPrivileges.some(applyPrivilege => (applyPrivilege.isSystemType === false) && (applyPrivilege.permitted === true))) {
     applyMenus.push({ description: 'その他申請', linkName: 'apply-custom' });
   }
@@ -72,12 +74,13 @@ if (store.privilege?.configurePrivilege) {
 }
 
 // 管理メニューの登録
-if (store.privilege?.viewRecord) { adminMenus.push({ description: '未打刻一覧', linkName: 'view-record' }); }
+if (store.privilege?.viewRecord) { adminMenus.push({ description: '打刻一覧', linkName: 'view-record' }); }
 if (store.privilege?.viewAllUserInfo || store.privilege?.viewDepartmentUserInfo || store.privilege?.viewSectionUserInfo) {
   //  adminMenus.push({ description: '有給取得状況', linkName: 'view-leave' });
   //  adminMenus.push({ description: '残業状況', linkName: 'view-overtime' });
   //  adminMenus.push({ description: '勤務実態照会', linkName: 'view-work' });
 }
+//if (store.privilege?.viewRecordPerDevice) { adminMenus.push({ description: '打刻一覧', linkName: 'view-record' }); }
 //if (store.privilege?.viewRecordPerDevice) { adminMenus.push({ description: '簡易工程管理', linkName: 'view-device-record' }); }
 if (store.privilege?.registerDevice) { adminMenus.push({ description: '打刻端末設定', linkName: 'admin-device' }); }
 //if (store.privilege?.approve) { adminMenus.push({ description: '一括申請機能', linkName: 'apply-bulk' }); }
@@ -90,6 +93,7 @@ if (store.privilege?.configurePrivilege) {
   adminMenus.push({ description: 'システム設定', linkName: 'admin-config' });
   adminMenus.push({ description: '休日登録', linkName: 'admin-holiday' });
 }
+adminMenus.push({ description: '端末エラー履歴', linkName: 'errorlog' });
 
 for (let i = 0, j = -1; i < adminMenus.length; i++) {
   if ((i % MAX_MENU_PER_COLUMN) === 0) {

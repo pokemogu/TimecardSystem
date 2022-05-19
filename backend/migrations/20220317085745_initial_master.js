@@ -188,25 +188,27 @@ async function up(knex) {
 
     await knex.schema.createTable('applyType', function (table) {
       table.increments('id');
-      table.string('name', 15).notNullable().unique();
-      table.boolean('isSystemType').notNullable().defaultTo(false);
-      table.string('description').notNullable();
+      table.string('name', 15).notNullable().unique().comment('申請種類の識別名称');
+      table.boolean('isSystemType').notNullable().defaultTo(false).comment('申請種類がシステム標準かユーザーカスタムか');
+      table.string('description').notNullable().comment('申請種類の説明名称');
+      table.boolean('isLeaveOrWorkSchedule').comment('TRUEの場合は休暇や遅刻等の不在申請、FALSEの場合は残業や休日出勤等の出勤申請、NULLの場合は勤務状況に関係のない申請');
     });
 
     await knex.schema.raw('ALTER TABLE applyType MODIFY name VARCHAR(15) CHARACTER SET ascii;');
 
     await knex('applyType').insert([
       { name: 'record', isSystemType: true, description: '打刻' },
-      { name: 'leave', isSystemType: true, description: '有休' },
-      { name: 'halfday-leave', isSystemType: true, description: '半休' },
-      { name: 'makeup-leave', isSystemType: true, description: '代休' },
-      { name: 'mourning-leave', isSystemType: true, description: '慶弔休' },
-      { name: 'measure-leave', isSystemType: true, description: '措置休' },
-      { name: 'overtime', isSystemType: true, description: '早出・残業' },
-      { name: 'lateness', isSystemType: true, description: '遅刻' },
-      { name: 'leave-early', isSystemType: true, description: '早退' },
-      { name: 'break', isSystemType: true, description: '外出' },
-      { name: 'holiday-work', isSystemType: true, description: '休日出勤' },
+      { name: 'leave', isSystemType: true, description: '有休', isLeaveOrWorkSchedule: true },
+      { name: 'am-leave', isSystemType: true, description: '午前半休', isLeaveOrWorkSchedule: true },
+      { name: 'pm-leave', isSystemType: true, description: '午後半休', isLeaveOrWorkSchedule: true },
+      { name: 'makeup-leave', isSystemType: true, description: '代休', isLeaveOrWorkSchedule: true },
+      { name: 'mourning-leave', isSystemType: true, description: '慶弔休', isLeaveOrWorkSchedule: true },
+      { name: 'measure-leave', isSystemType: true, description: '措置休', isLeaveOrWorkSchedule: true },
+      { name: 'overtime', isSystemType: true, description: '早出・残業', isLeaveOrWorkSchedule: false },
+      { name: 'lateness', isSystemType: true, description: '遅刻', isLeaveOrWorkSchedule: true },
+      { name: 'leave-early', isSystemType: true, description: '早退', isLeaveOrWorkSchedule: true },
+      { name: 'break', isSystemType: true, description: '外出', isLeaveOrWorkSchedule: true },
+      { name: 'holiday-work', isSystemType: true, description: '休日出勤', isLeaveOrWorkSchedule: false },
     ]);
 
     await knex.schema.createTable('applyOptionType', function (table) {
@@ -268,7 +270,8 @@ async function up(knex) {
       { optionType: optionTypeRecordType.id, name: 'break', isSystemType: true, description: '外出' },
       { optionType: optionTypeRecordType.id, name: 'reenter', isSystemType: true, description: '再入' },
       { optionType: optionTypeLeaveType.id, name: 'normal', isSystemType: true, description: '有給' },
-      { optionType: optionTypeLeaveType.id, name: 'halfday', isSystemType: true, description: '半休' },
+      { optionType: optionTypeLeaveType.id, name: 'am-halfday', isSystemType: true, description: '午前半休' },
+      { optionType: optionTypeLeaveType.id, name: 'pm-halfday', isSystemType: true, description: '午後半休' },
       //{ optionType: optionTypeLeaveType.id, name: 'makeup', isSystemType: true, description: '代休' },
       { optionType: optionTypeLeaveType.id, name: 'mourning', isSystemType: true, description: '慶弔休' },
       { optionType: optionTypeLeaveType.id, name: 'measure', isSystemType: true, description: '措置休暇' },
@@ -493,6 +496,10 @@ async function up(knex) {
         knex.select({
           userId: 'user.id', userAccount: 'user.account', userName: 'user.name', date: 'record.date',
           clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
+          clockinDeviceAccount: 'clockinDevice.account', clockinDeviceName: 'clockinDevice.name',
+          breakDeviceAccount: 'breakDevice.account', breakDeviceName: 'breakDevice.name',
+          reenterDeviceAccount: 'reenterDevice.account', reenterDeviceName: 'reenterDevice.name',
+          clockoutDeviceAccount: 'clockoutDevice.account', clockoutDeviceName: 'clockoutDevice.name',
           workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
           workTime: knex.raw('TIMEDIFF(clockout, clockin)'),
           onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
@@ -500,6 +507,10 @@ async function up(knex) {
         })
           .from('record')
           .join('user', { 'user.id': 'record.user' })
+          .leftJoin('user as clockinDevice', { 'clockinDevice.id': 'record.clockinDevice' })
+          .leftJoin('user as breakDevice', { 'breakDevice.id': 'record.breakDevice' })
+          .leftJoin('user as reenterDevice', { 'reenterDevice.id': 'record.reenterDevice' })
+          .leftJoin('user as clockoutDevice', { 'clockoutDevice.id': 'record.clockoutDevice' })
           .leftJoin('userWorkPatternCalendar', function () {
             this.on('userWorkPatternCalendar.user', 'record.user');
             this.andOn('userWorkPatternCalendar.date', 'record.date');
@@ -598,8 +609,12 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     // ユーザー別設定項目
     await knex.schema.createTable('userConfig', function (table) {
       table.string('key').notNullable().unique().primary().comment('設定データID');
+      table.integer('user').unsigned().index().notNullable();
       table.string('value').comment('設定データ値');
-      table.string('description').comment('設定データ名称');
+      table.string('title').comment('設定データ名称');
+      table.string('description').comment('設定データ説明');
+
+      table.foreign('user').references('id').inTable('user').onUpdate('CASCADE').onDelete('CASCADE');
     });
 
     await knex('systemConfig').insert([

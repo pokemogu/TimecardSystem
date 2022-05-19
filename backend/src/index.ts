@@ -7,6 +7,7 @@ import bearerToken from 'express-bearer-token';
 import createHttpError from 'http-errors';
 import detectTSNode from 'detect-ts-node';
 
+import { Connection } from 'mysql2';
 import { Knex } from 'knex';
 import knexConnect from 'knex';
 
@@ -87,6 +88,22 @@ execWorker();
     return value ? (value === '1') : null; // 1 = true, 0 = false
   }
   return next();
+};
+
+// 各プールのセッション開始時にMySQLエラーメッセージのロケールを日本語に設定する
+knexconfig.pool = {
+  ...knexconfig.pool,
+  afterCreate: function (conn: unknown, done: unknown) {
+    if (typeof conn === 'object' && conn) {
+      if ('execute' in conn) {
+        const mysql2Conn = conn as Connection;
+        const doneFunc = done as (err: any, conn: Connection) => void;
+        mysql2Conn.execute("SET lc_messages = 'ja_JP'", function (err) {
+          doneFunc(err, mysql2Conn);
+        });
+      }
+    }
+  }
 };
 
 const app = express();

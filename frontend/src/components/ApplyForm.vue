@@ -146,6 +146,10 @@ function onSubmit() {
     }
   }
 
+  if (dateType.value === 'apply-date-spot') {
+    dateTo.value = ''
+  }
+
   emits('update:applyTypeValue1', applyTypeValue1.value);
   emits('update:applyTypeValue2', applyTypeValue2.value);
   emits('update:dateFrom', dateFrom.value);
@@ -311,11 +315,16 @@ function onDeleteSubmit() {
 
             <!-- 回付中の申請の場合 -->
             <template v-if="props.apply !== undefined">
-              {{ props.applyTypeOptions1.options.find(applyTypeOption =>
-                  props.apply?.options?.find(option => option.name === props.applyTypeOptions1?.type)?.value ===
-                  applyTypeOption.name
-                )?.description
-              }}
+              <template v-if="props.applyType === 'other'">
+                {{ props.apply.type?.description }}
+              </template>
+              <template v-else>
+                {{ props.applyTypeOptions1.options.find(applyTypeOption =>
+                    props.apply?.options?.find(option => option.name === props.applyTypeOptions1?.type)?.value ===
+                    applyTypeOption.name
+                  )?.description
+                }}
+              </template>
             </template>
 
             <!-- 起票中の申請の場合 -->

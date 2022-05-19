@@ -171,20 +171,20 @@ async function onRouteSubmit() {
       <div class="col-2">
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'unapproved' } }" class="btn btn-warning btn-sm"
-              role="button">未承認一覧</RouterLink>
+            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'unapproved' } }"
+              class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'rejected' } }" class="btn btn-warning btn-sm"
-              role="button">否認済一覧</RouterLink>
+            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'rejected' } }"
+              class="btn btn-warning btn-sm" role="button">否認済一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'approved' } }" class="btn btn-warning btn-sm"
-              role="button">承認済一覧</RouterLink>
+            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'approved' } }"
+              class="btn btn-warning btn-sm" role="button">承認済一覧</RouterLink>
           </div>
         </div>
       </div>

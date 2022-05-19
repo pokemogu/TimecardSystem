@@ -71,6 +71,12 @@ const router = createRouter({
       }
     },
     {
+      path: '/errorlog',
+      name: 'errorlog',
+      component: () => import('@/views/ErrorLogView.vue'),
+      meta: { title: `${appName} - 端末エラー履歴` },
+    },
+    {
       path: '/approve/:id',
       name: 'approve',
       component: () => { },
@@ -123,6 +129,34 @@ const router = createRouter({
       component: () => import('@/views/ApplyLeaveView.vue'),
       meta: { title: `${appName} - 休暇申請` },
       beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('leave') }
+    },
+    {
+      path: '/apply/am-leave/:id',
+      name: 'apply-am-leave-view',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('am-leave') }
+    },
+    {
+      path: '/apply/pm-leave/:id',
+      name: 'apply-pm-leave-view',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('pm-leave') }
+    },
+    {
+      path: '/apply/mourning-leave/:id',
+      name: 'apply-mourning-leave-view',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('mourning-leave') }
+    },
+    {
+      path: '/apply/measure-leave/:id',
+      name: 'apply-measure-leave-view',
+      component: () => import('@/views/ApplyLeaveView.vue'),
+      meta: { title: `${appName} - 休暇申請` },
+      beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('measure-leave') }
     },
     // 早出・残業申請
     {
@@ -269,16 +303,10 @@ const router = createRouter({
     },
     // 管理関連
     {
-      path: '/admin/user/:account',
-      name: 'admin-user',
-      component: () => import('@/views/OldUserView.vue'),
-      meta: { title: `${appName} - 従業員照会` }
-    },
-    {
       path: '/view/record',
       name: 'view-record',
-      component: () => { },
-      meta: { title: `${appName} - 未打刻一覧` }
+      component: () => import('@/views/RecordListView.vue'),
+      meta: { title: `${appName} - 打刻一覧` }
     },
     {
       path: '/view/leave',
@@ -313,7 +341,7 @@ const router = createRouter({
     {
       path: '/admin/users',
       name: 'admin-user',
-      component: () => import('@/views/IssueQrCodeView.vue'),
+      component: () => import('@/views/UserView.vue'),
       meta: { title: `${appName} - 従業員照会(QRコード)` }
     },
     {
@@ -389,7 +417,7 @@ router.beforeEach(async (to, from) => {
   }
 
   // ログインしていない場合はホーム画面にリダイレクトする
-  if (to.name !== 'home' && to.name !== 'record') {
+  if (to.name !== 'home' && to.name !== 'record' && to.name !== 'errorlog') {
     if (!store.isLoggedIn()) {
       //return { name: 'home' };
       return { name: 'home', params: { redirect: to.path } };

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useLoading } from 'vue-loading-overlay'
 import { useSessionStore } from '@/stores/session';
 
 import lodash from 'lodash';
@@ -14,6 +15,7 @@ import generateQrCodePDF from '@/GenerateQrCodePDF';
 
 import UserEdit from '@/components/UserEdit.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
+import BulkAddUsers from '@/components/BulkAddUsers.vue';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
@@ -23,6 +25,7 @@ const userInfos = ref<apiif.UserInfoResponseData[]>([]);
 const selectedUserInfo = ref<apiif.UserInfoRequestData>({ account: '', name: '', privilegeName: '', defaultWorkPatternName: '' });
 const checks = ref<boolean[]>([]);
 const isModalOpened = ref(false);
+const isBulkModalOpened = ref(false);
 const isPasswordChangeOpened = ref(false);
 
 const limit = ref(10);
@@ -49,7 +52,10 @@ watch(departmentSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(sectionSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(statusSearch, lodash.debounce(UpdateOnSearch, 200));
 
+const $loading = useLoading();
 const updateUserList = async () => {
+
+  const loader = $loading.show({ opacity: 0 });
 
   try {
     const token = await store.getToken();
@@ -70,7 +76,6 @@ const updateUserList = async () => {
       if (infos) {
         userInfos.value.splice(0);
         Array.prototype.push.apply(userInfos.value, infos);
-        console.log(infos);
       }
       checks.value = Array.from({ length: userInfos.value.length }, () => false);
     }
@@ -80,6 +85,8 @@ const updateUserList = async () => {
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
+
+  loader.hide();
 }
 
 onMounted(async () => {
@@ -89,6 +96,7 @@ onMounted(async () => {
 const isNewAccount = ref(true);
 
 async function onUserClick(account?: string) {
+  const loader = $loading.show({ opacity: 0 });
   try {
     if (account) {
       const token = await store.getToken();
@@ -119,6 +127,7 @@ async function onUserClick(account?: string) {
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
+  loader.hide();
 }
 
 async function onIssueQrCode() {
@@ -129,6 +138,7 @@ async function onIssueQrCode() {
     refreshToken: string
   }[] = [];
 
+  const loader = $loading.show({ opacity: 0 });
   for (let i = 0; i < userInfos.value.length; i++) {
     try {
       if (checks.value[i]) {
@@ -155,9 +165,7 @@ async function onIssueQrCode() {
   }
 
   try {
-    console.log(userInfoforQrCode);
     if (userInfoforQrCode.length > 0) {
-      console.log(userInfoforQrCode);
       await generateQrCodePDF(userInfoforQrCode).then(() => {
         alert('QRコードの発行が完了しました。発行されたQRコードが各打刻端末で使用できるのは1時間後となります。');
       });
@@ -168,6 +176,7 @@ async function onIssueQrCode() {
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
+  loader.hide();
 
   checks.value = [];
   await updateUserList();
@@ -225,6 +234,35 @@ async function onDelete() {
   await updateUserList();
 }
 
+function onBulkAddClick() {
+  isBulkModalOpened.value = true;
+}
+
+const bulkUserData = ref<apiif.UserInfoRequestDataWithPassword[]>([]);
+async function onSubmitBulk() {
+  const loader = $loading.show({ opacity: 0 });
+  try {
+    const token = await store.getToken();
+    if (token) {
+      const access = new backendAccess.TokenAccess(token);
+      await access.addUsers(bulkUserData.value);
+
+      for (const user of bulkUserData.value) {
+        await access.changePassword({ account: user.account, newPassword: user.password })
+      }
+    }
+    loader.hide();
+    alert('一括追加が完了しました。');
+  }
+  catch (error) {
+    loader.hide();
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  await updateUserList();
+}
+
 </script>
 
 <template>
@@ -246,10 +284,29 @@ async function onDelete() {
         :account="selectedUserInfo.account"></PasswordChange>
     </Teleport>
 
+    <Teleport to="body" v-if="isBulkModalOpened">
+      <BulkAddUsers v-model:isOpened="isBulkModalOpened" v-model:bulkUsers="bulkUserData" v-on:submit="onSubmitBulk">
+      </BulkAddUsers>
+    </Teleport>
+
     <div class="row justify-content-end p-2">
       <div class="d-grid gap-2 col-2">
-        <button type="button" class="btn btn-primary" id="new-user" v-on:click="onUserClick()">従業員ID追加</button>
+        <div class="btn-group">
+          <button type="button" class="btn btn-primary" id="new-user" v-on:click="onUserClick()">従業員ID追加</button>
+          <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+            data-bs-toggle="dropdown"></button>
+          <ul class="dropdown-menu">
+            <li>
+              <button class="dropdown-item" v-on:click="onBulkAddClick">従業員ID一括追加</button>
+            </li>
+          </ul>
+        </div>
       </div>
+      <!--
+      <div class="d-grid gap-2 col-2">
+        <button type="button" class="btn btn-primary" id="new-user" v-on:click="onBulkAddClick">従業員ID一括追加</button>
+      </div>
+      -->
       <div class="d-grid gap-2 col-4">
         <button type="button" class="btn btn-primary" id="issue-qr" v-on:click="onIssueQrCode"
           v-bind:disabled="checks.every(check => check === false)">チェックした従業員のQRコード発行</button>
@@ -313,10 +370,6 @@ async function onDelete() {
               </th>
               <td>{{ new Date(user.registeredAt ?? '').toLocaleDateString() }}</td>
               <td>
-                <!--
-                <RouterLink :to="{ name: 'admin-reguser', params: { account: user.account } }">{{ user.account }}
-                </RouterLink>
-                -->
                 <button type="button" class="btn btn-link" v-on:click="onUserClick(user.account)">
                   {{ user.account }}
                 </button>

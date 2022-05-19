@@ -92,6 +92,7 @@ async function recordSenderJob() {
     }
 
     //const userCacheDb = await openUserCacheDB();
+    //console.log(await userCacheDb.getAllKeys('timecard-user-cache'));
     //console.log(await userCacheDb.getAll('timecard-user-cache'));
 
     if (recordKeys.length > 0) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router';
 import { ref, computed } from 'vue';
+import { useLoading } from 'vue-loading-overlay'
 import { useSessionStore } from '../stores/session';
 
 import Header from '@/components/Header.vue';
@@ -19,7 +20,9 @@ if (redirectedStatus === 'forcedLogout') {
   alertMessage.value = 'セッションが無効となり強制ログアウトしました';
 }
 
+const $loading = useLoading();
 async function onLogin() {
+  const loader = $loading.show({ opacity: 0 });
   try {
     if (await store.login(userId.value, userPassword.value)) {
       if (route.params.redirect) {
@@ -39,6 +42,7 @@ async function onLogin() {
     alertMessage.value = 'システムエラーが発生しました';
     userPassword.value = '';
   }
+  loader.hide();
 }
 
 </script>

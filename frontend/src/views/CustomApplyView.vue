@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useLoading } from 'vue-loading-overlay'
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
@@ -21,8 +22,10 @@ const checks = ref<Record<string, boolean>>({});
 const limit = ref(10);
 const offset = ref(0);
 
+const $loading = useLoading();
 async function updateTable() {
 
+  const loader = $loading.show({ opacity: 0 });
   try {
     const infos = await backendAccess.getApplyTypes();
     if (infos) {
@@ -35,6 +38,7 @@ async function updateTable() {
     console.error(error);
     alert(error);
   }
+  loader.hide();
 }
 
 onMounted(async () => {
@@ -98,6 +102,7 @@ async function onApplyTypeDelete() {
 }
 
 async function onSubmit() {
+  const loader = $loading.show({ opacity: 0 });
   try {
     const token = await store.getToken();
     if (token) {
@@ -146,6 +151,7 @@ async function onSubmit() {
     console.error(error);
     alert(error);
   }
+  loader.hide();
   await updateTable();
 }
 

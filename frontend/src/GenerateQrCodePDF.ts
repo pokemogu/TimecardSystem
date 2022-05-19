@@ -107,7 +107,7 @@ export default async function generateQrCodePDF(users: {
           const posY = gapHeight + ((cardHeight + gapHeight) * y);
           for (let x = 0; x < maxCardNumHorizontal && i < users.length; x++, i++) {
 
-            const qrCodeData = await qrcode.toDataURL(users[i].account + ':' + users[i].refreshToken, { type: 'image/png', width: qrCodePixelWidth });
+            const qrCodeData = await qrcode.toDataURL(users[i].account + ',' + users[i].refreshToken, { type: 'image/png', width: qrCodePixelWidth });
             //console.log(qrCodeData);
 
             // フォントサイズ設定

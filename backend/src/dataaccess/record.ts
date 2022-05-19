@@ -180,8 +180,36 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       else if (params.to) {
         builder.where('record.date', '<=', params.to);
       }
+
+      if (params.clockin === true) {
+        builder.whereNotNull('record.clockin');
+      }
+      else if (params.clockin === false) {
+        builder.whereNull('record.clockin');
+      }
+
+      if (params.break === true) {
+        builder.whereNotNull('record.break');
+      }
+      else if (params.break === false) {
+        builder.whereNull('record.break');
+      }
+
+      if (params.reenter === true) {
+        builder.whereNotNull('record.reenter');
+      }
+      else if (params.reenter === false) {
+        builder.whereNull('record.reenter');
+      }
+
+      if (params.clockout === true) {
+        builder.whereNotNull('record.clockout');
+      }
+      else if (params.clockout === false) {
+        builder.whereNull('record.clockout');
+      }
     })
-    .modify(function (builder) {
+    .modify<any, RecordResult[]>(function (builder) {
       if (params.sortBy === 'byUserAccount') {
         builder.orderBy('user.account', params.sortDesc ? 'desc' : 'asc')
       }
@@ -200,12 +228,14 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       if (params.offset) {
         builder.offset(params.offset);
       }
-    }) as RecordResult[];
+    });
 
   return results.map<apiif.RecordResponseData>(result => {
     return {
       userAccount: result.userAccount,
       userName: result.userName,
+      userDepartment: result.department,
+      userSection: result.section,
       date: dateToLocalString(result.date),
       clockin: result.clockin ? {
         timestamp: result.clockin,

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter, onBeforeRouteLeave } from 'vue-router';
+import { useLoading } from 'vue-loading-overlay'
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
 
 import Header from '@/components/Header.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 import { openRecordDB, openDeviceDB, openUserCacheDB } from '@/RecordDBSchema';
 import RecordWorker from '@/RecordWorker?worker';
@@ -47,6 +49,7 @@ const clockoutTime = ref('');
 const onTime = ref('');
 
 let timeout = setTimeout(() => { }, 0);
+const $loading = useLoading();
 
 async function initStatus() {
   refreshToken = '';
@@ -65,43 +68,53 @@ async function initStatus() {
   }
   // ログイン打刻の場合
   else {
-    const token = await store.getToken();
-    const access = new backendAccess.TokenAccess(token);
-    const todayStr = dateToStr(new Date());
+    const loader = $loading.show({ opacity: 0 });
 
-    // 本日の打刻実績を取得する
-    const records = await access.getRecords({
-      byUserAccount: store.userAccount,
-      from: todayStr,
-      to: todayStr
-    });
+    try {
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      const todayStr = dateToStr(new Date());
 
-    if (records && records.length > 0) {
-      if (records[0].clockin) {
-        clockinTime.value = dateToTimeStr(new Date(records[0].clockin.timestamp));
+      // 本日の打刻実績を取得する
+      const records = await access.getRecords({
+        byUserAccount: store.userAccount,
+        from: todayStr,
+        to: todayStr
+      });
+
+      if (records && records.length > 0) {
+        if (records[0].clockin) {
+          clockinTime.value = dateToTimeStr(new Date(records[0].clockin.timestamp));
+        }
+        if (records[0].break) {
+          breakTime.value = dateToTimeStr(new Date(records[0].break.timestamp));
+        }
+        if (records[0].reenter) {
+          reenterTime.value = dateToTimeStr(new Date(records[0].reenter.timestamp));
+        }
+        if (records[0].clockout) {
+          clockoutTime.value = dateToTimeStr(new Date(records[0].clockout.timestamp));
+        }
       }
-      if (records[0].break) {
-        breakTime.value = dateToTimeStr(new Date(records[0].break.timestamp));
-      }
-      if (records[0].reenter) {
-        reenterTime.value = dateToTimeStr(new Date(records[0].reenter.timestamp));
-      }
-      if (records[0].clockout) {
-        clockoutTime.value = dateToTimeStr(new Date(records[0].clockout.timestamp));
+
+      // 本日の勤務形態を取得する
+      const userWorkPattern = await access.getUserWorkPatternCalendar({ from: todayStr, to: todayStr });
+      if (userWorkPattern && userWorkPattern.length > 0) {
+        if (userWorkPattern[0].workPattern) {
+          onTime.value =
+            dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeStart)) + ' 〜 ' + dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeEnd));
+        }
+        else {
+          onTime.value = '勤務予定無し';
+        }
       }
     }
-
-    // 本日の勤務形態を取得する
-    const userWorkPattern = await access.getUserWorkPatternCalendar({ from: todayStr, to: todayStr });
-    if (userWorkPattern && userWorkPattern.length > 0) {
-      if (userWorkPattern[0].workPattern) {
-        onTime.value =
-          dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeStart)) + ' 〜 ' + dateToTimeStr(new Date(userWorkPattern[0].workPattern.onDateTimeEnd));
-      }
-      else {
-        onTime.value = '勤務予定無し';
-      }
+    catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
     }
+    loader.hide();
   }
 };
 
@@ -199,9 +212,11 @@ async function onRecord(event: Event) {
     }
     else {
       // PC端末からの打刻の場合は即時打刻する。
+      const loader = $loading.show({ opacity: 0 });
       const token = await store.getToken();
       const access = new backendAccess.TokenAccess(token);
       await access.record(recordType.value, dateNow);
+      loader.hide();
     }
 
     status.value = 'recordCompleted';
@@ -218,7 +233,7 @@ async function onRecord(event: Event) {
 async function onDecode(decodedQrcode: string) {
   //BeepSound.play();
 
-  const decodedStrs = decodedQrcode.split(':', 2);
+  const decodedStrs = decodedQrcode.split(',', 2)
   if (decodedStrs.length < 2) {
     errorName.value = 'TokenAuthFailedError';
     status.value = 'error';
@@ -226,7 +241,7 @@ async function onDecode(decodedQrcode: string) {
   else {
     try {
       status.value = 'waitForRecord';
-      const userCacheDb = await openUserCacheDB();
+      const userCacheDb = await openUserCacheDB(); console.log(decodedStrs[0])
       const userInfo = await userCacheDb.get('timecard-user-cache', decodedStrs[0]);
       userAccount.value = decodedStrs[0];
       refreshToken = decodedStrs[1];
@@ -315,6 +330,8 @@ function onRecordCancel() {
     <div class="row justify-content-center">
       <div class="col-12 p-0">
         <Header v-bind:isAuthorized="store.isLoggedIn()" titleName="打刻画面"
+          v-bind:customButton1="store.isLoggedIn() ? undefined : '端末エラー履歴'"
+          v-on:customButton1="store.isLoggedIn() ? undefined : router.push({ name: 'errorlog' })"
           v-bind:customButton2="store.isLoggedIn() ? 'メニュー画面' : 'ログイン画面'"
           v-on:customButton2="store.isLoggedIn() ? router.push({ name: 'dashboard' }) : router.push({ name: 'home' })"
           :customMessage="headerMessage" :deviceName="thisDeviceName"></Header>

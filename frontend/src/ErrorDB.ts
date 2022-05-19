@@ -58,14 +58,22 @@ export async function putErrorToDB(account: string, error: Error, isDevice: bool
   db.close();
 }
 
+class ErrorWithTimestamp extends Error {
+  public timestamp: Date;
+  constructor(timestamp: Date) {
+    super();
+    this.timestamp = new Date(timestamp);
+  }
+}
+
 export async function getErrorsFromDB(isDevice: boolean = false) {
-  const errors: Error[] = [];
+  const errors: ErrorWithTimestamp[] = [];
 
   const db = await openErrorDB();
   const results = (await db.getAll('timecard-error')).filter(result => result.isDevice === isDevice);
 
   for (const result of results) {
-    const error = new Error();
+    const error = new ErrorWithTimestamp(result.timestamp);
     if (result.name) {
       error.name = result.name;
     }

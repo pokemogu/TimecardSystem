@@ -4,6 +4,7 @@ import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Cookies from 'js-cookie';
 import { format } from 'fecha';
+import { useLoading } from 'vue-loading-overlay'
 
 import Header from '@/components/Header.vue';
 import LayoutEditButtonView from '@/components/TableLayoutEditButton.vue'
@@ -15,8 +16,6 @@ import { putErrorToDB } from '@/ErrorDB';
 const router = useRouter();
 const route = useRoute();
 const store = useSessionStore();
-
-console.log(route.name);
 
 const TAB_NAME = {
   UNAPPROVED: 'UNAPPROVED',
@@ -64,6 +63,7 @@ const applies = ref<apiif.ApplyResponseData[]>([]);
 const limit = ref(10);
 const offset = ref(0);
 
+const $loading = useLoading();
 async function updateList() {
   const params: apiif.ApplyRequestQuery = { limit: limit.value + 1, offset: offset.value };
   switch (selectedTab.value) {
@@ -99,6 +99,7 @@ async function updateList() {
     //  break;
   }
 
+  const loader = $loading.show({ opacity: 0 });
   try {
     const token = await store.getToken();
     if (token) {
@@ -114,6 +115,7 @@ async function updateList() {
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
+  loader.hide();
 }
 
 onMounted(async () => {
@@ -223,7 +225,7 @@ async function onPageForward() {
           <thead>
             <tr>
               <th scope="col">
-                <input class="form-check-input" type="checkbox" id="checkboxall" value />
+                <!-- <input class="form-check-input" type="checkbox" id="checkboxall" value /> -->
               </th>
               <th scope="col">申請種類</th>
               <th scope="col">申請日</th>

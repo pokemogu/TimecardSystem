@@ -72,6 +72,9 @@ if (!('NODE_ENV' in config)) {
 if (!('NODE_PORT' in config)) {
   config['NODE_PORT'] = '3000';
 }
+if (!('NODE_AUDIT' in config)) {
+  config['NODE_AUDIT'] = 'false';
+}
 if (!('NODE_BACKLOG' in config)) {
   config['NODE_BACKLOG'] = '20';
 }
@@ -115,7 +118,7 @@ else {
     const menuSelect = await (new Select({
       name: 'menu',
       message: '設定メニュー',
-      choices: ['データベース接続設定', 'データベース作成', 'データベース接続テスト', 'データベースマイグレーション', 'データベースロールバック', 'アプリケーションサーバー設定', '終了']
+      choices: ['データベース接続設定', 'データベース作成', 'データベース接続テスト', 'データベーススキーマ構築', 'データベース初期データ設定', 'データベースロールバック', 'アプリケーションサーバー設定', '終了']
     }).run())
 
     switch (menuSelect) {
@@ -177,16 +180,30 @@ else {
         }
 
         break;
-      case 'データベースマイグレーション':
-        if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: 'データベースマイグレーションを実行しますか?' }).run())) {
+      case 'データベーススキーマ構築':
+        if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: 'データベーススキーマ構築を実行しますか?' }).run())) {
           try {
             const knex = require('knex')(knexconfig.production);
             await knex.migrate.latest();
             await knex.destroy();
-            console.info(colors.bgBlue.bold.white('データベースへマイグレーションが完了しました。'));
+            console.info(colors.bgBlue.bold.white('データベーススキーマ構築が完了しました。'));
           }
           catch (error) {
-            console.error(colors.bgRed.bold.white('データベースマイグレーションが実行できませんでした。'));
+            console.error(colors.bgRed.bold.white('データベーススキーマ構築が実行できませんでした。'));
+            console.error(error.message);
+          }
+        }
+        break;
+      case 'データベース初期データ設定':
+        if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: 'データベース初期データ設定を実行しますか?' }).run())) {
+          try {
+            const knex = require('knex')(knexconfig.production);
+            await knex.seed.run();
+            await knex.destroy();
+            console.info(colors.bgBlue.bold.white('データベース初期データ設定が完了しました。'));
+          }
+          catch (error) {
+            console.error(colors.bgRed.bold.white('データベース初期データ設定が実行できませんでした。'));
             console.error(error.message);
           }
         }
@@ -210,11 +227,14 @@ else {
               console.error(error.message);
             }
           }
+          else {
+            console.info('データベースロールバックは実行しませんでした。');
+          }
         }
         break;
       case 'アプリケーションサーバー設定':
 
-        if (await (new Toggle({ initial: true, enabled: '本番モード', disabled: '開発モード', message: 'アプリケーションサーバーの動作モードを選択してエンターキーを押してください。' }).run())) {
+        if (await (new Toggle({ initial: config['NODE_ENV'] === 'production', enabled: '本番モード', disabled: '開発モード', message: 'アプリケーションサーバーの動作モードを選択してエンターキーを押してください。' }).run())) {
           config['NODE_ENV'] = 'production';
         }
         else {
@@ -230,6 +250,13 @@ else {
           initial: parseInt(config['NODE_BACKLOG']),
           message: 'アプリケーションサーバーが許容する最大同時接続数を入力してエンターキーを押してください。'
         }).run());
+
+        if (await (new Toggle({ initial: config['NODE_AUDIT'] === 'true' || config['NODE_AUDIT'] === '1', enabled: '有効', disabled: '無効', message: 'アプリケーションサーバーの監査モードを有効にするかどうか選択してエンターキーを押してください。' }).run())) {
+          config['NODE_AUDIT'] = 'true';
+        }
+        else {
+          config['NODE_AUDIT'] = 'false';
+        }
 
         if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: '設定を保存しますか?' }).run())) {
           saveEnv(config, dotEnvBackendAppPath);

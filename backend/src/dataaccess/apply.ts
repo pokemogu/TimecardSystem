@@ -495,7 +495,9 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
         break;
       case 'leave': // 有給
         break;
-      case 'halfday-leave': // 半休
+      case 'am-leave': // 午前半休
+        break;
+      case 'pm-leave': // 午前半休
         break;
       case 'makeup-leave': // 代休
         break;

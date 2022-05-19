@@ -159,6 +159,10 @@ export async function addUsers(this: DatabaseAccess, usersInfo: apiif.UserInfoRe
     let departmentId: number | null = null;
     let sectionId: number | null = null;
 
+    if (!userInfo.account.match(/^[\w\-\.]+$/)) {
+      throw new createHttpError.BadRequest(`IDに半角英数字以外が含まれています: ${userInfo.account}`);
+    }
+
     if (userInfo.department) {
       const department = await this.knex.select<{ id: number, name: string }[]>({ id: 'id', name: 'name' })
         .from('department')
@@ -211,13 +215,31 @@ export async function addUsers(this: DatabaseAccess, usersInfo: apiif.UserInfoRe
   const workPatterns = await this.getWorkPatterns();
 
   await this.knex('user').insert(usersInfo.map(userInfo => {
+    const privilegeId = privileges.find(privilege => privilege.name === userInfo.privilegeName)?.id;
+    if (!privilegeId) {
+      throw new createHttpError.NotFound(`指定された権限 ${userInfo.privilegeName} が見つかりません。`);
+    }
+    const defaultWorkPatternId = workPatterns.find(workPattern => workPattern.name === userInfo.defaultWorkPatternName)?.id;
+    if (!defaultWorkPatternId) {
+      throw new createHttpError.NotFound(`指定された勤務体系1 ${userInfo.defaultWorkPatternName} が見つかりません。`);
+    }
+
+    const optional1WorkPatternId = workPatterns.find(workPattern => workPattern.name === userInfo.optional1WorkPatternName)?.id;
+    if (userInfo.optional1WorkPatternName && !optional1WorkPatternId) {
+      throw new createHttpError.NotFound(`指定された勤務体系2 ${userInfo.optional1WorkPatternName} が見つかりません。`);
+    }
+    const optional2WorkPatternId = workPatterns.find(workPattern => workPattern.name === userInfo.optional2WorkPatternName)?.id;
+    if (userInfo.optional2WorkPatternName && !optional2WorkPatternId) {
+      throw new createHttpError.NotFound(`指定された勤務体系3 ${userInfo.optional2WorkPatternName} が見つかりません。`);
+    }
+
     return {
       registeredAt: new Date(), account: userInfo.account, name: userInfo.name, email: userInfo.email, phonetic: userInfo.phonetic,
       available: true,
-      privilege: privileges.find(privilege => privilege.name === userInfo.privilegeName)?.id, section: sectionIdForAccount[userInfo.account],
-      defaultWorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.defaultWorkPatternName)?.id,
-      optional1WorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.optional1WorkPatternName)?.id,
-      optional2WorkPattern: workPatterns.find(workPattern => workPattern.name === userInfo.optional2WorkPatternName)?.id
+      privilege: privilegeId, section: sectionIdForAccount[userInfo.account],
+      defaultWorkPattern: defaultWorkPatternId,
+      optional1WorkPattern: optional1WorkPatternId,
+      optional2WorkPattern: optional2WorkPatternId
     };
   }))
     .onConflict('account')

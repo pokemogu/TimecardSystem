@@ -54,7 +54,7 @@ FunctionEnd
 ${StrRep}
 
 Function LaunchConfig
-  Exec 'npm.cmd run configure-windows-service'
+#  Exec 'npm.cmd run configure-service'
 FunctionEnd
 
 # 日本語UI
@@ -142,7 +142,7 @@ noError_ApacheConf:
 
   !if "$%TEMP%" != "${U+24}%TEMP%"
     !define TEMPPATH "$%TEMP%\backend_${TEMPDIR}"
-    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* docker-compose.yml Dockerfile /s /mir'
+    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql dbbackup /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* docker-compose.yml Dockerfile /s /mir'
     !cd '${TEMPPATH}'
     !system 'npm.cmd install --production'
     File /r '${TEMPPATH}\*'
@@ -159,8 +159,13 @@ noError_ApacheConf:
     !system 'rm -fr "${TEMPPATH}"'
   !endif
 
+  # mysqldumpのインストール
+  File 'mysqldump.exe'
+  File 'libcrypto-1_1-x64.dll'
+  File 'libssl-1_1-x64.dll'
+
   # 共通パッケージのインストール
-  ExecWait 'npm.cmd install -g "$INSTDIR\node-windows-1.0.0-beta.6.tgz"'
+  ExecWait 'npm.cmd install --audit=false --prefer-offline=true -g "$INSTDIR\node-windows-1.0.0-beta.6.tgz"'
   ExecWait "npm.cmd run link-node-windows"
 
   # サービスとしてインストール
@@ -220,6 +225,11 @@ noError_ApacheConf:
   Call ShellLinkSetRunAs
   Pop $0
 
+  CreateShortcut "$SMPROGRAMS\Timecard System Server\データベースのバックアップ.lnk" "node" "backupdb.js wait"
+  Push "$SMPROGRAMS\Timecard System Server\データベースのバックアップ.lnk"
+  Call ShellLinkSetRunAs
+  Pop $0
+
   File TimecardSystem_EventLog.xml
   CreateShortcut "$SMPROGRAMS\Timecard System Server\ログ表示.lnk" "$SYSDIR\eventvwr.exe" '/v:"$INSTDIR\TimecardSystem_EventLog.xml"'
   CreateShortcut "$SMPROGRAMS\Timecard System Server\アンインストール.lnk" "$INSTDIR\Uninstall.exe" ""
@@ -236,7 +246,7 @@ Section "Uninstall"
 
   # サービスのアンインストール
   SetOutPath "$INSTDIR"
-  ExecWait "npm.cmd run uninstall-windows-service"
+  ExecWait 'npm.cmd run uninstall-windows-service'
 
   # アプリのアンインストール
   #SetOutPath "$INSTDIR"
@@ -253,12 +263,16 @@ Section "Uninstall"
   Delete "$INSTDIR\windows-service.js"
   Delete "$INSTDIR\configure.js"
   Delete "$INSTDIR\knexfile.js"
-  Delete "$INSTDIR\.env"
+  Delete "$INSTDIR\backupdb.js"
+  #Delete "$INSTDIR\.env"
   Delete "$INSTDIR\.npmrc"
   Delete "$INSTDIR\migrations\*_initial_master.js"
   Delete "$INSTDIR\seeds\production-init.js"
   Delete "$INSTDIR\apacheconf\timecard-app-frontend.conf"
   Delete "$INSTDIR\apacheconf\timecard-app-backend.conf"
+  Delete "$INSTDIR\mysqldump.exe"
+  Delete "$INSTDIR\libcrypto-1_1-x64.dll"
+  Delete "$INSTDIR\libssl-1_1-x64.dll"
 
   # ディレクトリを削除
   RMDir "$INSTDIR\migrations"
@@ -281,6 +295,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Timecard System Server\設定.lnk"
   Delete "$SMPROGRAMS\Timecard System Server\サービスの開始.lnk"
   Delete "$SMPROGRAMS\Timecard System Server\サービスの停止.lnk"
+  Delete "$SMPROGRAMS\Timecard System Server\データベースのバックアップ.lnk"
   Delete "$SMPROGRAMS\Timecard System Server\ログ表示.lnk"
   Delete "$SMPROGRAMS\Timecard System Server\アンインストール.lnk"
   RMDir "$SMPROGRAMS\Timecard System Server"

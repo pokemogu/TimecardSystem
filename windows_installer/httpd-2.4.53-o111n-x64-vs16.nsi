@@ -33,6 +33,7 @@ Section
   File genselfcert.bat
   File httpd-ahssl.conf
 
+  ExecWait `powershell -Command "(gc '$INSTDIR\genselfcert.bat') -replace 'C:\\Apache24','$INSTDIR' | Out-File -encoding ASCII '$INSTDIR\genselfcert.bat'"`
   ExecWait "$INSTDIR\genselfcert.bat"
   #Rename "$INSTDIR\conf\httpd.conf" "$INSTDIR\conf\httpd.conf.orig"
   ${StrRep} "$0" "$INSTDIR" '\' '/'
@@ -53,7 +54,7 @@ SectionEnd
 Section "-cleanup"
 
   # 作業用ファイルの削除
-  Delete "$INSTDIR\genselfcert.bat"
+  #Delete "$INSTDIR\genselfcert.bat"
   Delete "$INSTDIR\httpd-ahssl.conf"
 
   # サービスの開始

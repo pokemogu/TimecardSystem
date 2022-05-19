@@ -8,6 +8,7 @@ import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 import { putErrorToDB } from '@/ErrorDB';
 
 const route = useRoute();
@@ -21,25 +22,37 @@ const dateTo = ref('');
 const timeFrom = ref('');
 const timeTo = ref('');
 const contact = ref('');
+const apply = ref<apiif.ApplyResponseData>();
+const isMounted = ref(false);
 
 const routeName = ref('');
 const isApprovalRouteSelectOpened = ref(false);
 
 onMounted(async () => {
   try {
+
+    if (route.params.id) {
+      const applyId = parseInt(route.params.id as string);
+      const token = await store.getToken();
+      const access = new backendAccess.TokenAccess(token);
+      apply.value = await access.getApply(applyId);
+      console.log(apply.value);
+    }
+
     const applyTypes = await backendAccess.getApplyTypes();
     if (applyTypes) {
       const customApplyTypes = applyTypes.filter(applyType => applyType.isSystemType !== true);
       if (customApplyTypes) {
         applyTypeOptions1.value.options.splice(0);
         Array.prototype.push.apply(
-          applyTypeOptions1.value,
+          applyTypeOptions1.value.options,
           customApplyTypes.map(applyType => {
             return { name: applyType.name, description: applyType.description };
           })
         );
       }
     }
+    isMounted.value = true;
   }
   catch (error) {
     console.error(error);
@@ -90,11 +103,12 @@ async function onRouteSubmit() {
           customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
-
-    <Teleport to="body" v-if="isApprovalRouteSelectOpened">
-      <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
-        v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
-    </Teleport>
+    <template v-if="isMounted === true">
+      <Teleport to="body" v-if="isApprovalRouteSelectOpened">
+        <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
+          v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
+      </Teleport>
+    </template>
 
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
@@ -102,26 +116,30 @@ async function onRouteSubmit() {
           <ApplyForm applyName="その他申請" applyType="other" :isApplyTypeOptionsDropdown="true"
             v-model:applyTypeValue1="applyTypeValue1" v-bind:applyTypeOptions1="applyTypeOptions1"
             v-model:dateFrom="dateFrom" v-model:dateTo="dateTo" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
-            v-bind:isDateToOptional="true" v-model:contact="contact" v-on:submit="onFormSubmit"></ApplyForm>
+            v-bind:isDateToOptional="true" v-model:contact="contact" :apply="apply" v-on:submit="onFormSubmit">
+          </ApplyForm>
         </div>
       </div>
       <div class="col-2">
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'unapproved' } }" class="btn btn-warning btn-sm"
-              role="button">未承認一覧</RouterLink>
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'unapproved' } }"
+              class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'rejected' } }" class="btn btn-warning btn-sm"
-              role="button">否認済一覧</RouterLink>
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'rejected' } }"
+              class="btn btn-warning btn-sm" role="button">否認済一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: 'apply-list', query: { approved: 'approved' } }" class="btn btn-warning btn-sm"
-              role="button">承認済一覧</RouterLink>
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'approved' } }"
+              class="btn btn-warning btn-sm" role="button">承認済一覧</RouterLink>
           </div>
         </div>
       </div>

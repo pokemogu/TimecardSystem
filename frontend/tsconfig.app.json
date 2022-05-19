@@ -4,7 +4,6 @@
     "env.d.ts",
     "src/**/*",
     "src/**/*.vue",
-    "../shared/**/*",
     "../backend/src/APIInterfaces.ts"
   ],
   "exclude": [
@@ -12,14 +11,12 @@
   ],
   "compilerOptions": {
     "composite": true,
+    "strict": true,
     "baseUrl": ".",
     "rootDir": "..",
     "paths": {
       "shared/APIInterfaces": [
         "../backend/src/APIInterfaces"
-      ],
-      "shared/*": [
-        "../shared/*"
       ],
       "@/*": [
         "./src/*"

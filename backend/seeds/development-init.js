@@ -204,7 +204,8 @@ async function seed(knex) {
   // 申請権限
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
   const typeLeave = applyTypes.find(applyType => applyType.name === 'leave').id;
-  const typeHalfdayLeave = applyTypes.find(applyType => applyType.name === 'halfday-leave').id;
+  const typeAMHalfdayLeave = applyTypes.find(applyType => applyType.name === 'am-leave').id;
+  const typePMHalfdayLeave = applyTypes.find(applyType => applyType.name === 'pm-leave').id;
   const typeMourningLeave = applyTypes.find(applyType => applyType.name === 'mourning-leave').id;
   const typeMeasureLeave = applyTypes.find(applyType => applyType.name === 'measure-leave').id;
   const typeOvertime = applyTypes.find(applyType => applyType.name === 'overtime').id;
@@ -219,42 +220,48 @@ async function seed(knex) {
   await knex('applyPrivilege').insert([
     { type: typeRecord, privilege: privilegeIdProductionProper, permitted: true },
     { type: typeLeave, privilege: privilegeIdProductionProper, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdProductionProper, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdProductionProper, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdProductionProper, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdProductionProper, permitted: true },
     { type: typeOvertime, privilege: privilegeIdProductionProper, permitted: true },
 
     { type: typeRecord, privilege: privilegeIdOfficeProper, permitted: true },
     { type: typeLeave, privilege: privilegeIdOfficeProper, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdOfficeProper, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdOfficeProper, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdOfficeProper, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdOfficeProper, permitted: true },
     { type: typeOvertime, privilege: privilegeIdOfficeProper, permitted: true },
 
     { type: typeRecord, privilege: privilegeIdSectionManager, permitted: true },
     { type: typeLeave, privilege: privilegeIdSectionManager, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdSectionManager, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdSectionManager, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdSectionManager, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdSectionManager, permitted: true },
     { type: typeOvertime, privilege: privilegeIdSectionManager, permitted: true },
 
     { type: typeRecord, privilege: privilegeIdDepartmentManager, permitted: true },
     { type: typeLeave, privilege: privilegeIdDepartmentManager, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdDepartmentManager, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdDepartmentManager, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdDepartmentManager, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdDepartmentManager, permitted: true },
     { type: typeOvertime, privilege: privilegeIdDepartmentManager, permitted: true },
 
     { type: typeRecord, privilege: privilegeIdSystemAdmin, permitted: true },
     { type: typeLeave, privilege: privilegeIdSystemAdmin, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdSystemAdmin, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdSystemAdmin, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdSystemAdmin, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdSystemAdmin, permitted: true },
     { type: typeOvertime, privilege: privilegeIdSystemAdmin, permitted: true },
 
     { type: typeRecord, privilege: privilegeIdBoardMember, permitted: true },
     { type: typeLeave, privilege: privilegeIdBoardMember, permitted: true },
-    { type: typeHalfdayLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typeAMHalfdayLeave, privilege: privilegeIdBoardMember, permitted: true },
+    { type: typePMHalfdayLeave, privilege: privilegeIdBoardMember, permitted: true },
     { type: typeMourningLeave, privilege: privilegeIdBoardMember, permitted: true },
     { type: typeMeasureLeave, privilege: privilegeIdBoardMember, permitted: true },
     { type: typeOvertime, privilege: privilegeIdBoardMember, permitted: true },
@@ -720,7 +727,7 @@ async function seed(knex) {
     .where('optionType', optionTypeLeave).andWhere('name', 'normal').first()).id;
   /** @type {number} */
   const optionTypeLeaveValueHalfday = (await knex.select({ id: 'id' }).from('applyOptionValue')
-    .where('optionType', optionTypeLeave).andWhere('name', 'halfday').first()).id;
+    .where('optionType', optionTypeLeave).andWhere('name', 'am-halfday').first()).id;
 
   for (let i = 80; i < 90; i++) {
     const userAccount = 'USR' + i.toString().padStart(5, '0');

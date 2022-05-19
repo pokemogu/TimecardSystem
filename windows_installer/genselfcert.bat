@@ -14,6 +14,6 @@ echo commonName                  = %NetworkIP% >> "%TEMP%\openssl.conf"
 echo [ req_ext ] >> "%TEMP%\openssl.conf"
 echo subjectAltName = IP:%NetworkIP% >> "%TEMP%\openssl.conf"
 
-C:\Apache24\bin\openssl req -config "%TEMP%\openssl.conf" -x509 -nodes -newkey rsa:4096 -keyout C:\Apache24\conf\ssl\server.key -out  C:\Apache24\conf\ssl\server.crt -extensions req_ext -sha256 -days 3650
+"C:\Apache24\bin\openssl" req -config "%TEMP%\openssl.conf" -x509 -nodes -newkey rsa:4096 -keyout "C:\Apache24\conf\ssl\server.key" -out "C:\Apache24\conf\ssl\server.crt" -extensions req_ext -sha256 -days 3650
 rem C:\Apache24\bin\openssl rsa -in "%TEMP%\key.pem" -out C:\Apache24\conf\ssl\server.key
 del "%TEMP%\openssl.conf"

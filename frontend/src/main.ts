@@ -2,6 +2,9 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import piniaPersist from 'pinia-plugin-persist';
 
+import VueLoading from 'vue-loading-overlay';
+import 'vue-loading-overlay/dist/vue-loading.css';
+
 import App from './App.vue';
 import router from './router';
 
@@ -14,4 +17,5 @@ pinia.use(piniaPersist);
 
 app.use(pinia);
 app.use(router);
+app.use(VueLoading);
 app.mount('#app');

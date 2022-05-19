@@ -98,6 +98,7 @@ export interface UserInfoRequestData {
 */
 
 export type UserInfoRequestData = Omit<UserInfoResponseData, 'id' | 'registeredAt' | 'qrCodeIssueNum'>;
+export interface UserInfoRequestDataWithPassword extends UserInfoRequestData { password: string };
 
 export interface UserInfoResponseBody {
   message: string,
@@ -130,6 +131,10 @@ export interface RecordRequestQuery {
   from?: string,
   to?: string,
   sortDateDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
+  clockin?: boolean,
+  break?: boolean,
+  reenter?: boolean,
+  clockout?: boolean,
   limit?: number,
   offset?: number
 }
@@ -144,6 +149,8 @@ interface RecordInfo {
 export interface RecordResponseData {
   userAccount: string,
   userName: string,
+  userDepartment: string,
+  userSection: string,
   date: string,
   clockin?: RecordInfo,
   break?: RecordInfo,
