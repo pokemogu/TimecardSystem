@@ -10,7 +10,7 @@ import Header from '@/components/Header.vue';
 import LayoutEditButtonView from '@/components/TableLayoutEditButton.vue'
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
@@ -101,14 +101,15 @@ async function updateList() {
 
   const loader = $loading.show({ opacity: 0 });
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      const appliesInfo = await access.getApplies(params);
-      if (appliesInfo) {
-        applies.value = [...appliesInfo];
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const appliesInfo = await access.getApplies(params);
+    if (appliesInfo) {
+      applies.value = [...appliesInfo];
     }
+    //}
   }
   catch (error) {
     console.error(error);

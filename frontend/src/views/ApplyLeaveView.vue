@@ -53,11 +53,12 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.approveApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.approveApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -75,11 +76,12 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.rejectApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.rejectApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -92,55 +94,56 @@ async function onFormSubmitReject() {
 
 async function onRouteSubmit() {
   try {
-    if (store.isLoggedIn()) {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        let submitType = '';
-        switch (applyTypeValue1.value) {
-          case 'normal':
-            submitType = 'leave';
-            break;
-          case 'am-halfday':
-            if (dateTo.value !== '') {
-              alert('半休の場合は期間指定できません。');
-              return;
-            }
-            submitType = 'am-leave';
-            break;
-          case 'pm-halfday':
-            if (dateTo.value !== '') {
-              alert('半休の場合は期間指定できません。');
-              return;
-            }
-            submitType = 'pm-leave';
-            break;
-          case 'mourning':
-            submitType = 'mourning-leave';
-            break;
-          case 'measure':
-            submitType = 'measure-leave';
-            break;
+    //if (store.isLoggedIn()) {
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    let submitType = '';
+    switch (applyTypeValue1.value) {
+      case 'normal':
+        submitType = 'leave';
+        break;
+      case 'am-halfday':
+        if (dateTo.value !== '') {
+          alert('半休の場合は期間指定できません。');
+          return;
         }
-        await access.submitApply(
-          submitType,
-          {
-            date: new Date(dateFrom.value),
-            // 午後半休の場合は休暇開始時刻は12時、それ以外は0時
-            dateTimeFrom: submitType === 'pm-leave' ? new Date(`${dateFrom.value}T12:00:00`) : new Date(`${dateFrom.value}T00:00:00`),
-            // 午前半休の場合は休暇終了時刻は12時、それ以外は23時59分
-            dateTimeTo: submitType === 'am-leave' ? new Date(`${dateFrom.value}T12:00:00`) :
-              (dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`) : new Date(`${dateFrom.value}T23:59:59`)),
-            timestamp: new Date(),
-            reason: reason.value,
-            contact: contact.value,
-            routeName: routeName.value,
-            options: [{ name: 'leaveType', value: applyTypeValue1.value }]
-          });
-
-        router.push({ name: 'dashboard' });
-      }
+        submitType = 'am-leave';
+        break;
+      case 'pm-halfday':
+        if (dateTo.value !== '') {
+          alert('半休の場合は期間指定できません。');
+          return;
+        }
+        submitType = 'pm-leave';
+        break;
+      case 'mourning':
+        submitType = 'mourning-leave';
+        break;
+      case 'measure':
+        submitType = 'measure-leave';
+        break;
     }
+    await access.submitApply(
+      submitType,
+      {
+        date: new Date(dateFrom.value),
+        // 午後半休の場合は休暇開始時刻は12時、それ以外は0時
+        dateTimeFrom: submitType === 'pm-leave' ? new Date(`${dateFrom.value}T12:00:00`) : new Date(`${dateFrom.value}T00:00:00`),
+        // 午前半休の場合は休暇終了時刻は12時、それ以外は23時59分
+        dateTimeTo: submitType === 'am-leave' ? new Date(`${dateFrom.value}T12:00:00`) :
+          (dateTo.value !== '' ? new Date(`${dateTo.value}T23:59:59`) : new Date(`${dateFrom.value}T23:59:59`)),
+        timestamp: new Date(),
+        reason: reason.value,
+        contact: contact.value,
+        routeName: routeName.value,
+        options: [{ name: 'leaveType', value: applyTypeValue1.value }]
+      });
+
+    router.push({ name: 'dashboard' });
+    //}
+    //}
   } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);

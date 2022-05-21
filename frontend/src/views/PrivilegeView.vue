@@ -25,33 +25,33 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const tokenAccess = await store.getTokenAccess();
+    const infos = await tokenAccess.getPrivileges({ limit: limit.value + 1, offset: offset.value });
+    if (infos) {
+      privilegeInfos.value.splice(0);
+      Array.prototype.push.apply(privilegeInfos.value, infos);
 
-      const infos = await tokenAccess.getPrivileges({ limit: limit.value + 1, offset: offset.value });
-      if (infos) {
-        privilegeInfos.value.splice(0);
-        Array.prototype.push.apply(privilegeInfos.value, infos);
-
-        // ヘッダ順に並びかえる
-        for (const privilege of privilegeInfos.value) {
-          if (!privilege.applyPrivileges) {
-            continue;
-          }
-          const temp: apiif.ApplyPrivilegeResponseData[] = [];
-          for (const applyType of applyTypes.value) {
-            const result = privilege.applyPrivileges.find(priv => priv.applyTypeName === applyType.name);
-            if (result) {
-              temp.push(result);
-            }
-          }
-          privilege.applyPrivileges.splice(0);
-          Array.prototype.push.apply(privilege.applyPrivileges, temp);
+      // ヘッダ順に並びかえる
+      for (const privilege of privilegeInfos.value) {
+        if (!privilege.applyPrivileges) {
+          continue;
         }
-
+        const temp: apiif.ApplyPrivilegeResponseData[] = [];
+        for (const applyType of applyTypes.value) {
+          const result = privilege.applyPrivileges.find(priv => priv.applyTypeName === applyType.name);
+          if (result) {
+            temp.push(result);
+          }
+        }
+        privilege.applyPrivileges.splice(0);
+        Array.prototype.push.apply(privilege.applyPrivileges, temp);
       }
+
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -111,15 +111,16 @@ async function onPrivilegeDelete() {
     return;
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      for (const privilege of privilegeInfos.value) {
-        if (privilege.id && checks.value[privilege.id]) {
-          await tokenAccess.deletePrivilege(privilege.id);
-        }
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const tokenAccess = await store.getTokenAccess();
+    for (const privilege of privilegeInfos.value) {
+      if (privilege.id && checks.value[privilege.id]) {
+        await tokenAccess.deletePrivilege(privilege.id);
       }
     }
+    //}
     await updateTable();
   }
   catch (error) {
@@ -136,23 +137,24 @@ async function onPrivilegeDelete() {
 
 async function onPrivilegeSubmit() {
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const tokenAccess = await store.getTokenAccess();
 
-      // 権限が作成済であれば既存ルートの更新、そうでなければ新規作成
-      if (selectedPrivilege.value.id) {
-        await tokenAccess.updatePrivilege(selectedPrivilege.value);
+    // 権限が作成済であれば既存ルートの更新、そうでなければ新規作成
+    if (selectedPrivilege.value.id) {
+      await tokenAccess.updatePrivilege(selectedPrivilege.value);
+    }
+    else {
+      if (privilegeInfos.value.some(privilegeInfo => privilegeInfo.name === selectedPrivilege.value.name)) {
+        alert('既に同じ名称の権限を作成済です。権限名称を変えてください。');
       }
       else {
-        if (privilegeInfos.value.some(privilegeInfo => privilegeInfo.name === selectedPrivilege.value.name)) {
-          alert('既に同じ名称の権限を作成済です。権限名称を変えてください。');
-        }
-        else {
-          await tokenAccess.addPrivilege(selectedPrivilege.value);
-        }
+        await tokenAccess.addPrivilege(selectedPrivilege.value);
       }
     }
+    //}
     await updateTable();
   }
   catch (error) {

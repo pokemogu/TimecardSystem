@@ -44,16 +44,17 @@ async function updateTable() {
       Array.prototype.push.apply(holidayInfos.value, holidays);
     }
 
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      const userWorkPatternInfo = await access.getUserWorkPatternCalendar({ from: fromDateStr, to: toDateStr });
-      if (userWorkPatternInfo) {
-        userWorkPatternCalendars.value.splice(0);
-        Array.prototype.push.apply(userWorkPatternCalendars.value, userWorkPatternInfo);
-        console.log(userWorkPatternCalendars.value);
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const userWorkPatternInfo = await access.getUserWorkPatternCalendar({ from: fromDateStr, to: toDateStr });
+    if (userWorkPatternInfo) {
+      userWorkPatternCalendars.value.splice(0);
+      Array.prototype.push.apply(userWorkPatternCalendars.value, userWorkPatternInfo);
+      console.log(userWorkPatternCalendars.value);
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -71,25 +72,26 @@ const selectedWorkPatternName = ref('');
 const selectedDate = ref(new Date());
 
 onMounted(async () => {
-  const token = await store.getToken();
-  if (token) {
-    const access = new backendAccess.TokenAccess(token);
-    const userInfo = await access.getUserInfo((route.params.account as string) ?? store.userAccount);
-    if (userInfo) {
-      if (userInfo.defaultWorkPatternName) {
-        defaultWorkPattern.value = await access.getWorkPattern(userInfo.defaultWorkPatternName);
-        workPatterNames.value.push(userInfo.defaultWorkPatternName);
-      }
-      if (userInfo.optional1WorkPatternName) {
-        optional1WorkPattern.value = await access.getWorkPattern(userInfo.optional1WorkPatternName);
-        workPatterNames.value.push(userInfo.optional1WorkPatternName);
-      }
-      if (userInfo.optional2WorkPatternName) {
-        optional2WorkPattern.value = await access.getWorkPattern(userInfo.optional2WorkPatternName);
-        workPatterNames.value.push(userInfo.optional2WorkPatternName);
-      }
+  //const token = await store.getToken();
+  //if (token) {
+  //const access = new backendAccess.TokenAccess(token);
+  const access = await store.getTokenAccess();
+  const userInfo = await access.getUserInfo((route.params.account as string) ?? store.userAccount);
+  if (userInfo) {
+    if (userInfo.defaultWorkPatternName) {
+      defaultWorkPattern.value = await access.getWorkPattern(userInfo.defaultWorkPatternName);
+      workPatterNames.value.push(userInfo.defaultWorkPatternName);
+    }
+    if (userInfo.optional1WorkPatternName) {
+      optional1WorkPattern.value = await access.getWorkPattern(userInfo.optional1WorkPatternName);
+      workPatterNames.value.push(userInfo.optional1WorkPatternName);
+    }
+    if (userInfo.optional2WorkPatternName) {
+      optional2WorkPattern.value = await access.getWorkPattern(userInfo.optional2WorkPatternName);
+      workPatterNames.value.push(userInfo.optional2WorkPatternName);
     }
   }
+  //}
   await updateTable();
 });
 
@@ -115,43 +117,44 @@ async function onWorkPatternCalendarClick(date: Date) {
 
 async function onSubmit() {
   try {
-    const token = await store.getToken();
-    const access = new backendAccess.TokenAccess(token);
-    if (token) {
-      let workPatternName: string | null = null;
-      if (!isHoliday(selectedDate.value)) {
-        // 平日かつデフォルト勤務形態の場合は削除登録する
-        if (selectedWorkPatternName.value === defaultWorkPattern.value?.name) {
-          await access.deleteUserWorkPatternCalendar(dateToStr(selectedDate.value));
-          await updateTable();
-          return;
-        }
-        // 平日かつ勤務なしの場合はNULL登録する
-        else if (selectedWorkPatternName.value === '') {
-          workPatternName = null;
-        }
-        else {
-          workPatternName = selectedWorkPatternName.value;
-        }
+    //const token = await store.getToken();
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    //if (token) {
+    let workPatternName: string | null = null;
+    if (!isHoliday(selectedDate.value)) {
+      // 平日かつデフォルト勤務形態の場合は削除登録する
+      if (selectedWorkPatternName.value === defaultWorkPattern.value?.name) {
+        await access.deleteUserWorkPatternCalendar(dateToStr(selectedDate.value));
+        await updateTable();
+        return;
+      }
+      // 平日かつ勤務なしの場合はNULL登録する
+      else if (selectedWorkPatternName.value === '') {
+        workPatternName = null;
       }
       else {
-        // 休日かつ勤務なしの場合は削除登録する
-        if (selectedWorkPatternName.value === '') {
-          await access.deleteUserWorkPatternCalendar(dateToStr(selectedDate.value));
-          await updateTable();
-          return;
-        }
-        else {
-          workPatternName = selectedWorkPatternName.value;
-        }
+        workPatternName = selectedWorkPatternName.value;
       }
-
-      await access.setUserWorkPatternCalendar({
-        date: dateToStr(selectedDate.value),
-        name: workPatternName //selectedWorkPatternName.value
-      });
-      await updateTable();
     }
+    else {
+      // 休日かつ勤務なしの場合は削除登録する
+      if (selectedWorkPatternName.value === '') {
+        await access.deleteUserWorkPatternCalendar(dateToStr(selectedDate.value));
+        await updateTable();
+        return;
+      }
+      else {
+        workPatternName = selectedWorkPatternName.value;
+      }
+    }
+
+    await access.setUserWorkPatternCalendar({
+      date: dateToStr(selectedDate.value),
+      name: workPatternName //selectedWorkPatternName.value
+    });
+    await updateTable();
+    //}
   }
   catch (error) {
     console.error(error);

@@ -9,6 +9,7 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import CustomApplyEdit from '@/components/CustomApplyEdit.vue';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -78,18 +79,20 @@ async function onApplyTypeDelete() {
     return;
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      for (const applyType of customApplyTypes.value) {
-        if (checks.value[applyType.name]) {
-          await access.deleteApplyType(applyType.name);
-        }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    for (const applyType of customApplyTypes.value) {
+      if (checks.value[applyType.name]) {
+        await access.deleteApplyType(applyType.name);
       }
     }
+    //}
   }
   catch (error) {
     console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -104,51 +107,53 @@ async function onApplyTypeDelete() {
 async function onSubmit() {
   const loader = $loading.show({ opacity: 0 });
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
 
-      console.log(selectedCustomApplyType.value.id)
-      // 新規申請種類の場合は追加する
-      if (!selectedCustomApplyType.value.id) {
-        selectedCustomApplyType.value.isSystemType = false;
-        selectedCustomApplyType.value.id = await access.addApplyType(selectedCustomApplyType.value);
-      } else {
-        await access.updateApplyType(selectedCustomApplyType.value);
-      }
+    console.log(selectedCustomApplyType.value.id)
+    // 新規申請種類の場合は追加する
+    if (!selectedCustomApplyType.value.id) {
+      selectedCustomApplyType.value.isSystemType = false;
+      selectedCustomApplyType.value.id = await access.addApplyType(selectedCustomApplyType.value);
+    } else {
+      await access.updateApplyType(selectedCustomApplyType.value);
+    }
 
-      // この申請種類の権限を設定する
-      const privileges = await access.getPrivileges();
-      if (privileges) {
-        for (const privilege of privileges) {
-          const applyPrivilege = privilege.applyPrivileges?.find(applyPrivilege => applyPrivilege.applyTypeId === selectedCustomApplyType.value.id);
+    // この申請種類の権限を設定する
+    const privileges = await access.getPrivileges();
+    if (privileges) {
+      for (const privilege of privileges) {
+        const applyPrivilege = privilege.applyPrivileges?.find(applyPrivilege => applyPrivilege.applyTypeId === selectedCustomApplyType.value.id);
 
-          // 権限追加
-          if (selectedApplyPermissionNames.value.some(name => name === privilege.name)) {
-            if (applyPrivilege) { // 既に申請権限情報がある場合はそれを修正する
-              applyPrivilege.permitted = true;
-            }
-            else { // 申請権限情報がない場合は追加する
-              privilege.applyPrivileges?.push({
-                applyTypeId: selectedCustomApplyType.value.id ?? 0,
-                applyTypeName: selectedCustomApplyType.value.name,
-                permitted: true
-              });
-            }
+        // 権限追加
+        if (selectedApplyPermissionNames.value.some(name => name === privilege.name)) {
+          if (applyPrivilege) { // 既に申請権限情報がある場合はそれを修正する
+            applyPrivilege.permitted = true;
           }
-          // 権限削除
-          else {
-            if (applyPrivilege) { // 既に権限情報がある場合はそれを修正する
-              applyPrivilege.permitted = false;
-            }
+          else { // 申請権限情報がない場合は追加する
+            privilege.applyPrivileges?.push({
+              applyTypeId: selectedCustomApplyType.value.id ?? 0,
+              applyTypeName: selectedCustomApplyType.value.name,
+              permitted: true
+            });
           }
-          await access.updatePrivilege(privilege);
         }
+        // 権限削除
+        else {
+          if (applyPrivilege) { // 既に権限情報がある場合はそれを修正する
+            applyPrivilege.permitted = false;
+          }
+        }
+        await access.updatePrivilege(privilege);
       }
     }
+    //}
   }
   catch (error) {
     console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   loader.hide();

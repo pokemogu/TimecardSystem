@@ -41,8 +41,11 @@ export default function registerHandlers(app: Express, knex: Knex) {
       catch (error) {
         if (error instanceof Error) {
           if (error.name === 'TokenExpiredError' || error.name === 'NotBeforeError') {
+            // アクセストークンの期限切れは定常的に起こるのでエラーログには記録しない
             //throw new createHttpError.Unauthorized(error.toString());
-            throw createHttpError(401, error.message, { internalMessage: error.toString() });
+            //throw createHttpError(401, error.message, { internalMessage: error.toString() });
+            res.status(401).send({ message: 'アクセストークンの期限切れです' });
+            return;
           }
           else if (error.name === 'JsonWebTokenError') {
             //throw new createHttpError.BadRequest(error.toString());

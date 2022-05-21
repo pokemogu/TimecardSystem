@@ -33,8 +33,9 @@ onMounted(async () => {
 
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
+      //const token = await store.getToken();
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
       console.log(apply.value);
     }
@@ -67,25 +68,26 @@ async function onFormSubmit() {
 
 async function onRouteSubmit() {
   try {
-    if (store.isLoggedIn()) {
-      const token = await store.getToken();
-      if (token) {
-        if (dateTo.value === '') {
-          dateTo.value = dateFrom.value;
-        }
-        const access = new backendAccess.TokenAccess(token);
-        await access.submitApply(applyTypeValue1.value, {
-          date: new Date(dateFrom.value),
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-          dateTimeTo: new Date(`${dateTo.value}T${timeTo.value}:59`),
-          timestamp: new Date(),
-          contact: contact.value,
-          routeName: routeName.value
-        });
-
-        router.push({ name: 'dashboard' });
-      }
+    //if (store.isLoggedIn()) {
+    //const token = await store.getToken();
+    //if (token) {
+    if (dateTo.value === '') {
+      dateTo.value = dateFrom.value;
     }
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    await access.submitApply(applyTypeValue1.value, {
+      date: new Date(dateFrom.value),
+      dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+      dateTimeTo: new Date(`${dateTo.value}T${timeTo.value}:59`),
+      timestamp: new Date(),
+      contact: contact.value,
+      routeName: routeName.value
+    });
+
+    router.push({ name: 'dashboard' });
+    //}
+    //}
   } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);

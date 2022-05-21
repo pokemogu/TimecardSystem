@@ -9,7 +9,7 @@ import lodash from 'lodash';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 
 import generateQrCodePDF from '@/GenerateQrCodePDF';
 
@@ -58,27 +58,28 @@ const updateUserList = async () => {
   const loader = $loading.show({ opacity: 0 });
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getUsersInfo({
-        accounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
-        name: nameSearch.value !== '' ? nameSearch.value : undefined,
-        department: departmentSearch.value !== '' ? departmentSearch.value : undefined,
-        section: sectionSearch.value !== '' ? sectionSearch.value : undefined,
-        registeredFrom: dateFrom.value !== '' ? new Date(dateFrom.value) : undefined,
-        registeredTo: dateTo.value !== '' ? new Date(dateTo.value) : undefined,
-        isQrCodeIssued: statusSearch.value !== '' ? (statusSearch.value === 'issued' ? true : false) : undefined,
-        limit: limit.value + 1,
-        offset: offset.value
-      });
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const infos = await access.getUsersInfo({
+      accounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
+      name: nameSearch.value !== '' ? nameSearch.value : undefined,
+      department: departmentSearch.value !== '' ? departmentSearch.value : undefined,
+      section: sectionSearch.value !== '' ? sectionSearch.value : undefined,
+      registeredFrom: dateFrom.value !== '' ? new Date(dateFrom.value) : undefined,
+      registeredTo: dateTo.value !== '' ? new Date(dateTo.value) : undefined,
+      isQrCodeIssued: statusSearch.value !== '' ? (statusSearch.value === 'issued' ? true : false) : undefined,
+      limit: limit.value + 1,
+      offset: offset.value
+    });
 
-      if (infos) {
-        userInfos.value.splice(0);
-        Array.prototype.push.apply(userInfos.value, infos);
-      }
-      checks.value = Array.from({ length: userInfos.value.length }, () => false);
+    if (infos) {
+      userInfos.value.splice(0);
+      Array.prototype.push.apply(userInfos.value, infos);
     }
+    checks.value = Array.from({ length: userInfos.value.length }, () => false);
+    //}
   }
   catch (error) {
     console.error(error);
@@ -99,21 +100,22 @@ async function onUserClick(account?: string) {
   const loader = $loading.show({ opacity: 0 });
   try {
     if (account) {
-      const token = await store.getToken();
-      if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        const userInfo = await tokenAccess.getUserInfo(account);
-        if (userInfo) {
-          selectedUserInfo.value = {
-            account: userInfo.account, name: userInfo.name, phonetic: userInfo.phonetic,
-            email: userInfo.email, section: userInfo.section, department: userInfo.department,
-            privilegeName: userInfo.privilegeName,
-            defaultWorkPatternName: userInfo.defaultWorkPatternName,
-            optional1WorkPatternName: userInfo.optional1WorkPatternName,
-            optional2WorkPatternName: userInfo.optional2WorkPatternName
-          };
-        }
+      //const token = await store.getToken();
+      //if (token) {
+      //const tokenAccess = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      const userInfo = await access.getUserInfo(account);
+      if (userInfo) {
+        selectedUserInfo.value = {
+          account: userInfo.account, name: userInfo.name, phonetic: userInfo.phonetic,
+          email: userInfo.email, section: userInfo.section, department: userInfo.department,
+          privilegeName: userInfo.privilegeName,
+          defaultWorkPatternName: userInfo.defaultWorkPatternName,
+          optional1WorkPatternName: userInfo.optional1WorkPatternName,
+          optional2WorkPatternName: userInfo.optional2WorkPatternName
+        };
       }
+      //}
       isNewAccount.value = false;
     }
     else {
@@ -142,19 +144,20 @@ async function onIssueQrCode() {
   for (let i = 0; i < userInfos.value.length; i++) {
     try {
       if (checks.value[i]) {
-        const token = await store.getToken();
-        if (token) {
-          const tokenAccess = new backendAccess.TokenAccess(token);
-          const issuedToken = await tokenAccess.issueRefreshTokenForOtherUser(userInfos.value[i].account);
-          if (issuedToken?.refreshToken) {
-            userInfoforQrCode.push({
-              name: userInfos.value[i].name,
-              account: userInfos.value[i].account,
-              refreshToken: issuedToken.refreshToken,
-              section: userInfos.value[i].section ?? ''
-            });
-          }
+        //const token = await store.getToken();
+        //if (token) {
+        //const tokenAccess = new backendAccess.TokenAccess(token);
+        const access = await store.getTokenAccess();
+        const issuedToken = await access.issueRefreshTokenForOtherUser(userInfos.value[i].account);
+        if (issuedToken?.refreshToken) {
+          userInfoforQrCode.push({
+            name: userInfos.value[i].name,
+            account: userInfos.value[i].account,
+            refreshToken: issuedToken.refreshToken,
+            section: userInfos.value[i].section ?? ''
+          });
         }
+        //}
       }
     }
     catch (error) {
@@ -196,14 +199,17 @@ async function onPageForward() {
 
 async function onSubmit() {
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      await access.addUsers([selectedUserInfo.value]);
-      if (isNewAccount.value === true) {
-        isPasswordChangeOpened.value = true;
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    await access.addUsers([selectedUserInfo.value]);
+
+    // 新規ユーザー追加の場合は初期パスワード入力画面を表示する
+    if (isNewAccount.value === true) {
+      isPasswordChangeOpened.value = true;
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -220,11 +226,12 @@ async function onPasswordChange() {
 
 async function onDelete() {
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      await access.disableUser(selectedUserInfo.value.account);
-    }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    await access.disableUser(selectedUserInfo.value.account);
+    //}
   }
   catch (error) {
     console.error(error);
@@ -242,15 +249,16 @@ const bulkUserData = ref<apiif.UserInfoRequestDataWithPassword[]>([]);
 async function onSubmitBulk() {
   const loader = $loading.show({ opacity: 0 });
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      await access.addUsers(bulkUserData.value);
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    await access.addUsers(bulkUserData.value);
 
-      for (const user of bulkUserData.value) {
-        await access.changePassword({ account: user.account, newPassword: user.password })
-      }
+    for (const user of bulkUserData.value) {
+      await access.changePassword({ account: user.account, newPassword: user.password })
     }
+    //}
     loader.hide();
     alert('一括追加が完了しました。');
   }

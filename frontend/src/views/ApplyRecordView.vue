@@ -30,8 +30,9 @@ onMounted(async () => {
 
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
+      //const token = await store.getToken();
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
     }
 
@@ -60,11 +61,12 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.approveApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.approveApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -82,11 +84,12 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.rejectApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.rejectApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -100,23 +103,24 @@ async function onFormSubmitReject() {
 async function onRouteSubmit() {
   try {
     if (store.isLoggedIn()) {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        const applyId = await access.submitApply('record', {
-          date: new Date(dateFrom.value),
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-          timestamp: new Date(),
-          options: [
-            { name: 'situation', value: applyTypeValue1.value },
-            { name: 'recordType', value: applyTypeValue2.value }
-          ],
-          reason: reason.value,
-          routeName: routeName.value
-        });
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      const applyId = await access.submitApply('record', {
+        date: new Date(dateFrom.value),
+        dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+        timestamp: new Date(),
+        options: [
+          { name: 'situation', value: applyTypeValue1.value },
+          { name: 'recordType', value: applyTypeValue2.value }
+        ],
+        reason: reason.value,
+        routeName: routeName.value
+      });
 
-        router.push({ name: 'dashboard' });
-      }
+      router.push({ name: 'dashboard' });
+      //}
     }
   } catch (error) {
     console.error(error);

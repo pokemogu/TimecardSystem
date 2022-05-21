@@ -6,7 +6,8 @@ import Header from '@/components/Header.vue';
 import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
+import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
@@ -23,18 +24,19 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getApprovalRoutes({ limit: limit.value + 1, offset: offset.value });
-      if (infos) {
-        routeInfos.value.splice(0);
-        Array.prototype.push.apply(routeInfos.value, infos);
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    const access = await store.getTokenAccess();
+    const infos = await access.getApprovalRoutes({ limit: limit.value + 1, offset: offset.value });
+    if (infos) {
+      routeInfos.value.splice(0);
+      Array.prototype.push.apply(routeInfos.value, infos);
     }
+    //}
   }
   catch (error) {
     console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 }
@@ -73,18 +75,19 @@ async function onRouteDelete() {
     return;
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      for (const routeInfo of routeInfos.value) {
-        if (checks.value[routeInfo.name] && routeInfo.id) {
-          await tokenAccess.deleteApprovalRoute(routeInfo.id);
-        }
+    //const token = await store.getToken();
+    //if (token) {
+    const access = await store.getTokenAccess();
+    for (const routeInfo of routeInfos.value) {
+      if (checks.value[routeInfo.name] && routeInfo.id) {
+        await access.deleteApprovalRoute(routeInfo.id);
       }
     }
+    //}
   }
   catch (error) {
     console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
 
@@ -97,21 +100,22 @@ async function onRouteDelete() {
 
 async function onSubmit() {
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
+    //const token = await store.getToken();
+    //if (token) {
+    const access = await store.getTokenAccess();
 
-      // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
-      if (selectedRoute.value.id) {
-        await tokenAccess.updateApprovalRoutes(selectedRoute.value);
-      }
-      else {
-        await tokenAccess.addApprovalRoutes(selectedRoute.value);
-      }
+    // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
+    if (selectedRoute.value.id) {
+      await access.updateApprovalRoutes(selectedRoute.value);
     }
+    else {
+      await access.addApprovalRoutes(selectedRoute.value);
+    }
+    //}
   }
   catch (error) {
     console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
   await updateTable();

@@ -71,8 +71,9 @@ async function initStatus() {
     const loader = $loading.show({ opacity: 0 });
 
     try {
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
+      //const token = await store.getToken();
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
       const todayStr = dateToStr(new Date());
 
       // 本日の打刻実績を取得する
@@ -213,8 +214,9 @@ async function onRecord(event: Event) {
     else {
       // PC端末からの打刻の場合は即時打刻する。
       const loader = $loading.show({ opacity: 0 });
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
+      //const token = await store.getToken();
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
       await access.record(recordType.value, dateNow);
       loader.hide();
     }

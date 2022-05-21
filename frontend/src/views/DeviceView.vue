@@ -5,7 +5,7 @@ import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 
 import DeviceEdit from '@/components/DeviceEdit.vue';
 import { putErrorToDB } from '@/ErrorDB';
@@ -26,15 +26,16 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      const infos = await access.getDevices({ limit: limit.value + 1, offset: offset.value });
-      if (infos) {
-        deviceInfos.value.splice(0);
-        Array.prototype.push.apply(deviceInfos.value, infos);
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const infos = await access.getDevices({ limit: limit.value + 1, offset: offset.value });
+    if (infos) {
+      deviceInfos.value.splice(0);
+      Array.prototype.push.apply(deviceInfos.value, infos);
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -81,15 +82,16 @@ async function onDeviceDelete() {
     return;
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      for (const device of deviceInfos.value) {
-        if (checks.value[device.account]) {
-          await access.deleteDevice(device.account);
-        }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    for (const device of deviceInfos.value) {
+      if (checks.value[device.account]) {
+        await access.deleteDevice(device.account);
       }
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -112,16 +114,17 @@ async function onDeviceSubmit() {
     }
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const access = new backendAccess.TokenAccess(token);
-      if (isNewDevice.value === true) {
-        await access.addDevice({ account: selectedDeviceAccount.value, name: selectedDeviceName.value });
-      }
-      else {
-        await access.updateDevice({ account: selectedDeviceAccount.value, name: selectedDeviceName.value });
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    if (isNewDevice.value === true) {
+      await access.addDevice({ account: selectedDeviceAccount.value, name: selectedDeviceName.value });
     }
+    else {
+      await access.updateDevice({ account: selectedDeviceAccount.value, name: selectedDeviceName.value });
+    }
+    //}
   }
   catch (error) {
     console.error(error);

@@ -93,6 +93,17 @@ export class TokenAccess {
     // リフレッシュトークンがある場合は自動リトライを行なう
     if (this.refreshToken !== '') {
       createAuthRefreshInterceptor(this.axios, async (failedRequest) => {
+        // AxiosによってオブジェクトがJSON文字列に変換済みの場合は
+        // 再送時に二重にJSON文字列に変換しようとしてエラーとなるので、
+        // JSON文字列から元のオブジェクトに戻す
+        if (failedRequest?.response?.config?.data) {
+          try {
+            failedRequest.response.config.data = JSON.parse(failedRequest.response.config.data);
+          }
+          catch (error) { }
+        }
+
+        // アクセストークンを再取得する
         const newAccessToken = await getToken(this.refreshToken);
         if (newAccessToken?.accessToken) {
           this.accessToken = newAccessToken.accessToken;
@@ -100,7 +111,6 @@ export class TokenAccess {
           if (this.callbackOnAccessTokenChanged) {
             this.callbackOnAccessTokenChanged(this.accessToken);
           }
-
         }
       });
     }

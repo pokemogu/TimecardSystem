@@ -7,7 +7,7 @@ import Header from '@/components/Header.vue';
 import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 import type * as apiif from 'shared/APIInterfaces';
 import { putErrorToDB } from '@/ErrorDB';
 
@@ -47,8 +47,9 @@ onMounted(async () => {
   try {
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      const token = await store.getToken();
-      const access = new backendAccess.TokenAccess(token);
+      //const token = await store.getToken();
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
     }
     isMounted.value = true;
@@ -66,11 +67,12 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.approveApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.approveApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -88,11 +90,12 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.rejectApply(apply.value.id);
-      }
+      //const token = await store.getToken();
+      //if (token) {
+      //const access = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      await access.rejectApply(apply.value.id);
+      //}
     }
     catch (error) {
       console.error(error);
@@ -105,27 +108,28 @@ async function onFormSubmitReject() {
 
 async function onRouteSubmit() {
   try {
-    if (store.isLoggedIn()) {
-      const token = await store.getToken();
-      if (token) {
-        const access = new backendAccess.TokenAccess(token);
-        await access.submitApply(applyType.value, {
-          date: new Date(dateFrom.value),
-          dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-          dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
-          timestamp: new Date(),
-          reason: reason.value,
-          routeName: routeName.value
-        });
+    //if (store.isLoggedIn()) {
+    //const token = await store.getToken();
+    //if (token) {
+    //const access = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    await access.submitApply(applyType.value, {
+      date: new Date(dateFrom.value),
+      dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+      dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+      timestamp: new Date(),
+      reason: reason.value,
+      routeName: routeName.value
+    });
 
-        if (applyType.value === 'holiday-work' && doApplyMakeupLeave.value === true) {
-          router.push({ name: 'apply-makeup-leave', query: { relatedDate: dateFrom.value } });
-        }
-        else {
-          router.push({ name: 'dashboard' });
-        }
-      }
+    if (applyType.value === 'holiday-work' && doApplyMakeupLeave.value === true) {
+      router.push({ name: 'apply-makeup-leave', query: { relatedDate: dateFrom.value } });
     }
+    else {
+      router.push({ name: 'dashboard' });
+    }
+    //}
+    //}
   } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);
@@ -171,19 +175,22 @@ async function onRouteSubmit() {
       <div class="col-2">
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'unapproved' } }"
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'unapproved' } }"
               class="btn btn-warning btn-sm" role="button">未承認一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'rejected' } }"
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'rejected' } }"
               class="btn btn-warning btn-sm" role="button">否認済一覧</RouterLink>
           </div>
         </div>
         <div class="row">
           <div class="p-1 d-grid">
-            <RouterLink :to="{ name: apply ? 'approval-list' : 'apply-list', query: { approved: 'approved' } }"
+            <RouterLink
+              :to="{ name: apply?.targetUser.account !== store.userAccount ? 'approval-list' : 'apply-list', query: { approved: 'approved' } }"
               class="btn btn-warning btn-sm" role="button">承認済一覧</RouterLink>
           </div>
         </div>

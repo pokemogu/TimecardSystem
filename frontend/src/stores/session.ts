@@ -5,7 +5,7 @@ import type * as apiif from 'shared/APIInterfaces';
 export const useSessionStore = defineStore({
   id: 'timecard-system-session',
   state: () => ({
-    //accessTokenData: '',
+    accessToken: '',
     refreshToken: '',
     userAccount: '',
     userName: '',
@@ -19,6 +19,7 @@ export const useSessionStore = defineStore({
   },
   actions: {
     clear() {
+      this.accessToken = '';
       this.refreshToken = '';
       this.userAccount = '';
       this.userName = '';
@@ -38,8 +39,8 @@ export const useSessionStore = defineStore({
           this.userSection = result.section;
           this.userDepartment = result.department;
 
-          const accessToken = await this.getToken();
-          const access = new backendAccess.TokenAccess(accessToken);
+          this.accessToken = await this.getToken();
+          const access = new backendAccess.TokenAccess(this.accessToken);
           const privilege = await access.getUserPrivilege(this.userAccount);
           if (privilege) {
             this.privilege = privilege;
@@ -59,7 +60,7 @@ export const useSessionStore = defineStore({
         }
       }
     },
-    async getToken(refreshToken: string | null = null) {
+    async getToken(refreshToken?: string) {
       try {
         if (refreshToken) {
           this.refreshToken = refreshToken;
@@ -70,9 +71,21 @@ export const useSessionStore = defineStore({
         }
         return result.accessToken;
       } catch (error) {
-        console.log(error);
+        console.error(error);
         throw error;
       }
+    },
+    async callbackAccessTokenRefresh(newAccessToken: string) {
+      this.accessToken = newAccessToken;
+    },
+    async getTokenAccess() {
+      if (this.refreshToken === '') {
+        throw new Error('リフレッシュトークンが取得されていません。ログインしてください。');
+      }
+      if (this.accessToken === '') {
+        this.accessToken = await this.getToken();
+      }
+      return new backendAccess.TokenAccess(this.accessToken, this.refreshToken, this.callbackAccessTokenRefresh);
     },
     async logout() {
       try {
@@ -80,7 +93,7 @@ export const useSessionStore = defineStore({
         this.clear();
       } catch (error) {
         this.clear();
-        console.log(error);
+        console.error(error);
         throw error;
       }
     },

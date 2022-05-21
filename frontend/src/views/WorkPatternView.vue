@@ -5,7 +5,7 @@ import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 
 import WorkPatternEdit from '@/components/WorkPatternEdit.vue';
 import { putErrorToDB } from '@/ErrorDB';
@@ -33,15 +33,16 @@ const offset = ref(0);
 
 async function updateTable() {
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getWorkPatterns({ limit: limit.value + 1, offset: offset.value });
-      if (infos) {
-        workPatternInfos.value.splice(0);
-        Array.prototype.push.apply(workPatternInfos.value, infos);
-      }
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const infos = await access.getWorkPatterns({ limit: limit.value + 1, offset: offset.value });
+    if (infos) {
+      workPatternInfos.value.splice(0);
+      Array.prototype.push.apply(workPatternInfos.value, infos);
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -69,14 +70,15 @@ async function onPageForward() {
 async function onWorkPatternClick(workPatternName?: string) {
   if (workPatternName) {
     try {
-      const token = await store.getToken();
-      if (token) {
-        const tokenAccess = new backendAccess.TokenAccess(token);
-        const workPattern = await tokenAccess.getWorkPattern(workPatternName);
-        if (workPattern) {
-          selectedWorkPattern.value = JSON.parse(JSON.stringify(workPattern));
-        }
+      //const token = await store.getToken();
+      //if (token) {
+      //const tokenAccess = new backendAccess.TokenAccess(token);
+      const access = await store.getTokenAccess();
+      const workPattern = await access.getWorkPattern(workPatternName);
+      if (workPattern) {
+        selectedWorkPattern.value = JSON.parse(JSON.stringify(workPattern));
       }
+      //}
       isModalOpened.value = true;
     }
     catch (error) {
@@ -100,15 +102,16 @@ async function onWorkPatternDelete() {
     return;
   }
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      for (const workPattern of workPatternInfos.value) {
-        if (checks.value[workPattern.id]) {
-          await tokenAccess.deleteWorkPattern(workPattern.id);
-        }
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    for (const workPattern of workPatternInfos.value) {
+      if (checks.value[workPattern.id]) {
+        await access.deleteWorkPattern(workPattern.id);
       }
     }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -128,18 +131,19 @@ async function onWorkPatternSubmit() {
   console.log(selectedWorkPattern.value);
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
+    //const token = await store.getToken();
+    //if (token) {
+    //  const tokenAccess = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
 
-      // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
-      if (selectedWorkPattern.value.id) {
-        await tokenAccess.updateWorkPattern(selectedWorkPattern.value);
-      }
-      else {
-        await tokenAccess.addWorkPattern(selectedWorkPattern.value);
-      }
+    // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
+    if (selectedWorkPattern.value.id) {
+      await access.updateWorkPattern(selectedWorkPattern.value);
     }
+    else {
+      await access.addWorkPattern(selectedWorkPattern.value);
+    }
+    //}
   }
   catch (error) {
     console.error(error);
@@ -196,7 +200,7 @@ async function onWorkPatternSubmit() {
               </th>
               <td>
                 <button type="button" class="btn btn-link" v-on:click="onWorkPatternClick(workPattern.name)">{{
-                workPattern.name
+                    workPattern.name
                 }}</button>
               </td>
               <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>

@@ -10,7 +10,7 @@ import lodash from 'lodash';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-import * as backendAccess from '@/BackendAccess';
+//import * as backendAccess from '@/BackendAccess';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
@@ -58,31 +58,32 @@ const updateRecordList = async () => {
   const loader = $loading.show({ opacity: 0 });
 
   try {
-    const token = await store.getToken();
-    if (token) {
-      const tokenAccess = new backendAccess.TokenAccess(token);
-      const infos = await tokenAccess.getRecords({
-        byUserAccount: accountSearch.value !== '' ? accountSearch.value : undefined,
-        byUserName: nameSearch.value !== '' ? nameSearch.value : undefined,
-        byDepartment: departmentSearch.value !== '' ? departmentSearch.value : undefined,
-        bySection: sectionSearch.value !== '' ? sectionSearch.value : undefined,
-        byDevice: deviceSearch.value !== '' ? deviceSearch.value : undefined,
-        from: dateFrom.value !== '' ? new Date(dateFrom.value).toLocaleDateString() : undefined,
-        to: dateTo.value !== '' ? new Date(dateTo.value).toLocaleDateString() : undefined,
-        clockin: clockinSearch.value === 'notRecorded' ? false : (clockinSearch.value === 'recorded' ? true : undefined),
-        break: breakSearch.value === 'notRecorded' ? false : (breakSearch.value === 'recorded' ? true : undefined),
-        reenter: reenterSearch.value === 'notRecorded' ? false : (reenterSearch.value === 'recorded' ? true : undefined),
-        clockout: clockoutSearch.value === 'notRecorded' ? false : (clockoutSearch.value === 'recorded' ? true : undefined),
-        limit: limit.value + 1,
-        offset: offset.value
-      });
+    //const token = await store.getToken();
+    //if (token) {
+    //const tokenAccess = new backendAccess.TokenAccess(token);
+    const access = await store.getTokenAccess();
+    const infos = await access.getRecords({
+      byUserAccount: accountSearch.value !== '' ? accountSearch.value : undefined,
+      byUserName: nameSearch.value !== '' ? nameSearch.value : undefined,
+      byDepartment: departmentSearch.value !== '' ? departmentSearch.value : undefined,
+      bySection: sectionSearch.value !== '' ? sectionSearch.value : undefined,
+      byDevice: deviceSearch.value !== '' ? deviceSearch.value : undefined,
+      from: dateFrom.value !== '' ? new Date(dateFrom.value).toLocaleDateString() : undefined,
+      to: dateTo.value !== '' ? new Date(dateTo.value).toLocaleDateString() : undefined,
+      clockin: clockinSearch.value === 'notRecorded' ? false : (clockinSearch.value === 'recorded' ? true : undefined),
+      break: breakSearch.value === 'notRecorded' ? false : (breakSearch.value === 'recorded' ? true : undefined),
+      reenter: reenterSearch.value === 'notRecorded' ? false : (reenterSearch.value === 'recorded' ? true : undefined),
+      clockout: clockoutSearch.value === 'notRecorded' ? false : (clockoutSearch.value === 'recorded' ? true : undefined),
+      limit: limit.value + 1,
+      offset: offset.value
+    });
 
-      if (infos) {
-        recordInfos.value.splice(0);
-        Array.prototype.push.apply(recordInfos.value, infos);
-      }
-      checks.value = Array.from({ length: recordInfos.value.length }, () => false);
+    if (infos) {
+      recordInfos.value.splice(0);
+      Array.prototype.push.apply(recordInfos.value, infos);
     }
+    checks.value = Array.from({ length: recordInfos.value.length }, () => false);
+    //}
   }
   catch (error) {
     console.error(error);
