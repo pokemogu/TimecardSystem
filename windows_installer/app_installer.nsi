@@ -85,6 +85,15 @@ Section
   # 出力先を指定します。
   SetOutPath "$INSTDIR"
 
+  # 前バージョンがインストールされている場合はエラー終了
+  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Timecard System Server" "UninstallString"
+  StrCmp $0 "" noError_AppOldVersion
+
+  MessageBox MB_OK|MB_ICONSTOP "旧バージョンがインストールされています。旧バージョンをアンインストールしてからこのインストーラーを実行してください。"
+  Abort "旧バージョンがインストールされています。旧バージョンをアンインストールしてからこのインストーラーを実行してください。"
+
+noError_AppOldVersion:
+
   # Node.jsの動作確認
   ClearErrors
   ExecWait "node -e 'setTimeout(()=>{},500)'"
@@ -142,7 +151,7 @@ noError_ApacheConf:
 
   !if "$%TEMP%" != "${U+24}%TEMP%"
     !define TEMPPATH "$%TEMP%\backend_${TEMPDIR}"
-    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql dbbackup /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env.development* docker-compose.yml Dockerfile /s /mir'
+    !system 'robocopy "${__FILEDIR__}\..\backend" "${TEMPPATH}" /xd src mysql dbbackup /xf esbuild.js jest.setup.js fakeNames.js development-init.js tsconfig.json .env* docker-compose.yml Dockerfile /s /mir'
     !cd '${TEMPPATH}'
     !system 'npm.cmd install --production'
     File /r '${TEMPPATH}\*'

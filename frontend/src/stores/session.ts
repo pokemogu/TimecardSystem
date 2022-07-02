@@ -1,9 +1,44 @@
 import { defineStore } from 'pinia';
+import Cookies from 'js-cookie'
+
 import * as backendAccess from '@/BackendAccess';
 import type * as apiif from 'shared/APIInterfaces';
 
+const TIMECARD_SYSTEM_SESSION = 'timecard-system-session'
+
+const cookiesStorage: Storage = {
+  setItem(key, state) {
+    Cookies.set(`${TIMECARD_SYSTEM_SESSION}-${key}`, state);
+  },
+  getItem(key) {
+    return Cookies.get(`${TIMECARD_SYSTEM_SESSION}-${key}`) ?? null;
+  },
+  get ['length']() {
+    const allCookies = Cookies.get();
+    let sessionCookieNum = 0;
+    for (const key in allCookies) {
+      sessionCookieNum += (key.indexOf(`${TIMECARD_SYSTEM_SESSION}-`) === 0) ? 1 : 0;
+    }
+    return sessionCookieNum;
+  },
+  clear() {
+    const allCookies = Cookies.get();
+    for (const key in allCookies) {
+      if (key.indexOf(`${TIMECARD_SYSTEM_SESSION}-`) === 0) {
+        Cookies.remove(key);
+      }
+    }
+  },
+  key(index) {
+    return Object.keys(Cookies.get())[index];
+  },
+  removeItem(key) {
+    Cookies.remove(`${TIMECARD_SYSTEM_SESSION}-${key}`);
+  }
+}
+
 export const useSessionStore = defineStore({
-  id: 'timecard-system-session',
+  id: TIMECARD_SYSTEM_SESSION,
   state: () => ({
     accessToken: '',
     refreshToken: '',
@@ -102,6 +137,8 @@ export const useSessionStore = defineStore({
     }
   },
   persist: {
-    enabled: true
+    enabled: true,
+    //strategies: [{ storage: localStorage }]
+    strategies: [{ storage: cookiesStorage }]
   }
 });

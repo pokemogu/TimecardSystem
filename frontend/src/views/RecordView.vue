@@ -71,8 +71,6 @@ async function initStatus() {
     const loader = $loading.show({ opacity: 0 });
 
     try {
-      //const token = await store.getToken();
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       const todayStr = dateToStr(new Date());
 
@@ -157,7 +155,6 @@ onMounted(async () => {
 
       worker.onmessage = (ev) => {
         const message = <{ type: string, message: string }>ev.data;
-        console.log(message);
         if (message.type === 'error') {
           headerMessage.value = message.message;
           setTimeout(() => {
@@ -214,8 +211,6 @@ async function onRecord(event: Event) {
     else {
       // PC端末からの打刻の場合は即時打刻する。
       const loader = $loading.show({ opacity: 0 });
-      //const token = await store.getToken();
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.record(recordType.value, dateNow);
       loader.hide();
@@ -233,8 +228,6 @@ async function onRecord(event: Event) {
 }
 
 async function onDecode(decodedQrcode: string) {
-  //BeepSound.play();
-
   const decodedStrs = decodedQrcode.split(',', 2)
   if (decodedStrs.length < 2) {
     errorName.value = 'TokenAuthFailedError';
@@ -243,7 +236,7 @@ async function onDecode(decodedQrcode: string) {
   else {
     try {
       status.value = 'waitForRecord';
-      const userCacheDb = await openUserCacheDB(); console.log(decodedStrs[0])
+      const userCacheDb = await openUserCacheDB();
       const userInfo = await userCacheDb.get('timecard-user-cache', decodedStrs[0]);
       userAccount.value = decodedStrs[0];
       refreshToken = decodedStrs[1];
@@ -289,7 +282,6 @@ async function onDecode(decodedQrcode: string) {
             }
           }
         }
-        //console.log(recordInfos);
         recordDb.close();
 
         // 打鍵状況に合わせてボタンを自動的に変更する

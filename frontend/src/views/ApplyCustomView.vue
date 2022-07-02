@@ -11,8 +11,8 @@ import * as backendAccess from '@/BackendAccess';
 import type * as apiif from 'shared/APIInterfaces';
 import { putErrorToDB } from '@/ErrorDB';
 
-const route = useRoute();
 const router = useRouter();
+const route = useRoute();
 const store = useSessionStore();
 
 const applyTypeOptions1 = ref<{ type: string, options: { name: string, description: string }[] }>({ type: 'applyType', options: [] });
@@ -33,11 +33,8 @@ onMounted(async () => {
 
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      //const token = await store.getToken();
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
-      console.log(apply.value);
     }
 
     const applyTypes = await backendAccess.getApplyTypes();
@@ -54,8 +51,7 @@ onMounted(async () => {
       }
     }
     isMounted.value = true;
-  }
-  catch (error) {
+  } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
@@ -63,20 +59,55 @@ onMounted(async () => {
 });
 
 async function onFormSubmit() {
-  isApprovalRouteSelectOpened.value = true;
+  // 回付中の場合は承認処理を行なう
+  if (apply.value) {
+    try {
+      const access = await store.getTokenAccess();
+      await access.approveApply(apply.value.id);
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyMail(apply.value.id, url);
+      }
+    } catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
+    }
+    router.push({ name: 'dashboard' });
+  }
+  // 起票中の場合は承認ルート選択モーダルを表示する
+  else {
+    isApprovalRouteSelectOpened.value = true;
+  }
+}
+
+async function onFormSubmitReject() {
+  if (apply.value) {
+    try {
+      const access = await store.getTokenAccess();
+      await access.rejectApply(apply.value.id);
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyRejectedMail(apply.value.id, url);
+      }
+    } catch (error) {
+      console.error(error);
+      await putErrorToDB(store.userAccount, error as Error);
+      alert(error);
+    }
+    router.push({ name: 'dashboard' });
+  }
 }
 
 async function onRouteSubmit() {
   try {
-    //if (store.isLoggedIn()) {
-    //const token = await store.getToken();
-    //if (token) {
     if (dateTo.value === '') {
       dateTo.value = dateFrom.value;
     }
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
-    await access.submitApply(applyTypeValue1.value, {
+    const applyId = await access.submitApply(applyTypeValue1.value, {
       date: new Date(dateFrom.value),
       dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
       dateTimeTo: new Date(`${dateTo.value}T${timeTo.value}:59`),
@@ -84,10 +115,12 @@ async function onRouteSubmit() {
       contact: contact.value,
       routeName: routeName.value
     });
+    if (applyId) {
+      const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: applyId } }).href;
+      await access.sendApplyMail(applyId, url);
+    }
 
     router.push({ name: 'dashboard' });
-    //}
-    //}
   } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);
@@ -105,21 +138,19 @@ async function onRouteSubmit() {
           customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
-    <template v-if="isMounted === true">
-      <Teleport to="body" v-if="isApprovalRouteSelectOpened">
-        <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
-          v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
-      </Teleport>
-    </template>
+    <Teleport to="body" v-if="isApprovalRouteSelectOpened">
+      <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
+        v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
+    </Teleport>
 
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
-          <ApplyForm applyName="その他申請" applyType="other" :isApplyTypeOptionsDropdown="true"
+          <ApplyForm v-if="isMounted" applyName="その他申請" applyType="other" :isApplyTypeOptionsDropdown="true"
             v-model:applyTypeValue1="applyTypeValue1" v-bind:applyTypeOptions1="applyTypeOptions1"
             v-model:dateFrom="dateFrom" v-model:dateTo="dateTo" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
-            v-bind:isDateToOptional="true" v-model:contact="contact" :apply="apply" v-on:submit="onFormSubmit">
-          </ApplyForm>
+            v-bind:isDateToOptional="true" v-model:contact="contact" :apply="apply" v-on:submit="onFormSubmit"
+            v-on:submitReject="onFormSubmitReject"> </ApplyForm>
         </div>
       </div>
       <div class="col-2">

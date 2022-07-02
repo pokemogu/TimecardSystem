@@ -16,6 +16,7 @@ build({
     'express',
     'express-bearer-token',
     'express-async-handler',
+    'fecha',
     'http-errors',
     'knex',
     'nodemailer',

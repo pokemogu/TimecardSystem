@@ -9,12 +9,12 @@ import lodash from 'lodash';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-//import * as backendAccess from '@/BackendAccess';
 
 import generateQrCodePDF from '@/GenerateQrCodePDF';
 
 import UserEdit from '@/components/UserEdit.vue';
 import PasswordChange from '@/components/PasswordChange.vue';
+import AnnualLeaveEdit from '@/components/AnnualLeaveEdit.vue';
 import BulkAddUsers from '@/components/BulkAddUsers.vue';
 import { putErrorToDB } from '@/ErrorDB';
 
@@ -27,6 +27,9 @@ const checks = ref<boolean[]>([]);
 const isModalOpened = ref(false);
 const isBulkModalOpened = ref(false);
 const isPasswordChangeOpened = ref(false);
+const isAnnualLeaveEditOpened = ref(false);
+
+const annualLeaves = ref<apiif.AnnualLeaveResponseData[]>([]);
 
 const limit = ref(10);
 const offset = ref(0);
@@ -58,9 +61,6 @@ const updateUserList = async () => {
   const loader = $loading.show({ opacity: 0 });
 
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const tokenAccess = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     const infos = await access.getUsersInfo({
       accounts: accountSearch.value !== '' ? [accountSearch.value] : undefined,
@@ -79,7 +79,6 @@ const updateUserList = async () => {
       Array.prototype.push.apply(userInfos.value, infos);
     }
     checks.value = Array.from({ length: userInfos.value.length }, () => false);
-    //}
   }
   catch (error) {
     console.error(error);
@@ -100,9 +99,6 @@ async function onUserClick(account?: string) {
   const loader = $loading.show({ opacity: 0 });
   try {
     if (account) {
-      //const token = await store.getToken();
-      //if (token) {
-      //const tokenAccess = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       const userInfo = await access.getUserInfo(account);
       if (userInfo) {
@@ -115,7 +111,6 @@ async function onUserClick(account?: string) {
           optional2WorkPatternName: userInfo.optional2WorkPatternName
         };
       }
-      //}
       isNewAccount.value = false;
     }
     else {
@@ -144,9 +139,6 @@ async function onIssueQrCode() {
   for (let i = 0; i < userInfos.value.length; i++) {
     try {
       if (checks.value[i]) {
-        //const token = await store.getToken();
-        //if (token) {
-        //const tokenAccess = new backendAccess.TokenAccess(token);
         const access = await store.getTokenAccess();
         const issuedToken = await access.issueRefreshTokenForOtherUser(userInfos.value[i].account);
         if (issuedToken?.refreshToken) {
@@ -157,7 +149,6 @@ async function onIssueQrCode() {
             section: userInfos.value[i].section ?? ''
           });
         }
-        //}
       }
     }
     catch (error) {
@@ -199,9 +190,6 @@ async function onPageForward() {
 
 async function onSubmit() {
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     await access.addUsers([selectedUserInfo.value]);
 
@@ -209,7 +197,6 @@ async function onSubmit() {
     if (isNewAccount.value === true) {
       isPasswordChangeOpened.value = true;
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -224,14 +211,47 @@ async function onPasswordChange() {
   await updateUserList();
 }
 
+async function onAnnualLeaveEdit() {
+  annualLeaves.value.splice(0);
+  try {
+    const access = await store.getTokenAccess();
+    const leaves = await access.getAnnualLeaves({ account: selectedUserInfo.value.account });
+    if (leaves) {
+      Array.prototype.push.apply(annualLeaves.value, leaves);
+    }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  isAnnualLeaveEditOpened.value = true;
+  await updateUserList();
+}
+
+async function onAnnualLeaveSubmit(deletedLeaveIds?: number[]) {
+  try {
+    const access = await store.getTokenAccess(); console.log(annualLeaves.value);
+    await access.setAnnualLeaves(annualLeaves.value);
+
+    if (deletedLeaveIds) {
+      for (const id of deletedLeaveIds) {
+        await access.deleteAnnualLeave(id);
+      }
+    }
+  }
+  catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  await updateUserList();
+}
+
 async function onDelete() {
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     await access.disableUser(selectedUserInfo.value.account);
-    //}
   }
   catch (error) {
     console.error(error);
@@ -249,16 +269,12 @@ const bulkUserData = ref<apiif.UserInfoRequestDataWithPassword[]>([]);
 async function onSubmitBulk() {
   const loader = $loading.show({ opacity: 0 });
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     await access.addUsers(bulkUserData.value);
 
     for (const user of bulkUserData.value) {
       await access.changePassword({ account: user.account, newPassword: user.password })
     }
-    //}
     loader.hide();
     alert('一括追加が完了しました。');
   }
@@ -284,12 +300,18 @@ async function onSubmitBulk() {
 
     <Teleport to="body" v-if="isModalOpened">
       <UserEdit v-model:isOpened="isModalOpened" v-model:userInfo="selectedUserInfo" v-on:submit="onSubmit"
-        v-on:submitDelete="onDelete" v-on:submitPasswordChange="onPasswordChange"></UserEdit>
+        v-on:submitDelete="onDelete" v-on:submitPasswordChange="onPasswordChange"
+        v-on:submitAnnualLeaveChange="onAnnualLeaveEdit"></UserEdit>
     </Teleport>
 
     <Teleport to="body" v-if="isPasswordChangeOpened">
       <PasswordChange v-model:isOpened="isPasswordChangeOpened" :confirmOldPasword="false"
         :account="selectedUserInfo.account"></PasswordChange>
+    </Teleport>
+
+    <Teleport to="body" v-if="isAnnualLeaveEditOpened">
+      <AnnualLeaveEdit v-model:isOpened="isAnnualLeaveEditOpened" :account="selectedUserInfo.account"
+        v-model:annualLeaves="annualLeaves" v-on:submit="onAnnualLeaveSubmit"></AnnualLeaveEdit>
     </Teleport>
 
     <Teleport to="body" v-if="isBulkModalOpened">
@@ -315,7 +337,7 @@ async function onSubmitBulk() {
         <button type="button" class="btn btn-primary" id="new-user" v-on:click="onBulkAddClick">従業員ID一括追加</button>
       </div>
       -->
-      <div class="d-grid gap-2 col-4">
+      <div v-if="store.privilege?.issueQr === true" class="d-grid gap-2 col-4">
         <button type="button" class="btn btn-primary" id="issue-qr" v-on:click="onIssueQrCode"
           v-bind:disabled="checks.every(check => check === false)">チェックした従業員のQRコード発行</button>
       </div>

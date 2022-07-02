@@ -81,16 +81,22 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, {}, apiif.UserInfoRequestData[]>('/api/user', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addUsers(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'registerUser');
+    await access.addUsers(req.body);
     res.send({});
   }));
 
   app.get<{ account: string }, apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', candidates: await new DatabaseAccess(knex).generateAvailableUserAccount() });
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user);
+    res.send({ message: 'ok', candidates: await access.generateAvailableUserAccount() });
   }));
 
   app.get<{ account: string }, apiif.UserInfoResponseData>('/api/user/:account', asyncHandler(async (req, res) => {
-    const users = await new DatabaseAccess(knex).getUsersInfo({ accounts: [req.params.account] });
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user);
+    const users = await access.getUsersInfo({ accounts: [req.params.account] });
     if (users.length > 0) {
       res.send(users[0]);
     }
@@ -100,22 +106,30 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.get<{}, apiif.UserInfoResponseData[], {}, { json: string }>('/api/user', asyncHandler(async (req, res) => {
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user);
     const query = <apiif.UserInfoRequestQuery>JSON.parse(req.query.json, isoDateStringToDateJSONReviver);
-    res.send(await new DatabaseAccess(knex).getUsersInfo(query));
+    res.send(await access.getUsersInfo(query));
   }));
 
   app.put<{ account: string }>('/api/user/enable/:account', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).enableUser(req.params.account);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'registerUser');
+    await access.enableUser(req.params.account);
     res.send({});
   }));
 
   app.delete<{ account: string }>('/api/user/disable/:account', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).disableUser(req.params.account);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'registerUser');
+    await access.disableUser(req.params.account);
     res.send({});
   }));
 
   app.delete<{ account: string }>('/api/user/:account', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).deleteUser(req.params.account);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'registerUser');
+    await access.deleteUser(req.params.account);
     res.send({});
   }));
 
@@ -151,7 +165,9 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, {}, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addPrivilege(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.addPrivilege(req.body);
     res.send({});
   }));
 
@@ -168,12 +184,16 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.put<{}, {}, apiif.PrivilageRequestData>('/api/privilage', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).updatePrivilege(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.updatePrivilege(req.body);
     res.send({});
   }));
 
   app.delete<{ id: number }>('/api/privilage/:id', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).deletePrivilege(req.params.id);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.deletePrivilege(req.params.id);
     res.send({});
   }));
 
@@ -232,7 +252,9 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, {}, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addApprovalRoute(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.addApprovalRoute(req.body);
     res.send({});
   }));
 
@@ -249,13 +271,17 @@ export default function registerHandlers(app: Express, knex: Knex) {
   }));
 
   app.put<{}, {}, apiif.ApprovalRouteRequestData>('/api/apply/route', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).updateApprovalRoute(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.updateApprovalRoute(req.body);
     res.send({});
   }));
 
   app.delete<{ id: number }>('/api/apply/route/:id', asyncHandler(async (req, res) => {
     const routeId = (typeof req.params.id === 'number') ? req.params.id : parseInt(req.params.id);
-    await new DatabaseAccess(knex).deleteApprovalRoute(routeId);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configurePrivilege');
+    await access.deleteApprovalRoute(routeId);
     res.send({});
   }));
 
@@ -264,8 +290,8 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{ applyType: string }, { message: string, id?: number }, apiif.ApplyRequestBody>('/api/apply/:applyType', asyncHandler(async (req, res) => {
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
-    res.send({ message: 'ok', id: await new DatabaseAccess(knex).submitApply(req.user, req.params.applyType, req.body) });
+    const access = new DatabaseAccess(knex);
+    res.send({ message: 'ok', id: await new DatabaseAccess(knex).submitApply(await access.checkPrivilege(req.user), req.params.applyType, req.body) });
   }));
 
   app.get<{ applyId: number }, apiif.ApplyTypeResponseBody, {}>('/api/apply/applyType/:applyId', asyncHandler(async (req, res) => {
@@ -301,8 +327,8 @@ export default function registerHandlers(app: Express, knex: Knex) {
 
   app.post<{ applyId: number }>('/api/reject/:applyId', asyncHandler(async (req, res) => {
     const applyId = (typeof req.params.applyId === 'number') ? req.params.applyId : parseInt(req.params.applyId);
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
-    await new DatabaseAccess(knex).approveApply(req.user, applyId, false);
+    const access = new DatabaseAccess(knex);
+    await access.approveApply(await access.checkPrivilege(req.user), applyId, false);
     res.send({});
   }));
 
@@ -333,25 +359,35 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.WorkPatternRequestData>('/api/work-pattern', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).addWorkPattern(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configureWorkPattern');
+    await access.addWorkPattern(req.body);
     res.send({ message: 'ok' });
   }));
 
   app.get<{}, apiif.WorkPatternsResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', workPatterns: await new DatabaseAccess(knex).getWorkPatterns(req.query) });
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user);
+    res.send({ message: 'ok', workPatterns: await access.getWorkPatterns(req.query) });
   }));
 
   app.get<{ name: string }, apiif.WorkPatternResponseBody, {}, { limit: number, offset: number }>('/api/work-pattern/:name', asyncHandler(async (req, res) => {
-    res.send({ message: 'ok', workPattern: await new DatabaseAccess(knex).getWorkPattern(req.params.name, req.query) });
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user);
+    res.send({ message: 'ok', workPattern: await access.getWorkPattern(req.params.name, req.query) });
   }));
 
   app.put<{}, {}, apiif.WorkPatternRequestData>('/api/work-pattern', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).updateWorkPattern(req.body);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configureWorkPattern');
+    await access.updateWorkPattern(req.body);
     res.send({});
   }));
 
   app.delete<{ id: number }>('/api/work-pattern/:id', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).deleteWorkPattern(req.params.id);
+    const access = new DatabaseAccess(knex);
+    await access.checkPrivilege(req.user, 'configureWorkPattern');
+    await access.deleteWorkPattern(req.params.id);
     res.send({});
   }));
 
@@ -360,28 +396,28 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
 
   app.post<{}, apiif.MessageOnlyResponseBody, apiif.UserWorkPatternCalendarRequestData>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
-    await new DatabaseAccess(knex).setUserWorkPatternCalendar(req.user, req.body);
+    const access = new DatabaseAccess(knex);
+    await access.setUserWorkPatternCalendar(await access.checkPrivilege(req.user), req.body);
     res.send({ message: 'ok' });
   }));
 
   app.get<{}, apiif.UserWorkPatternCalendarResponseBody, {}, apiif.UserWorkPatternCalendarRequestQuery>('/api/work-pattern-calendar', asyncHandler(async (req, res) => {
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
+    const access = new DatabaseAccess(knex);
     res.send({
       message: 'ok',
-      userWorkPatternCalendars: await new DatabaseAccess(knex).getUserWorkPatternCalendar(req.user, req.query)
+      userWorkPatternCalendars: await access.getUserWorkPatternCalendar(await access.checkPrivilege(req.user), req.query)
     });
   }));
 
   app.delete<{ date: string, account: string }>('/api/work-pattern-calendar/:date/:account', asyncHandler(async (req, res) => {
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
-    await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date, req.params.account);
+    const access = new DatabaseAccess(knex);
+    await access.deleteUserWorkPatternCalendar(await access.checkPrivilege(req.user), req.params.date, req.params.account);
     res.send({});
   }));
 
   app.delete<{ date: string }>('/api/work-pattern-calendar/:date', asyncHandler(async (req, res) => {
-    if (!req.user) { throw new createHttpError.Unauthorized('ログインが必要です') }
-    await new DatabaseAccess(knex).deleteUserWorkPatternCalendar(req.user, req.params.date);
+    const access = new DatabaseAccess(knex);
+    await access.deleteUserWorkPatternCalendar(await access.checkPrivilege(req.user), req.params.date);
     res.send({});
   }));
 
@@ -400,6 +436,59 @@ export default function registerHandlers(app: Express, knex: Knex) {
   app.delete<{ date: string }>('/api/holiday/:date', asyncHandler(async (req, res) => {
     await new DatabaseAccess(knex).deleteHoliday(req.params.date);
     res.send({});
+  }));
+
+  ///////////////////////////////////////////////////////////////////////
+  // 有給登録
+  ///////////////////////////////////////////////////////////////////////
+  app.post<{}, {}, apiif.AnnualLeaveRequestData[]>('/api/leave', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).setAnnualLeaves(req.body);
+    res.send({});
+  }));
+
+  app.get<{}, apiif.AnnualLeaveResponseData[], {}, { account: string }>('/api/leave', asyncHandler(async (req, res) => {
+    res.send(await new DatabaseAccess(knex).getAnnualLeaves(req.query));
+  }));
+
+  app.delete<{ id: number }>('/api/leave/:id', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).deleteAnnualLeave(req.params.id);
+    res.send({});
+  }));
+
+  ///////////////////////////////////////////////////////////////////////
+  // 統計情報
+  ///////////////////////////////////////////////////////////////////////
+
+  app.get<{}, apiif.TotalScheduledAnnualLeavesResponseData[], {}, apiif.TotalScheduledAnnualLeavesQuery>('/api/statistic/leave', asyncHandler(async (req, res) => {
+    if (typeof req.query?.limit === 'string') {
+      req.query.limit = parseInt(req.query.limit);
+    }
+    if (typeof req.query?.offset === 'string') {
+      req.query.offset = parseInt(req.query.offset);
+    }
+    if (typeof req.query?.date === 'string') {
+      req.query.date = new Date(req.query.date);
+    }
+    if (typeof req.query?.dayAmount === 'string') {
+      req.query.dayAmount = parseInt(req.query.dayAmount);
+    }
+    res.send(await new DatabaseAccess(knex).getTotalScheduledAnnualLeaves(req.query));
+  }));
+
+  app.get<{}, apiif.TotalWorkTimeInfoResponseData[], {}, apiif.TotalWorkTimeInfoRequestQuery>('/api/statistic/work', asyncHandler(async (req, res) => {
+    if (typeof req.query?.limit === 'string') {
+      req.query.limit = parseInt(req.query.limit);
+    }
+    if (typeof req.query?.offset === 'string') {
+      req.query.offset = parseInt(req.query.offset);
+    }
+    if (typeof req.query?.dateFrom === 'string') {
+      req.query.dateFrom = new Date(req.query.dateFrom);
+    }
+    if (typeof req.query?.dateTo === 'string') {
+      req.query.dateTo = new Date(req.query.dateTo);
+    }
+    res.send(await new DatabaseAccess(knex).getTotalWorkTimeInfo(req.query));
   }));
 
   ///////////////////////////////////////////////////////////////////////

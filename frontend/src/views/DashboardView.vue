@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, Teleport } from 'vue';
+import { ref, Teleport, onMounted } from 'vue';
 import type { Ref } from 'vue';
 import { RouterLink } from 'vue-router';
+//import { useLoading } from 'vue-loading-overlay'
 import { useSessionStore } from '@/stores/session';
 
 import Header from '@/components/Header.vue';
@@ -27,6 +28,13 @@ const approvalMenus: DashboardMenu[] = [];
 const adminMenus: DashboardMenu[] = [];
 const adminMenusPerCol: DashboardMenu[][] = [];
 
+// 管理画面はレンダリングが長いので、ローディングを表示する
+//const $loading = useLoading();
+//const viewLoader = $loading.show({ opacity: 0 });
+//onMounted(() => {
+//  viewLoader.hide();
+//});
+
 // 打刻メニューの登録
 if (store.privilege?.recordByLogin) { recordMenus.push({ description: 'タイムカード', linkName: 'record' }); }
 recordMenus.push({ description: '勤務体系登録', linkName: 'work-pattern' });
@@ -40,15 +48,15 @@ if (applyPrivileges) {
     return applyPrivileges.find(privilege => privilege.applyTypeName === name)?.permitted === true;
   }
   if (applyPermitted('record')) { applyMenus.push({ description: '打刻申請', linkName: 'apply-record' }); }
-  //if (applyPermitted('leave')) { applyMenus.push({ description: '休暇申請', linkName: 'apply-leave' }); }
-  /*
-  if (applyPermitted('overtime')) { applyMenus.push({ description: '早出・残業申請', linkName: 'apply-overtime' }); }
+  if (applyPermitted('leave')) { applyMenus.push({ description: '休暇申請', linkName: 'apply-leave' }); }
+
+  if (applyPermitted('overtime')) { applyMenus.push({ description: '残業申請', linkName: 'apply-overtime' }); }
   if (applyPermitted('lateness')) { applyMenus.push({ description: '遅刻申請', linkName: 'apply-lateness' }); }
   if (applyPermitted('leave-early')) { applyMenus.push({ description: '早退申請', linkName: 'apply-leave-early' }); }
   if (applyPermitted('break')) { applyMenus.push({ description: '外出申請', linkName: 'apply-break' }); }
   if (applyPermitted('holiday-work')) { applyMenus.push({ description: '休日出勤申請', linkName: 'apply-holiday-work' }); }
   if (applyPermitted('makeup-leave')) { applyMenus.push({ description: '代休申請', linkName: 'apply-makeup-leave' }); }
-  */
+
   if (applyPrivileges.some(applyPrivilege => (applyPrivilege.isSystemType === false) && (applyPrivilege.permitted === true))) {
     applyMenus.push({ description: 'その他申請', linkName: 'apply-custom' });
   }
@@ -74,7 +82,10 @@ if (store.privilege?.configurePrivilege) {
 }
 
 // 管理メニューの登録
-if (store.privilege?.viewRecord) { adminMenus.push({ description: '打刻一覧', linkName: 'view-record' }); }
+if (store.privilege?.viewRecord) {
+  adminMenus.push({ description: '打刻一覧', linkName: 'view-record' });
+  adminMenus.push({ description: '勤怠状況一覧', linkName: 'view-statistic' });
+}
 if (store.privilege?.viewAllUserInfo || store.privilege?.viewDepartmentUserInfo || store.privilege?.viewSectionUserInfo) {
   //  adminMenus.push({ description: '有給取得状況', linkName: 'view-leave' });
   //  adminMenus.push({ description: '残業状況', linkName: 'view-overtime' });
@@ -95,6 +106,7 @@ if (store.privilege?.configurePrivilege) {
 }
 adminMenus.push({ description: '端末エラー履歴', linkName: 'errorlog' });
 
+// 1列に表示する最大ボタン数MAX_MENU_PER_COLUMNを超える場合は次の列にボタンを表示させる
 for (let i = 0, j = -1; i < adminMenus.length; i++) {
   if ((i % MAX_MENU_PER_COLUMN) === 0) {
     adminMenusPerCol.push([]);

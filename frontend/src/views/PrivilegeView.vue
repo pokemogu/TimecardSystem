@@ -25,9 +25,6 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const tokenAccess = new backendAccess.TokenAccess(token);
     const tokenAccess = await store.getTokenAccess();
     const infos = await tokenAccess.getPrivileges({ limit: limit.value + 1, offset: offset.value });
     if (infos) {
@@ -49,9 +46,7 @@ async function updateTable() {
         privilege.applyPrivileges.splice(0);
         Array.prototype.push.apply(privilege.applyPrivileges, temp);
       }
-
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -111,16 +106,12 @@ async function onPrivilegeDelete() {
     return;
   }
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const tokenAccess = new backendAccess.TokenAccess(token);
     const tokenAccess = await store.getTokenAccess();
     for (const privilege of privilegeInfos.value) {
       if (privilege.id && checks.value[privilege.id]) {
         await tokenAccess.deletePrivilege(privilege.id);
       }
     }
-    //}
     await updateTable();
   }
   catch (error) {
@@ -137,9 +128,6 @@ async function onPrivilegeDelete() {
 
 async function onPrivilegeSubmit() {
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const tokenAccess = new backendAccess.TokenAccess(token);
     const tokenAccess = await store.getTokenAccess();
 
     // 権限が作成済であれば既存ルートの更新、そうでなければ新規作成
@@ -154,7 +142,6 @@ async function onPrivilegeSubmit() {
         await tokenAccess.addPrivilege(selectedPrivilege.value);
       }
     }
-    //}
     await updateTable();
   }
   catch (error) {
@@ -241,6 +228,7 @@ async function onPrivilegeSubmit() {
               <td class="text-center">
                 <span v-if="privilege.viewRecord === undefined || privilege.viewRecord === false"></span>
                 <span v-else-if="privilege.viewRecord === true && privilege.viewAllUserInfo === true">全社</span>
+                <span v-else-if="privilege.viewRecord === true && privilege.viewDepartmentUserInfo === true">部門</span>
                 <span v-else-if="privilege.viewRecord === true && privilege.viewSectionUserInfo === true">部署</span>
                 <span v-else-if="privilege.viewRecord === true">本人</span>
               </td>

@@ -66,93 +66,83 @@ export default async function generateQrCodePDF(users: {
   section: string,
   refreshToken: string
 }[]) {
-  console.log(cardFrameUrl);
-  console.log(ipagFontUrl);
+  {
+    const response = await fetch(ipagFontUrl);
+    const buffer = await response.arrayBuffer();
+    const fontBinaryString = arrayBufferToBinaryString(buffer);
+    doc.addFileToVFS("ipag.ttf", fontBinaryString);
+    doc.addFont("ipag.ttf", "ipag", "normal");
+  }
 
-  try {
-    {
-      const response = await fetch(ipagFontUrl);
-      const buffer = await response.arrayBuffer();
-      const fontBinaryString = arrayBufferToBinaryString(buffer);
-      doc.addFileToVFS("ipag.ttf", fontBinaryString);
-      doc.addFont("ipag.ttf", "ipag", "normal");
-    }
+  {
+    const response = await fetch(cardFrameUrl);
+    const buffer = await response.arrayBuffer();
 
-    {
-      const response = await fetch(cardFrameUrl);
-      const buffer = await response.arrayBuffer();
+    const imageData = new Uint8Array(buffer);
+    const imageProperties = doc.getImageProperties(imageData);
 
-      const imageData = new Uint8Array(buffer);
-      const imageProperties = doc.getImageProperties(imageData);
+    const namePosX = namePixelPosX * (cardWidth / imageProperties.width);
+    const namePosY = namePixelPosY * (cardHeight / imageProperties.height);
+    const idPosX = idPixelPosX * (cardWidth / imageProperties.width);
+    const idPosY = idPixelPosY * (cardHeight / imageProperties.height);
+    const sectionPosX = sectionPixelPosX * (cardWidth / imageProperties.width);
+    const sectionPosY = sectionPixelPosY * (cardHeight / imageProperties.height);
+    const qrCodePosX = qrCodePixelPosX * (cardWidth / imageProperties.width);
+    const qrCodePosY = qrCodePixelPosY * (cardHeight / imageProperties.height);
+    const qrCodeWidth = qrCodePixelWidth * (cardWidth / imageProperties.width);
+    const qrCodeHeight = qrCodePixelHeight * (cardHeight / imageProperties.height);
 
-      const namePosX = namePixelPosX * (cardWidth / imageProperties.width);
-      const namePosY = namePixelPosY * (cardHeight / imageProperties.height);
-      const idPosX = idPixelPosX * (cardWidth / imageProperties.width);
-      const idPosY = idPixelPosY * (cardHeight / imageProperties.height);
-      const sectionPosX = sectionPixelPosX * (cardWidth / imageProperties.width);
-      const sectionPosY = sectionPixelPosY * (cardHeight / imageProperties.height);
-      const qrCodePosX = qrCodePixelPosX * (cardWidth / imageProperties.width);
-      const qrCodePosY = qrCodePixelPosY * (cardHeight / imageProperties.height);
-      const qrCodeWidth = qrCodePixelWidth * (cardWidth / imageProperties.width);
-      const qrCodeHeight = qrCodePixelHeight * (cardHeight / imageProperties.height);
+    doc.setFont("ipag");
 
-      doc.setFont("ipag");
+    for (let i = 0; i < users.length;) {
+      if (i > 0) {
+        doc.addPage('a4');
+      }
 
-      for (let i = 0; i < users.length;) {
-        if (i > 0) {
-          doc.addPage('a4');
-        }
+      for (let y = 0; y < maxCardNumVertical && i < users.length; y++) {
+        const posY = gapHeight + ((cardHeight + gapHeight) * y);
+        for (let x = 0; x < maxCardNumHorizontal && i < users.length; x++, i++) {
 
-        for (let y = 0; y < maxCardNumVertical && i < users.length; y++) {
-          const posY = gapHeight + ((cardHeight + gapHeight) * y);
-          for (let x = 0; x < maxCardNumHorizontal && i < users.length; x++, i++) {
+          const qrCodeData = await qrcode.toDataURL(users[i].account + ',' + users[i].refreshToken, { type: 'image/png', width: qrCodePixelWidth });
 
-            const qrCodeData = await qrcode.toDataURL(users[i].account + ',' + users[i].refreshToken, { type: 'image/png', width: qrCodePixelWidth });
-            //console.log(qrCodeData);
+          // フォントサイズ設定
+          const assumeFontSize = function (string: string, pixelWidth: number, pixelHeight: number) {
+            const charNum = countCharNum(string);
+            const pixelWidthPerChar = Math.floor((pixelWidth / charNum) * 2);
+            const pixelPerChar = pixelWidthPerChar < pixelHeight ? pixelWidthPerChar : pixelHeight;
+            const charWidth = pixelPerChar * (cardWidth / imageProperties.width);
 
-            // フォントサイズ設定
-            const assumeFontSize = function (string: string, pixelWidth: number, pixelHeight: number) {
-              const charNum = countCharNum(string);
-              const pixelWidthPerChar = Math.floor((pixelWidth / charNum) * 2);
-              const pixelPerChar = pixelWidthPerChar < pixelHeight ? pixelWidthPerChar : pixelHeight;
-              const charWidth = pixelPerChar * (cardWidth / imageProperties.width);
-
-              return Math.floor(charWidth * 2.83456);
-            }
-
-            const posX = gapWidth + ((cardWidth + gapWidth) * x);
-            doc.addImage(imageData, 'PNG', posX, posY, cardWidth, cardHeight, `card${i}`, 'FAST', 0);
-
-            doc.setFontSize(assumeFontSize(users[i].name, namePixelWidth, namePixelHeight));
-            doc.setTextColor(0, 0, 0);
-            doc.text(users[i].name, posX + namePosX, posY + namePosY, { baseline: 'top' });
-
-            doc.setFontSize(assumeFontSize(users[i].account, idPixelWidth, idPixelHeight));
-            doc.setTextColor(255, 255, 255);
-            doc.text(users[i].account, posX + idPosX, posY + idPosY, { baseline: 'top' });
-
-            doc.setFontSize(assumeFontSize(users[i].section, sectionPixelWidth, sectionPixelHeight));
-            doc.setTextColor(255, 255, 255);
-            doc.text(users[i].section, posX + sectionPosX, posY + sectionPosY, { baseline: 'top' });
-
-            doc.addImage(qrCodeData, 'PNG', posX + qrCodePosX, posY + qrCodePosY, qrCodeWidth, qrCodeHeight, `qrcode${i}`, 'FAST', 0);
+            return Math.floor(charWidth * 2.83456);
           }
+
+          const posX = gapWidth + ((cardWidth + gapWidth) * x);
+          doc.addImage(imageData, 'PNG', posX, posY, cardWidth, cardHeight, `card${i}`, 'FAST', 0);
+
+          doc.setFontSize(assumeFontSize(users[i].name, namePixelWidth, namePixelHeight));
+          doc.setTextColor(0, 0, 0);
+          doc.text(users[i].name, posX + namePosX, posY + namePosY, { baseline: 'top' });
+
+          doc.setFontSize(assumeFontSize(users[i].account, idPixelWidth, idPixelHeight));
+          doc.setTextColor(255, 255, 255);
+          doc.text(users[i].account, posX + idPosX, posY + idPosY, { baseline: 'top' });
+
+          doc.setFontSize(assumeFontSize(users[i].section, sectionPixelWidth, sectionPixelHeight));
+          doc.setTextColor(255, 255, 255);
+          doc.text(users[i].section, posX + sectionPosX, posY + sectionPosY, { baseline: 'top' });
+
+          doc.addImage(qrCodeData, 'PNG', posX + qrCodePosX, posY + qrCodePosY, qrCodeWidth, qrCodeHeight, `qrcode${i}`, 'FAST', 0);
         }
       }
-      const nowDate = new Date();
-      const nowDateStr = '' +
-        nowDate.getFullYear() +
-        (nowDate.getMonth() + 1).toString().padStart(2, '0') +
-        nowDate.getDate().toString().padStart(2, '0') +
-        nowDate.getHours().toString().padStart(2, '0') +
-        nowDate.getMinutes().toString().padStart(2, '0') +
-        nowDate.getSeconds().toString().padStart(2, '0');
-
-      await doc.save(`qrcode${nowDateStr}.pdf`, { returnPromise: true });
     }
-  }
-  catch (error) {
-    console.error(error);
-    alert(error);
+    const nowDate = new Date();
+    const nowDateStr = '' +
+      nowDate.getFullYear() +
+      (nowDate.getMonth() + 1).toString().padStart(2, '0') +
+      nowDate.getDate().toString().padStart(2, '0') +
+      nowDate.getHours().toString().padStart(2, '0') +
+      nowDate.getMinutes().toString().padStart(2, '0') +
+      nowDate.getSeconds().toString().padStart(2, '0');
+
+    await doc.save(`qrcode${nowDateStr}.pdf`, { returnPromise: true });
   }
 }

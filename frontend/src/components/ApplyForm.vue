@@ -349,7 +349,17 @@ function onDeleteSubmit() {
         </div>
 
         <!-- 日付オプション(休日出勤日など) -->
-        <div v-if="props.dateOptional !== undefined && props.dateOptionalType !== undefined" class="row">
+
+        <!-- 回付中の申請の場合 -->
+        <div v-if="props.apply?.dateRelated !== undefined" class="row">
+          <div class="col-2 bg-dark text-white border border-dark">{{ props.dateOptionalType }}</div>
+          <div class="col-9 bg-white text-black border border-dark p-2">
+            {{ props.apply.dateRelated.toLocaleDateString() }}
+          </div>
+        </div>
+
+        <!-- 起票中の申請の場合 -->
+        <div v-else-if="props.dateOptional !== undefined && props.dateOptionalType !== undefined" class="row">
           <div class="col-2 bg-dark text-white border border-dark">{{ props.dateOptionalType }}</div>
           <div class="col-9 bg-white text-black border border-dark p-2">
             <input type="date" class="form-control" v-model="dateOptional" required />

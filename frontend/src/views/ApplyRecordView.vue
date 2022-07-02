@@ -27,11 +27,8 @@ const isMounted = ref(false);
 
 onMounted(async () => {
   try {
-
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      //const token = await store.getToken();
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
     }
@@ -61,14 +58,14 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.approveApply(apply.value.id);
-      //}
-    }
-    catch (error) {
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyMail(apply.value.id, url);
+      }
+    } catch (error) {
       console.error(error);
       await putErrorToDB(store.userAccount, error as Error);
       alert(error);
@@ -84,14 +81,14 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.rejectApply(apply.value.id);
-      //}
-    }
-    catch (error) {
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyRejectedMail(apply.value.id, url);
+      }
+    } catch (error) {
       console.error(error);
       await putErrorToDB(store.userAccount, error as Error);
       alert(error);
@@ -103,9 +100,6 @@ async function onFormSubmitReject() {
 async function onRouteSubmit() {
   try {
     if (store.isLoggedIn()) {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       const applyId = await access.submitApply('record', {
         date: new Date(dateFrom.value),
@@ -118,9 +112,12 @@ async function onRouteSubmit() {
         reason: reason.value,
         routeName: routeName.value
       });
+      if (applyId) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: applyId } }).href;
+        await access.sendApplyMail(applyId, url);
+      }
 
       router.push({ name: 'dashboard' });
-      //}
     }
   } catch (error) {
     console.error(error);
@@ -139,7 +136,6 @@ async function onRouteSubmit() {
           customButton1="メニュー画面" v-on:customButton1="router.push({ name: 'dashboard' })"></Header>
       </div>
     </div>
-
     <Teleport to="body" v-if="isApprovalRouteSelectOpened">
       <ApprovalRouteSelect v-model:routeName="routeName" v-model:isOpened="isApprovalRouteSelectOpened"
         v-on:submit="onRouteSubmit"></ApprovalRouteSelect>
@@ -147,13 +143,11 @@ async function onRouteSubmit() {
 
     <div class="row">
       <div class="col-10 bg-white p-2 shadow-sm">
-        <template v-if="isMounted === true">
-          <ApplyForm applyName="打刻" applyType="record" v-model:applyTypeValue1="applyTypeValue1"
-            v-bind:applyTypeOptions1="applyTypeOptions1" v-model:applyTypeValue2="applyTypeValue2"
-            v-bind:applyTypeOptions2="applyTypeOptions2" v-model:dateFrom="dateFrom" :isDateFromSpanningDay="true"
-            v-model:timeFrom="timeFrom" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"
-            v-on:submitReject="onFormSubmitReject"></ApplyForm>
-        </template>
+        <ApplyForm v-if="isMounted" applyName="打刻" applyType="record" v-model:applyTypeValue1="applyTypeValue1"
+          v-bind:applyTypeOptions1="applyTypeOptions1" v-model:applyTypeValue2="applyTypeValue2"
+          v-bind:applyTypeOptions2="applyTypeOptions2" v-model:dateFrom="dateFrom" :isDateFromSpanningDay="true"
+          v-model:timeFrom="timeFrom" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"
+          v-on:submitReject="onFormSubmitReject"></ApplyForm>
       </div>
       <div class="col-2">
         <div class="row">

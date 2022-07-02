@@ -31,7 +31,6 @@ const lookupTable = [];
 for (let i = 1e6; i--;) {
   lookupTable.push(Math.random() * 101 | 0);
 }
-
 let randomTableIndex = 0;
 function randomTableLookup() {
   return ++randomTableIndex >= lookupTable.length ? lookupTable[randomTableIndex = 0] : lookupTable[randomTableIndex];
@@ -59,6 +58,7 @@ async function seed(knex) {
   await knex('applyOption').del();
   await knex('apply').del();
   await knex("token").del();
+  await knex("annualLeave").del();
   await knex("user").del();
   await knex('wagePattern').del();
   await knex('workPattern').del();
@@ -200,6 +200,9 @@ async function seed(knex) {
       })
     )
   );
+
+  /** @type {{id: number, account: string, name: string}[]} */
+  const devices = await knex.select({ id: 'id', account: 'account', name: 'name' }).from('user').where('isDevice', true);
 
   // 申請権限
   const typeRecord = applyTypes.find(applyType => applyType.name === 'record').id;
@@ -657,6 +660,11 @@ async function seed(knex) {
   const hamamatsuUsers = await knex
     .select({ id: 'id' }).from('user').where('defaultWorkPattern', workHamamatsuDayId)
 
+  // 名古屋事業所
+  /** @type {{id: number}[]} */
+  const nagoyaUsers = await knex
+    .select({ id: 'id' }).from('user').where('defaultWorkPattern', workNagoyaId)
+
   let tempDate = new Date(baseDate);
 
   /** @type {{user: number, date: string, clockin: Date, break: Date, reenter: Date, clockout: Date}[]} */
@@ -687,9 +695,38 @@ async function seed(knex) {
 
         records.push({
           user: hamamatsuUser.id, date: dateToLocalString(tempDate),
+          clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate,
+          clockinDevice: devices[0].id, breakDevice: devices[0].id, reenterDevice: devices[0].id, clockoutDevice: devices[0].id
+        });
+      }
+
+      for (const nagoyaUser of nagoyaUsers) {
+        tempDate.setHours(8);
+        tempDate.setMinutes(randomTableLookup() % 32);
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const clockinDate = new Date(tempDate);
+
+        tempDate.setHours(12);
+        tempDate.setMinutes(randomTableLookup() % 15);
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const breakDate = new Date(tempDate);
+
+        tempDate.setHours(12);
+        tempDate.setMinutes(44 + (randomTableLookup() % 15));
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const reenterDate = new Date(tempDate);
+
+        tempDate.setHours(17);
+        tempDate.setMinutes(30 + (randomTableLookup() % 10));
+        tempDate.setSeconds(randomTableLookup() % 59);
+        const clockoutDate = new Date(tempDate);
+
+        records.push({
+          user: nagoyaUser.id, date: dateToLocalString(tempDate),
           clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate
         });
       }
+
     }
     tempDate.setDate(tempDate.getDate() + 1);
   }
@@ -1067,6 +1104,69 @@ async function seed(knex) {
       optionValue: optionType2ValueClockin
     });
   }
+
+  // 有給テストデータ生成
+  const generateAnnualLeaveDates = (yearsFromNow) => {
+    const grantedDate = new Date();
+    grantedDate.setFullYear(grantedDate.getFullYear() + yearsFromNow);
+    grantedDate.setHours(0); grantedDate.setMinutes(0); grantedDate.setSeconds(0); grantedDate.setMilliseconds(0);
+    grantedDate.setMonth(3); grantedDate.setDate(1);
+    const expireDate = new Date(grantedDate);
+    expireDate.setFullYear(expireDate.getFullYear() + 2);
+
+    return { grantedAt: grantedDate, expireAt: expireDate };
+  };
+
+  /** @type {number[]} */
+  const userIds = (await knex.select({ id: 'id' }).from('user').where('isDevice', false))?.map(result => result.id);
+
+  let leaveDates = generateAnnualLeaveDates(0);
+  const leaves1 = userIds.map(userId => {
+    return {
+      user: userId,
+      grantedAt: leaveDates.grantedAt,
+      expireAt: leaveDates.expireAt,
+      dayAmount: 10.0,
+      hourAmount: 8
+    }
+  });
+  await knex('annualLeave').insert(leaves1);
+
+  leaveDates = generateAnnualLeaveDates(-1);
+  const leaves2 = userIds.map(userId => {
+    return {
+      user: userId,
+      grantedAt: leaveDates.grantedAt,
+      expireAt: leaveDates.expireAt,
+      dayAmount: 10.0,
+      hourAmount: 8
+    }
+  });
+  await knex('annualLeave').insert(leaves2);
+
+  leaveDates = generateAnnualLeaveDates(-2);
+  const leaves3 = userIds.map(userId => {
+    return {
+      user: userId,
+      grantedAt: leaveDates.grantedAt,
+      expireAt: leaveDates.expireAt,
+      dayAmount: 10.0,
+      hourAmount: 8
+    }
+  });
+  await knex('annualLeave').insert(leaves3);
+
+  leaveDates = generateAnnualLeaveDates(-3);
+  const leaves4 = userIds.map(userId => {
+    return {
+      user: userId,
+      grantedAt: leaveDates.grantedAt,
+      expireAt: leaveDates.expireAt,
+      dayAmount: 10.0,
+      hourAmount: 8
+    }
+  });
+  await knex('annualLeave').insert(leaves4);
 
   // その他情報
   await knex('systemConfig').update({ value: 'smtp.mailtrap.io' }).where('key', 'smtpHost');

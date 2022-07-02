@@ -1,6 +1,7 @@
-const Knex = require('knex').Knex;
-
-/** @param { Knex } knex  */
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
 async function up(knex) {
   try {
     await knex.schema.createTable('holiday', function (table) {
@@ -694,7 +695,10 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
 }
 exports.up = up;
 
-/** @param { Knex } knex  */
+/**
+ * @param { import("knex").Knex } knex
+ * @returns { Promise<void> }
+ */
 async function down(knex) {
   await knex.schema.raw('drop procedure if exists generateAllDays');
 

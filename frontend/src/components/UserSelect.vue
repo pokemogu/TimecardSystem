@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import lodash from 'lodash';
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
@@ -17,7 +17,9 @@ const props = defineProps<{
   isOpened: boolean,
   id?: number,
   account: string,
-  name?: string
+  name?: string,
+  limitDepartmentName?: string,
+  limitSectionName?: string
 }>();
 
 const emits = defineEmits<{
@@ -52,10 +54,20 @@ const departmentNameList = ref<string[]>([]);
 const sectionNameList = ref<string[]>([]);
 const userList = ref<{ id: number, account: string, name: string }[]>([]);
 
-backendAccess.getDepartments().then((departments) => {
+onMounted(async () => {
+  const departments = await backendAccess.getDepartments();
   if (departments) {
     departmentList.value = departments;
-    departmentNameList.value = departmentList.value.map(department => department.name)
+    departmentNameList.value.splice(0);
+
+    if (props.limitDepartmentName) {
+      if (departmentList.value.some(department => department.name === props.limitDepartmentName)) {
+        departmentNameList.value.push(props.limitDepartmentName);
+      }
+    }
+    else {
+      departmentNameList.value = departmentList.value.map(department => department.name);
+    }
   }
 });
 
@@ -64,7 +76,15 @@ watch(selectedDepartmentName, () => {
   if (department?.sections) {
     selectedSectionName.value = '';
     sectionNameList.value.splice(0);
-    sectionNameList.value = department.sections.map(section => section.name);
+
+    if (props.limitSectionName) {
+      if (department.sections.some(section => section.name === props.limitSectionName)) {
+        sectionNameList.value.push(props.limitSectionName);
+      }
+    }
+    else {
+      sectionNameList.value = department.sections.map(section => section.name);
+    }
 
     selectedUserAccount.value = '';
     userList.value.splice(0);

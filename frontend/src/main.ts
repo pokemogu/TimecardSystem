@@ -11,6 +11,13 @@ import router from './router';
 import 'bootstrap';
 import "bootstrap/dist/css/bootstrap.min.css";
 
+/*
+if (process.env.VITE_MOCK_API === 'true' || import.meta.env.VITE_MOCK_API === true) {
+  const { worker } = require('./mocks/browser')
+  worker.start()
+}
+*/
+
 const app = createApp(App);
 const pinia = createPinia();
 pinia.use(piniaPersist);

@@ -10,6 +10,14 @@
     "types": [
       "node",
       "jsdom"
-    ]
+    ],
+    "paths": {
+      "shared/APIInterfaces": [
+        "../backend/src/APIInterfaces"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    }
   }
 }

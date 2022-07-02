@@ -79,16 +79,12 @@ async function onHolidayDelete() {
     return;
   }
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     for (const holiday of holidayInfos.value) {
       if (checks.value[holiday.date]) {
         await access.deleteHoliday(holiday.date.replace(/\//g, '-'));
       }
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -106,12 +102,8 @@ async function onHolidayDelete() {
 
 async function onHolidaySubmit() {
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     await access.setHoliday(selectedHoliday.value);
-    //}
   }
   catch (error) {
     console.error(error);

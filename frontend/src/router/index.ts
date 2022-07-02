@@ -3,19 +3,25 @@ import { nextTick } from 'vue';
 
 import { useSessionStore } from '@/stores/session';
 import * as backendAccess from '@/BackendAccess';
+import type * as apiif from 'shared/APIInterfaces';
 
 const appName = '勤怠管理システム';
 
-// 承認権限が有るかどうかチェックする
-const verifyApprove = (redirectTo: string = 'dashboard') => {
+function verifyPrivilege(privilegeType: keyof apiif.Privilege, redirectTo: string = 'dashboard') {
   const store = useSessionStore();
   if (!store.privilege) {
     return { name: redirectTo };
   }
   else {
-    return store.privilege.approve === true;
+    return store.privilege[privilegeType] === true;
   }
 }
+
+// 承認権限が有るかどうかチェックする
+const verifyApprove = (redirectTo: string = 'dashboard') => verifyPrivilege('approve', redirectTo);
+const verifyRecordView = (redirectTo: string = 'dashboard') => verifyPrivilege('viewRecord', redirectTo);
+const verifyConfigPrivilege = (redirectTo: string = 'dashboard') => verifyPrivilege('configurePrivilege', redirectTo);
+const verifyConfigWorkPattern = (redirectTo: string = 'dashboard') => verifyPrivilege('configureWorkPattern', redirectTo);
 
 // 申請権限が有るかどうかチェックする
 const verifyApplyPrivilege = (applyType: string, redirectTo: string = 'dashboard') => {
@@ -158,13 +164,13 @@ const router = createRouter({
       meta: { title: `${appName} - 休暇申請` },
       beforeEnter: () => { return verifyApprove() || verifyApplyPrivilege('measure-leave') }
     },
-    // 早出・残業申請
+    // 残業申請
     {
       path: '/apply/overtime',
       name: 'apply-overtime',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period', params: { type: 'overtime' } }
+        return { name: 'apply-generic-time-period', params: { type: 'overtime', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
       }
     },
     {
@@ -181,7 +187,7 @@ const router = createRouter({
       name: 'apply-lateness',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period', params: { type: 'lateness' } }
+        return { name: 'apply-generic-time-period', params: { type: 'lateness', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
       }
     },
     {
@@ -198,7 +204,7 @@ const router = createRouter({
       name: 'apply-leave-early',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period', params: { type: 'leave-early' } }
+        return { name: 'apply-generic-time-period', params: { type: 'leave-early', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
       }
     },
     {
@@ -215,7 +221,7 @@ const router = createRouter({
       name: 'apply-break',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period', params: { type: 'break' } }
+        return { name: 'apply-generic-time-period', params: { type: 'break', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
       }
     },
     {
@@ -230,18 +236,22 @@ const router = createRouter({
     {
       path: '/apply/holiday-work',
       name: 'apply-holiday-work',
-      component: () => { },
+      component: () => import('@/views/ApplyHolidayWorkView.vue'),
+      /*
       redirect: to => {
         return { name: 'apply-generic-time-period', params: { type: 'holiday-work' } }
       }
+      */
     },
     {
       path: '/apply/holiday-work/:id',
       name: 'apply-holiday-work-view',
-      component: () => { },
+      component: () => import('@/views/ApplyHolidayWorkView.vue'),
+      /*
       redirect: to => {
         return { name: 'apply-generic-time-period-view', params: { type: 'holiday-work', id: to.params.id } }
       }
+      */
     },
     // 汎用申請
     {
@@ -306,7 +316,15 @@ const router = createRouter({
       path: '/view/record',
       name: 'view-record',
       component: () => import('@/views/RecordListView.vue'),
+      beforeEnter: () => { return verifyRecordView() },
       meta: { title: `${appName} - 打刻一覧` }
+    },
+    {
+      path: '/view/statistic',
+      name: 'view-statistic',
+      component: () => import('@/views/StatisticView.vue'),
+      beforeEnter: () => { return verifyRecordView() },
+      meta: { title: `${appName} - 勤怠状況一覧` }
     },
     {
       path: '/view/leave',
@@ -354,13 +372,15 @@ const router = createRouter({
       path: '/admin/workpattern',
       name: 'admin-workpattern',
       component: () => import('@/views/WorkPatternView.vue'),
-      meta: { title: `${appName} - 勤務体系設定` }
+      meta: { title: `${appName} - 勤務体系設定` },
+      beforeEnter: () => { return verifyConfigWorkPattern() }
     },
     {
       path: '/admin/privilege',
       name: 'admin-privilege',
       component: () => import('@/views/PrivilegeView.vue'),
       meta: { title: `${appName} - 権限設定` },
+      beforeEnter: () => { return verifyConfigPrivilege() }
     },
     {
       path: '/admin/holiday',

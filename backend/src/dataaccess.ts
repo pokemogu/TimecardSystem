@@ -15,6 +15,8 @@ import * as config from './dataaccess/config';
 import * as mail from './dataaccess/mail';
 import * as device from './dataaccess/device';
 import * as department from './dataaccess/department';
+import * as leave from './dataaccess/leave';
+import * as statistic from './dataaccess/statistic';
 
 export interface UserInfo {
   id: number,
@@ -138,11 +140,11 @@ export class DatabaseAccess {
   public updateApplyType = apply.updateApplyType;
   public deleteApplyType = apply.deleteApplyType;
   public getApplyOptionTypes = apply.getApplyOptionTypes;
+  protected addSchedules = apply.addSchedules;
 
   ///////////////////////////////////////////////////////////////////////
   // 承認関連 dataaccess.approval
   ///////////////////////////////////////////////////////////////////////
-  public getApprovalRouteRoles = approval.getApprovalRouteRoles;
   public addApprovalRoute = approval.addApprovalRoute;
   public getApprovalRoutes = approval.getApprovalRoutes;
   public updateApprovalRoute = approval.updateApprovalRoute;
@@ -159,6 +161,7 @@ export class DatabaseAccess {
   public getApplyPrivilege = privilege.getApplyPrivilege;
   public updatePrivilege = privilege.updatePrivilege;
   public deletePrivilege = privilege.deletePrivilege;
+  public checkPrivilege = privilege.checkPrivilege;
 
   ///////////////////////////////////////////////////////////////////////
   // 休日関連
@@ -170,9 +173,23 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   // システム設定関連
   ///////////////////////////////////////////////////////////////////////
-  public setSystemConfig = config.setSystemConfig
+  public setSystemConfig = config.setSystemConfig;
   public getSystemConfigValue = config.getSystemConfigValue;
   public getSystemConfig = config.getSystemConfig;
+
+  ///////////////////////////////////////////////////////////////////////
+  // 有給設定関連
+  ///////////////////////////////////////////////////////////////////////
+  public setAnnualLeaves = leave.setAnnualLeaves;
+  public getAnnualLeaves = leave.getAnnualLeaves;
+  public deleteAnnualLeave = leave.deleteAnnualLeave;
+
+  ///////////////////////////////////////////////////////////////////////
+  // 統計関連
+  ///////////////////////////////////////////////////////////////////////
+  public getTotalAnnualLeaves = statistic.getTotalAnnualLeaves;
+  public getTotalScheduledAnnualLeaves = statistic.getTotalScheduledAnnualLeaves;
+  public getTotalWorkTimeInfo = statistic.getTotalWorkTimeInfo;
 
   ///////////////////////////////////////////////////////////////////////
   // メール関連

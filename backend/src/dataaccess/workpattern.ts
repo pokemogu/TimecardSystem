@@ -27,11 +27,40 @@ function timeToMinutes(time: string) {
   }
 }
 
+function minutesToTime(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remain_minutes = minutes % 60;
+
+  return hours.toString().padStart(2, '0') + ':' + remain_minutes.toString().padStart(2, '0');
+}
+
 function getTimeAddedDate(date: Date, timeStr: string) {
   const dateNew = new Date(date);
   dateNew.setMinutes(dateNew.getMinutes() + timeToMinutes(timeStr));
 
   return dateNew;
+}
+
+function getStartEndTimeDate(date: Date, startTimeStr: string | null, endTimeStr: string | null, leaveRate?: number): [Date | null, Date | null] {
+  if (startTimeStr === null || endTimeStr === null) {
+    return [null, null];
+  }
+  if (!leaveRate) {
+    return [getTimeAddedDate(date, startTimeStr), getTimeAddedDate(date, endTimeStr)];
+  }
+
+  let startTimeMin = timeToMinutes(startTimeStr);
+  let endTimeMin = timeToMinutes(endTimeStr);
+  const timeMin = (endTimeMin - startTimeMin) * Math.abs(leaveRate);
+
+  if (leaveRate < 0) {
+    endTimeMin -= timeMin;
+  }
+  else {
+    startTimeMin += timeMin;
+  }
+
+  return [getTimeAddedDate(date, minutesToTime(startTimeMin)), getTimeAddedDate(date, minutesToTime(endTimeMin))];
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -225,12 +254,14 @@ export async function setUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
 export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo: UserInfo, params?: apiif.UserWorkPatternCalendarRequestQuery) {
   type RecordUserWorkPatternCalendar = {
     id: number, date: string, userId: number,
-    workPatternId: number, workPatternName: string, workPatternOnTimeStart: string, workPatternOnTimeEnd: string
+    workPatternId: number, workPatternName: string, workPatternOnTimeStart: string, workPatternOnTimeEnd: string,
+    workPatternLeaveRate: number
   };
 
   const results = await this.knex.select<RecordUserWorkPatternCalendar[]>({
     id: 'userWorkPatternCalendar.id', date: 'userWorkPatternCalendar.date', userId: 'user.id',
-    workPatternId: 'workPattern.id', workPatternName: 'workPattern.name', workPatternOnTimeStart: 'workPattern.onTimeStart', workPatternOnTimeEnd: 'workPattern.onTimeEnd'
+    workPatternId: 'workPattern.id', workPatternName: 'workPattern.name', workPatternOnTimeStart: 'workPattern.onTimeStart', workPatternOnTimeEnd: 'workPattern.onTimeEnd',
+    workPatternLeaveRate: 'userWorkPatternCalendar.leaveRate'
   })
     .from('userWorkPatternCalendar')
     .join('user', { 'user.id': 'userWorkPatternCalendar.user' })
@@ -266,6 +297,9 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
 
   const userNonDefaultWorkPatterns = <apiif.UserWorkPatternCalendarResponseData[]>results.map((result) => {
     const date = new Date(result.date);
+    const [onDateTimeStart, onDateTimeEnd] = getStartEndTimeDate(
+      date, result.workPatternOnTimeStart, result.workPatternOnTimeEnd, result.workPatternLeaveRate
+    );
 
     return {
       id: result.id,
@@ -274,9 +308,10 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
         id: result.userId
       },
       workPattern: result.workPatternId ? {
+        id: result.workPatternId,
         name: result.workPatternName,
-        onDateTimeStart: getTimeAddedDate(date, result.workPatternOnTimeStart).toISOString(),
-        onDateTimeEnd: getTimeAddedDate(date, result.workPatternOnTimeEnd).toISOString()
+        onDateTimeStart: onDateTimeStart!.toISOString(),
+        onDateTimeEnd: onDateTimeEnd!.toISOString()
       } : null
     }
   });
@@ -307,13 +342,18 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
       const userWorkPattern = userNonDefaultWorkPatterns.find(workPattern => workPattern.user.id === user.id && workPattern.date === dateStr);
       const isHoliday = date.getDay() === 0 || date.getDay() === 6 || holidays.some(holiday => dateToStr(new Date(holiday.date)) === dateStr);
 
+      const [onDateTimeStart, onDateTimeEnd] = getStartEndTimeDate(
+        date, userDefaultWorkPattern.onTimeStart, userDefaultWorkPattern.onTimeEnd
+      );
+
       userWorkPatterns.push({
         date: dateToStr(date),
         user: { ...user },
         workPattern: userWorkPattern?.workPattern !== undefined ? userWorkPattern?.workPattern : (isHoliday ? null : {
+          id: userDefaultWorkPattern.id,
           name: userDefaultWorkPattern.name,
-          onDateTimeStart: getTimeAddedDate(date, userDefaultWorkPattern.onTimeStart).toISOString(),
-          onDateTimeEnd: getTimeAddedDate(date, userDefaultWorkPattern.onTimeEnd).toISOString()
+          onDateTimeStart: onDateTimeStart!.toISOString(),
+          onDateTimeEnd: onDateTimeEnd!.toISOString()
         })
       });
     }

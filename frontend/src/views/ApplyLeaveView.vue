@@ -53,12 +53,13 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.approveApply(apply.value.id);
-      //}
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyMail(apply.value.id, url);
+      }
     }
     catch (error) {
       console.error(error);
@@ -76,12 +77,13 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.rejectApply(apply.value.id);
-      //}
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyRejectedMail(apply.value.id, url);
+      }
     }
     catch (error) {
       console.error(error);
@@ -94,10 +96,6 @@ async function onFormSubmitReject() {
 
 async function onRouteSubmit() {
   try {
-    //if (store.isLoggedIn()) {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     let submitType = '';
     switch (applyTypeValue1.value) {
@@ -142,8 +140,6 @@ async function onRouteSubmit() {
       });
 
     router.push({ name: 'dashboard' });
-    //}
-    //}
   } catch (error) {
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);

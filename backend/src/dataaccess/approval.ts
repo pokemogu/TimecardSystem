@@ -6,32 +6,6 @@ import type * as apiif from '../APIInterfaces';
 ///////////////////////////////////////////////////////////////////////
 
 /**
- * 全ての承認ルート情報を取得する
- *
- * @returns 承認ルート情報を全て返す
- */
-export async function getApprovalRouteRoles(this: DatabaseAccess) {
-  const roles = await this.knex.table<{ name: string, level: number }>('role');
-
-  // 取得した承認役割情報を承認レベルごとにまとめる
-  const rolesByLevel: apiif.ApprovalRouteRoleData[] = [];
-
-  for (const role of roles) {
-    const index = rolesByLevel.findIndex(roleByLevel => roleByLevel.level === role.level);
-    if (index >= 0) {
-      rolesByLevel[index].names.push(role.name);
-    }
-    else {
-      rolesByLevel.push({ level: role.level, names: [role.name] });
-    }
-  }
-  // 承認レベルの低い順にソートする
-  rolesByLevel.sort((first, second) => first.level - second.level);
-
-  return rolesByLevel;
-}
-
-/**
  * 承認ルート情報を新規追加する
  * @param route 新規追加する承認ルート情報
  */

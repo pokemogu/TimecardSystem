@@ -6,7 +6,6 @@ import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-//import * as backendAccess from '@/BackendAccess';
 
 import SystemConfigEdit from '@/components/SystemConfigEdit.vue';
 import { putErrorToDB } from '@/ErrorDB';
@@ -27,16 +26,12 @@ async function updateTable() {
 
   const loader = $loading.show({ opacity: 0 });
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     const infos = await access.getSystemConfig({ limit: limit.value + 1, offset: offset.value });
     if (infos) {
       configInfos.value.splice(0);
       Array.prototype.push.apply(configInfos.value, infos);
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -81,12 +76,8 @@ async function onConfigClick(configKey: string) {
 async function onConfigSubmit() {
   const loader = $loading.show({ opacity: 0 });
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     access.setSystemConfig(selectedConfig.value.key, selectedConfigValue.value);
-    //}
   }
   catch (error) {
     console.error(error);

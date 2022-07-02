@@ -19,6 +19,9 @@ const viewRecord = ref('');
 if (props.privilege.viewRecord && props.privilege.viewAllUserInfo) {
   viewRecord.value = 'all';
 }
+else if (props.privilege.viewRecord && props.privilege.viewDepartmentUserInfo) {
+  viewRecord.value = 'department';
+}
 else if (props.privilege.viewRecord && props.privilege.viewSectionUserInfo) {
   viewRecord.value = 'section';
 }
@@ -56,21 +59,31 @@ function onSubmit(event: Event) {
   if (viewRecord.value === '') {
     privilege.value.viewRecord = false;
     privilege.value.viewSectionUserInfo = false;
+    privilege.value.viewDepartmentUserInfo = false;
     privilege.value.viewAllUserInfo = false;
   }
   else if (viewRecord.value === 'self') {
     privilege.value.viewRecord = true;
     privilege.value.viewSectionUserInfo = false;
+    privilege.value.viewDepartmentUserInfo = false;
     privilege.value.viewAllUserInfo = false;
   }
   else if (viewRecord.value === 'section') {
     privilege.value.viewRecord = true;
     privilege.value.viewSectionUserInfo = true;
+    privilege.value.viewDepartmentUserInfo = false;
+    privilege.value.viewAllUserInfo = false;
+  }
+  else if (viewRecord.value === 'department') {
+    privilege.value.viewRecord = true;
+    privilege.value.viewSectionUserInfo = true;
+    privilege.value.viewDepartmentUserInfo = true;
     privilege.value.viewAllUserInfo = false;
   }
   else if (viewRecord.value === 'all') {
     privilege.value.viewRecord = true;
     privilege.value.viewSectionUserInfo = true;
+    privilege.value.viewDepartmentUserInfo = true;
     privilege.value.viewAllUserInfo = true;
   }
 
@@ -163,6 +176,7 @@ function onSubmit(event: Event) {
                     <option value></option>
                     <option value="self">本人のみ</option>
                     <option value="section">自部署</option>
+                    <option value="department">自部門</option>
                     <option value="all">全社員</option>
                   </select>
                 </div>

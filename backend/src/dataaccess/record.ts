@@ -8,6 +8,20 @@ function dateToLocalString(date: Date) {
   return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
 }
 
+function timeStringToSeconds(timeStr: string) {
+  const timeStrParts = timeStr.split(':', 3);
+  if (timeStrParts.length < 3) {
+    return 0;
+  }
+
+  const hour = parseInt(timeStrParts[0]);
+  const min = parseInt(timeStrParts[1]);
+  const sec = parseInt(timeStrParts[2]);
+  const negative = timeStrParts[0].charAt(0) === '-' ? -1 : 1;
+
+  return ((Math.abs(hour) * 60 * 60) + (min * 60) + sec) * negative;
+}
+
 ///////////////////////////////////////////////////////////////////////
 // 打刻情報関連
 ///////////////////////////////////////////////////////////////////////
@@ -50,9 +64,7 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
       .andWhereBetween('date', [beforeDayString, currentDayString]);
 
     if (!records.some(record => dateToLocalString(record.date) === currentDayString)) {
-      //console.log('record: currentDay not found')
       if (records.some(record => dateToLocalString(record.date) === beforeDayString)) {
-        //console.log('record: beforeDay found')
         recordDateString = beforeDayString;
       }
     }
@@ -61,29 +73,27 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
   // 打刻機器が指定されている場合は打刻機器IDを取得する
   let deviceId: number | undefined = undefined;
   if (params.deviceAccount) {
-    //console.log('params.deviceAccount: ' + params.deviceAccount)
     deviceId = (await this.knex.select<{ id: number }[]>({ id: 'id' })
       .from('user')
       .where('account', params.deviceAccount)
       .andWhere('isDevice', true)
       .first())?.id;
-    //console.log('deviceId: ' + deviceId)
   }
 
-  const mergeColumns: string[] = [];
-  switch (recordType) {
-    case 'clockin':
-      Array.prototype.push.apply(mergeColumns, ['clockin', 'clockinDevice', 'clockinApply']);
-      break;
-    case 'break':
-      Array.prototype.push.apply(mergeColumns, ['break', 'breakDevice', 'breakApply']);
-      break;
-    case 'reenter':
-      Array.prototype.push.apply(mergeColumns, ['reenter', 'reenterDevice', 'reenterApply']);
-      break;
-    case 'clockout':
-      Array.prototype.push.apply(mergeColumns, ['clockout', 'clockoutDevice', 'clockoutApply']);
-      break;
+  // データベーステーブルで更新するフィールド名を指定する。対象となるフィールド名を文字列でmergeColumns配列に格納する。
+  // これをknexのmerge関数に渡すことで、ON DUPLICATE KEY UPDATEでの更新フィールドを指定することができる。
+  // 
+  // 前提としてテーブルrecordにはclockin/break/reeenter/clockoutという打刻種類のフィールド名があり
+  // これらの打刻種類のフィールド名が変数recordTypeに格納されている。
+  //
+  // それぞれの打刻端末と打刻申請のフィールド名は↑のフィールド名にDeviceあるいはApplyを付けたものである。
+  // 打刻端末あるいは打刻申請が指定されていない場合は、これらのフィールドは更新しないようにする。
+  const mergeColumns = [recordType];
+  if (deviceId) {
+    mergeColumns.push(`${recordType}Device`);
+  }
+  if (params.applyId) {
+    mergeColumns.push(`${recordType}Apply`);
   }
 
   await this.knex('record').insert({
@@ -113,11 +123,10 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
 export async function getRecords(this: DatabaseAccess, params: apiif.RecordRequestQuery) {
 
   type RecordResult = {
-    id: number,
     userAccount: string,
     userName: string,
-    department: string,
-    section: string
+    departmentName: string,
+    sectionName: string
     date: Date,
 
     clockin?: Date,
@@ -139,88 +148,89 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     clockoutDeviceAccount?: string,
     clockoutDeviceName?: string,
     clockoutApplyId?: number,
+
+    earlyOverTime: string | null,
+    lateOverTime: string | null,
+
+    onTimeStart: Date | null,
+    onTimeEnd: Date | null
   };
 
   const results = await this.knex
     .select<RecordResult[]>
     ({
-      id: 'record.id', date: 'record.date', clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
-      clockinDeviceAccount: 'd1.account', breakDeviceAccount: 'd2.account', reenterDeviceAccount: 'd3.account', clockoutDeviceAccount: 'd4.account',
-      clockinDeviceName: 'd1.name', breakDeviceName: 'd2.name', reenterDeviceName: 'd3.name', clockoutDeviceName: 'd4.name',
-      clockinApplyId: 'record.clockinApply', breakApplyId: 'record.breakApply', reenterApplyId: 'record.reenterApply', clockoutApplyId: 'record.clockoutApply',
-      userAccount: 'user.account', userName: 'user.name', department: 'department.name', section: 'section.name'
+      date: 'date', clockin: 'clockin', break: 'break', reenter: 'reenter', clockout: 'clockout',
+      clockinDeviceAccount: 'clockinDeviceAccount', breakDeviceAccount: 'breakDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
+      clockinDeviceName: 'clockinDeviceName', breakDeviceName: 'breakDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
+      clockinApplyId: 'clockinApply', breakApplyId: 'breakApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
+      userAccount: 'userAccount', userName: 'userName', departmentName: 'departmentName', sectionName: 'sectionName',
+      earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
+      onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd'
     })
-    .from('record')
-    .join('user', { 'user.id': 'record.user' })
-    .leftJoin('user as d1', { 'd1.id': 'record.clockinDevice' })
-    .leftJoin('user as d2', { 'd2.id': 'record.breakDevice' })
-    .leftJoin('user as d3', { 'd3.id': 'record.reenterDevice' })
-    .leftJoin('user as d4', { 'd4.id': 'record.clockoutDevice' })
-    .leftJoin('section', { 'section.id': 'user.section' })
-    .leftJoin('department', { 'department.id': 'section.department' })
+    .from('recordTimeWithOnTime')
     .where(function (builder) {
       if (params.byUserAccount) {
-        builder.where('user.account', 'like', `%${params.byUserAccount}%`);
+        builder.where('userAccount', 'like', `%${params.byUserAccount}%`);
       }
       if (params.byUserName) {
-        builder.where('user.name', 'like', `%${params.byUserName}%`);
+        builder.where('userName', 'like', `%${params.byUserName}%`);
       }
       if (params.bySection) {
-        builder.where('section.name', 'like', `%${params.bySection}%`);
+        builder.where('sectionName', 'like', `%${params.bySection}%`);
       }
       if (params.byDepartment) {
-        builder.where('department.name', 'like', `%${params.byDepartment}%`);
+        builder.where('departmentName', 'like', `%${params.byDepartment}%`);
       }
       if (params.byDevice) {
-        builder.where('d1.name', 'like', `%${params.byDevice}%`);
+        builder.where('clockinDeviceName', 'like', `%${params.byDevice}%`);
       }
-      else if (params.from) {
-        builder.where('record.date', '>=', params.from);
+      if (params.from) {
+        builder.where('date', '>=', params.from);
       }
-      else if (params.to) {
-        builder.where('record.date', '<=', params.to);
+      if (params.to) {
+        builder.where('date', '<=', params.to);
       }
 
       if (params.clockin === true) {
-        builder.whereNotNull('record.clockin');
+        builder.whereNotNull('clockin');
       }
       else if (params.clockin === false) {
-        builder.whereNull('record.clockin');
+        builder.whereNull('clockin');
       }
 
       if (params.break === true) {
-        builder.whereNotNull('record.break');
+        builder.whereNotNull('break');
       }
       else if (params.break === false) {
-        builder.whereNull('record.break');
+        builder.whereNull('break');
       }
 
       if (params.reenter === true) {
-        builder.whereNotNull('record.reenter');
+        builder.whereNotNull('reenter');
       }
       else if (params.reenter === false) {
-        builder.whereNull('record.reenter');
+        builder.whereNull('reenter');
       }
 
       if (params.clockout === true) {
-        builder.whereNotNull('record.clockout');
+        builder.whereNotNull('clockout');
       }
       else if (params.clockout === false) {
-        builder.whereNull('record.clockout');
+        builder.whereNull('clockout');
       }
     })
     .modify<any, RecordResult[]>(function (builder) {
       if (params.sortBy === 'byUserAccount') {
-        builder.orderBy('user.account', params.sortDesc ? 'desc' : 'asc')
+        builder.orderBy('userAccount', params.sortDesc ? 'desc' : 'asc')
       }
       else if (params.sortBy === 'byUserName') {
-        builder.orderBy('user.name', params.sortDesc ? 'desc' : 'asc')
+        builder.orderBy('userName', params.sortDesc ? 'desc' : 'asc')
       }
       else if (params.sortBy === 'byDepartment') {
-        builder.orderBy('department.name', params.sortDesc ? 'desc' : 'asc')
+        builder.orderBy('departmentName', params.sortDesc ? 'desc' : 'asc')
       }
       else if (params.sortBy === 'bySection') {
-        builder.orderBy('section.name', params.sortDesc ? 'desc' : 'asc')
+        builder.orderBy('sectionName', params.sortDesc ? 'desc' : 'asc')
       }
       if (params.limit) {
         builder.limit(params.limit);
@@ -234,9 +244,9 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     return {
       userAccount: result.userAccount,
       userName: result.userName,
-      userDepartment: result.department,
-      userSection: result.section,
-      date: dateToLocalString(result.date),
+      userDepartment: result.departmentName,
+      userSection: result.sectionName,
+      date: result.date,
       clockin: result.clockin ? {
         timestamp: result.clockin,
         deviceAccount: result.clockinDeviceAccount,
@@ -261,6 +271,11 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         deviceName: result.clockoutDeviceName,
         applyId: result.clockoutApplyId
       } : undefined,
+
+      earlyOverTimeSeconds: result.earlyOverTime ? timeStringToSeconds(result.earlyOverTime) : undefined,
+      lateOverTimeSeconds: result.lateOverTime ? timeStringToSeconds(result.lateOverTime) : undefined,
+      onTimeStart: result.onTimeStart ?? undefined,
+      onTimeEnd: result.onTimeEnd ?? undefined
     }
   });
 }

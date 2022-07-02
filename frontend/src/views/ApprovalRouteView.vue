@@ -6,7 +6,6 @@ import Header from '@/components/Header.vue';
 import ApprovalRoute from '@/components/ApprovalRouteEdit.vue';
 
 import type * as apiif from 'shared/APIInterfaces';
-//import * as backendAccess from '@/BackendAccess';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
@@ -24,15 +23,12 @@ const offset = ref(0);
 async function updateTable() {
 
   try {
-    //const token = await store.getToken();
-    //if (token) {
     const access = await store.getTokenAccess();
     const infos = await access.getApprovalRoutes({ limit: limit.value + 1, offset: offset.value });
     if (infos) {
       routeInfos.value.splice(0);
       Array.prototype.push.apply(routeInfos.value, infos);
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -75,15 +71,12 @@ async function onRouteDelete() {
     return;
   }
   try {
-    //const token = await store.getToken();
-    //if (token) {
     const access = await store.getTokenAccess();
     for (const routeInfo of routeInfos.value) {
       if (checks.value[routeInfo.name] && routeInfo.id) {
         await access.deleteApprovalRoute(routeInfo.id);
       }
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -100,8 +93,6 @@ async function onRouteDelete() {
 
 async function onSubmit() {
   try {
-    //const token = await store.getToken();
-    //if (token) {
     const access = await store.getTokenAccess();
 
     // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
@@ -111,7 +102,6 @@ async function onSubmit() {
     else {
       await access.addApprovalRoutes(selectedRoute.value);
     }
-    //}
   }
   catch (error) {
     console.error(error);

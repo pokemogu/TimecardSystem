@@ -7,7 +7,6 @@ import Header from '@/components/Header.vue';
 import ApplyForm from '@/components/ApplyForm.vue';
 import ApprovalRouteSelect from '@/components/ApprovalRouteSelect.vue';
 
-//import * as backendAccess from '@/BackendAccess';
 import type * as apiif from 'shared/APIInterfaces';
 import { putErrorToDB } from '@/ErrorDB';
 
@@ -27,8 +26,6 @@ onMounted(async () => {
   try {
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      //const token = await store.getToken();
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
     }
@@ -47,12 +44,13 @@ async function onFormSubmit() {
   // 回付中の場合は承認処理を行なう
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
-      //const access = new backendAccess.TokenAccess(token);
       const access = await store.getTokenAccess();
       await access.approveApply(apply.value.id);
-      //}
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyMail(apply.value.id, url);
+      }
     }
     catch (error) {
       console.error(error);
@@ -70,11 +68,13 @@ async function onFormSubmit() {
 async function onFormSubmitReject() {
   if (apply.value) {
     try {
-      //const token = await store.getToken();
-      //if (token) {
       const access = await store.getTokenAccess();
       await access.rejectApply(apply.value.id);
-      //}
+
+      if (apply.value.id) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: apply.value.id } }).href;
+        await access.sendApplyRejectedMail(apply.value.id, url);
+      }
     }
     catch (error) {
       console.error(error);
@@ -88,21 +88,24 @@ async function onFormSubmitReject() {
 async function onRouteSubmit() {
   try {
     if (store.isLoggedIn()) {
-      //const token = await store.getToken();
-      //if (token) {
       const access = await store.getTokenAccess();
-      await access.submitApply('makeup-leave', {
+      const applyId = await access.submitApply('makeup-leave', {
         date: new Date(dateFrom.value),
-        dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
-        dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+        //dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
+        //dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
+        dateTimeFrom: new Date(`${dateFrom.value}T00:00:00`),
+        dateTimeTo: new Date(`${dateFrom.value}T$23:59::00`),
         dateRelated: new Date(`${dateHolidayWork.value}T00:00:00`),
         timestamp: new Date(),
         reason: reason.value,
         routeName: routeName.value
       });
+      if (applyId) {
+        const url = location.origin + '/' + router.resolve({ name: 'approve', params: { id: applyId } }).href;
+        await access.sendApplyMail(applyId, url);
+      }
 
       router.push({ name: 'dashboard' });
-      //}
     }
   } catch (error) {
     console.error(error);
@@ -131,8 +134,9 @@ async function onRouteSubmit() {
       <div class="col-10 bg-white p-2 shadow-sm">
         <div class="row">
           <ApplyForm v-if="isMounted" applyName="代休" applyType="leave-proxy" v-model:dateOptional="dateHolidayWork"
-            dateOptionalType="休出日" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom" v-model:timeTo="timeTo"
-            v-model:reason="reason" v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject"></ApplyForm>
+            dateOptionalType="休出日" v-model:dateFrom="dateFrom" v-model:reason="reason" :apply="apply"
+            v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject"></ApplyForm>
+          <!-- v-model:timeFrom="timeFrom" v-model:timeTo="timeTo" -->
         </div>
       </div>
       <div class="col-2">

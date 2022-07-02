@@ -4,6 +4,7 @@ import knexConnect from 'knex';
 
 import { generateKeyPair, setJsonWebTokenKey } from './verify';
 import { DatabaseAccess } from "./dataaccess";
+import type * as apiif from './APIInterfaces';
 
 describe('データアクセス', () => {
 
@@ -583,6 +584,112 @@ describe('データアクセス', () => {
             });
             //console.log(result);
       */
+    });
+  });
+
+  describe('有給設定', () => {
+    const testUserAccounts = [generateRandomString(), generateRandomString(), generateRandomString(), generateRandomString()];
+    const testEmail = generateRandomString() + '@' + generateRandomString() + '.com';
+    const testWorkPatternName = generateRandomString();
+    const testPrivilegeName = generateRandomString();
+
+    beforeAll(async () => {
+      const access = new DatabaseAccess(knex);
+
+      await expect(access.addPrivilege({ name: testPrivilegeName })).resolves.not.toThrow();
+      await expect(access.addWorkPattern({ name: testWorkPatternName, onTimeStart: '08:30', onTimeEnd: '17:30' })).resolves.not.toThrow();
+
+      await expect(access.addUsers([
+        {
+          account: testUserAccounts[0], /* password: testUserPassword, */
+          email: testEmail, name: '金子 星男', phonetic: 'カネコ ホシオ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '浜松工場', section: '製造部'
+        },
+        {
+          account: testUserAccounts[1], /* password: testUserPassword, */
+          email: testEmail, name: '久保田 模試子', phonetic: 'クボタ モシコ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '東名工場', section: '製造部'
+        },
+        {
+          account: testUserAccounts[2], /* password: testUserPassword, */
+          email: testEmail, name: '稲田 市兵衛', phonetic: 'イナダ イチベエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: '営業部'
+        }, {
+          account: testUserAccounts[3], /* password: testUserPassword, */
+          email: testEmail, name: '山本 花絵', phonetic: 'ヤマモト ハナエ',
+          privilegeName: testPrivilegeName, defaultWorkPatternName: testWorkPatternName,
+          department: '名古屋事業所', section: '総務部'
+        }
+      ])).resolves.not.toThrow();
+
+    });
+
+    afterAll(async () => {
+    });
+
+    test('addAnnualLeave, getTotalAnnualLeaves', async () => {
+      const access = new DatabaseAccess(knex);
+
+      const userInfoData = await access.getUserInfoByAccount(testUserAccounts[0]);
+      const userInfo = { id: userInfoData.id, account: userInfoData.account };
+
+      // 本来は有給は小数点単位での付与は無いが、有給消化には半日の概念がある為、固定小数点値として計算する。
+      const leaveData: apiif.AnnualLeaveRequestData[] = [];
+      for (const account of testUserAccounts) {
+        const date = new Date();
+        date.setDate(date.getDate() - 1); // 有給期限切れをテストする為に、基準日を前日とする
+
+        // 今年の有給付与
+        leaveData.push({
+          account: account, dayAmount: 14.1, hourAmount: 8, grantedAt: new Date(date)
+        });
+
+        // 1年前の有給付与
+        date.setFullYear(date.getFullYear() - 1);
+        leaveData.push({
+          account: account, dayAmount: 12.2, hourAmount: 8, grantedAt: new Date(date)
+        });
+
+        // 2年前の有給付与
+        date.setFullYear(date.getFullYear() - 1);
+        leaveData.push({
+          account: account, dayAmount: 11.3, hourAmount: 8, grantedAt: new Date(date)
+        });
+
+        // 3年前の有給付与
+        date.setFullYear(date.getFullYear() - 1);
+        leaveData.push({
+          account: account, dayAmount: 10.4, hourAmount: 8, grantedAt: new Date(date)
+        });
+      }
+
+      await expect(access.setAnnualLeaves(leaveData)).resolves.not.toThrow();
+
+      // 期限切れを含めた過去の合計有給付与日数をテスト
+      const totalLeaves = await access.getTotalAnnualLeaves({ accounts: testUserAccounts, date: new Date(), isNotExpired: false });
+      totalLeaves.forEach(totalLeave => expect(totalLeave.dayAmount).toBe(48)); // 14.1 + 12.2 + 11.3 + 10.4 = 48になる
+
+      // 有給は2年で期限切れとなるので、期限の切れていない有給日数をテスト
+      const totalLeavesNotExpired = await access.getTotalAnnualLeaves({ accounts: testUserAccounts });
+      totalLeavesNotExpired.forEach(totalLeave => expect(totalLeave.dayAmount).toBe(26.3)); // 14.1 + 12.2 = 26.3になる
+
+      //console.log(totalLeavesNotExpired);
+      //console.log(await access.getTotalScheduledAnnualLeaves({ accounts: testUserAccounts, dateFrom: new Date() }));
+
+      const totalLeavesNotExpired2 = await access.getTotalScheduledAnnualLeaves({ accounts: testUserAccounts, date: new Date() })
+      totalLeavesNotExpired2.forEach(totalLeave => expect(totalLeave.dayAmount).toBe(26.3)); // 14.1 + 12.2 = 26.3になる
+
+      // 有給データを全て削除するテスト
+      const leaves = await access.getAnnualLeaves();
+      for (const leave of leaves) {
+        await expect(access.deleteAnnualLeave(leave.id)).resolves.not.toThrow();
+      }
+      const totalLeavesZero = await access.getTotalAnnualLeaves({ accounts: testUserAccounts, date: new Date(), isNotExpired: false });
+      expect(totalLeavesZero.length).toBe(0);
+
     });
   });
 

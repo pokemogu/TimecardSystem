@@ -1,7 +1,7 @@
 import lodash from 'lodash';
 import createHttpError from 'http-errors';
 
-import { DatabaseAccess } from '../dataaccess';
+import { DatabaseAccess, UserInfo } from '../dataaccess';
 import type * as apiif from '../APIInterfaces';
 
 ///////////////////////////////////////////////////////////////////////
@@ -212,4 +212,19 @@ export async function deletePrivilege(this: DatabaseAccess, id: number) {
       throw error;
     }
   }
+}
+
+export async function checkPrivilege(this: DatabaseAccess, userInfo?: UserInfo, privilegeType?: keyof apiif.Privilege) {
+  // ログイン済みかどうかは必ずチェックする
+  if (!userInfo) {
+    throw new createHttpError.Unauthorized('ログインが必要です');
+  }
+  // 権限チェックを行なう
+  if (privilegeType) {
+    const privilege = await this.getUserPrivilege(userInfo.account);
+    if (!privilege[privilegeType]) {
+      throw new createHttpError.Forbidden('権限がありません');
+    }
+  }
+  return userInfo;
 }

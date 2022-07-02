@@ -79,16 +79,12 @@ async function onApplyTypeDelete() {
     return;
   }
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     for (const applyType of customApplyTypes.value) {
       if (checks.value[applyType.name]) {
         await access.deleteApplyType(applyType.name);
       }
     }
-    //}
   }
   catch (error) {
     console.error(error);
@@ -107,12 +103,8 @@ async function onApplyTypeDelete() {
 async function onSubmit() {
   const loader = $loading.show({ opacity: 0 });
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
 
-    console.log(selectedCustomApplyType.value.id)
     // 新規申請種類の場合は追加する
     if (!selectedCustomApplyType.value.id) {
       selectedCustomApplyType.value.isSystemType = false;
@@ -149,7 +141,6 @@ async function onSubmit() {
         await access.updatePrivilege(privilege);
       }
     }
-    //}
   }
   catch (error) {
     console.error(error);

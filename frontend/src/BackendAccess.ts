@@ -124,6 +124,14 @@ export class TokenAccess {
     }
   }
 
+  public async getUserAccountCandidates() {
+    try {
+      return (await this.axios.get<apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates')).data.candidates;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async addUsers(usersInfo: apiif.UserInfoRequestData[]) {
     try {
       await this.axios.post<apiif.MessageOnlyResponseBody>('/api/user', usersInfo);
@@ -169,6 +177,14 @@ export class TokenAccess {
       await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/record/${recordType}`,
         <apiif.RecordRequestBody>{ timestamp: timestamp, deviceAccount: deviceAccount, deviceToken: deviceRefreshToken }
       );
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async submitRecord(recordType: string, params: apiif.RecordRequestBody) {
+    try {
+      await this.axios.post<apiif.MessageOnlyResponseBody>(`/api/record/${recordType}`, params);
     } catch (error) {
       handleAxiosError(error);
     }
@@ -527,6 +543,62 @@ export class TokenAccess {
   }
 
   ///////////////////////////////////////////////////////////////////////
+  // 有給情報関連
+  ///////////////////////////////////////////////////////////////////////
+  public async setAnnualLeaves(annualLeaves: apiif.AnnualLeaveRequestData[]) {
+    try {
+      await this.axios.post('/api/leave', annualLeaves);
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getAnnualLeaves(params?: { account: string }) {
+    try {
+      const data = (await this.axios.get<apiif.AnnualLeaveResponseData[]>('/api/leave', {
+        params: params
+      })).data;
+      return data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async deleteAnnualLeave(id: number) {
+    try {
+      await this.axios.delete(`/api/leave/${id}`);
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////
+  // 統計情報関連
+  ///////////////////////////////////////////////////////////////////////
+
+  public async getTotalScheduledAnnualLeaves(params?: apiif.TotalScheduledAnnualLeavesQuery) {
+    try {
+      const data = (await this.axios.get<apiif.TotalScheduledAnnualLeavesResponseData[]>('/api/statistic/leave', {
+        params: params
+      })).data;
+      return data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async getTotalWorkTimeInfo(params?: apiif.TotalWorkTimeInfoRequestQuery) {
+    try {
+      const data = (await this.axios.get<apiif.TotalWorkTimeInfoResponseData[]>('/api/statistic/work', {
+        params: params
+      })).data;
+      return data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////
   // システム設定関連
   ///////////////////////////////////////////////////////////////////////
   public async setSystemConfig(key: string, value: string) {
@@ -601,6 +673,33 @@ export class TokenAccess {
       handleAxiosError(error);
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////
+  // メール関連
+  ///////////////////////////////////////////////////////////////////////
+  public async sendApplyMail(applyId: number, url: string) {
+    try {
+      await this.axios.post(`/api/mail/apply/${applyId}`, { url: url });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async sendApplyRejectedMail(applyId: number, url: string) {
+    try {
+      await this.axios.post(`/api/mail/reject/${applyId}`, { url: url });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
+  public async sendApplyApprovedMail(applyId: number, url: string) {
+    try {
+      await this.axios.post(`/api/mail/approve/${applyId}`, { url: url });
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
 }
 
 export async function getDepartments() {
@@ -643,14 +742,6 @@ export async function getApplyTypeOptions(applyType: string) {
         }[]
       }[]
     }>(`/api/options/apply/${applyType}`, axiosConfig)).data;
-  } catch (error) {
-    handleAxiosError(error);
-  }
-}
-
-export async function getUserAccountCandidates() {
-  try {
-    return (await axios.get<apiif.UserAccountCandidatesResponseBody>('/api/user/account-candidates', axiosConfig)).data.candidates;
   } catch (error) {
     handleAxiosError(error);
   }

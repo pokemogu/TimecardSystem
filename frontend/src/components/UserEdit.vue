@@ -15,7 +15,8 @@ const emits = defineEmits<{
   (event: 'update:userInfo', value: apiif.UserInfoRequestData): void,
   (event: 'submit'): void,
   (event: 'submitDelete'): void,
-  (event: 'submitPasswordChange'): void
+  (event: 'submitPasswordChange'): void,
+  (event: 'submitAnnualLeaveChange'): void
 }>();
 
 const store = useSessionStore();
@@ -72,7 +73,8 @@ onMounted(async () => {
 async function onGenerateAccount() {
 
   if (receivedCandidates.length < 1) {
-    const candidates = await backendAccess.getUserAccountCandidates();
+    const access = await store.getTokenAccess();
+    const candidates = await access.getUserAccountCandidates();
     if (candidates) {
       Array.prototype.push.apply(receivedCandidates, candidates);
     }
@@ -115,6 +117,11 @@ function onClose() {
 function onPasswordChange() {
   emits('update:isOpened', false);
   emits('submitPasswordChange');
+}
+
+function onAnnualLeaveChange() {
+  emits('update:isOpened', false);
+  emits('submitAnnualLeaveChange');
 }
 
 </script>
@@ -291,8 +298,11 @@ function onPasswordChange() {
                 <div v-if="!isNewAccount" class="row m-1">
                   <div class="col-3">
                   </div>
-                  <div class="col-9">
+                  <div class="col-4">
                     <button type="button" class="btn btn-warning" v-on:click="onPasswordChange">パスワード変更</button>
+                  </div>
+                  <div class="col-4">
+                    <button type="button" class="btn btn-warning" v-on:click="onAnnualLeaveChange">有給休暇設定</button>
                   </div>
                 </div>
               </div>

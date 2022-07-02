@@ -15,10 +15,12 @@ export interface IssueTokenResponseData {
   section: string
 }
 
+/*
 export interface IssueTokenResponseBody {
   message: string,
   token?: IssueTokenResponseData
 }
+*/
 
 export interface ChangePasswordRequestBody {
   account?: string,
@@ -26,7 +28,7 @@ export interface ChangePasswordRequestBody {
   newPassword: string
 }
 
-export type UserRequestPathParams = Record<'userId', string>;
+//export type UserRequestPathParams = Record<'userId', string>;
 
 export interface AccessTokenRequestBody {
   refreshToken: string
@@ -36,10 +38,12 @@ export interface AccessTokenResponseData {
   accessToken: string
 }
 
+/*
 export interface AccessTokenResponseBody {
   message: string,
   token?: AccessTokenResponseData
 }
+*/
 
 export interface RevokeTokenRequestBody {
   account: string,
@@ -60,10 +64,12 @@ export interface UserInfoRequestQuery {
   offset?: number
 }
 
+/*
 export interface UserInfosResponseBody {
   message: string,
   infos?: UserInfoResponseData[]
 }
+*/
 
 export interface UserInfoResponseData {
   id: number,
@@ -100,10 +106,12 @@ export interface UserInfoRequestData {
 export type UserInfoRequestData = Omit<UserInfoResponseData, 'id' | 'registeredAt' | 'qrCodeIssueNum'>;
 export interface UserInfoRequestDataWithPassword extends UserInfoRequestData { password: string };
 
+/*
 export interface UserInfoResponseBody {
   message: string,
   info?: UserInfoResponseData
 }
+*/
 
 export interface UserAccountCandidatesResponseBody {
   message: string,
@@ -118,7 +126,7 @@ export interface RecordRequestBody {
   applyId?: number
 }
 
-export type RecordRequestPathParams = Record<'recordType', string>;
+//export type RecordRequestPathParams = Record<'recordType', string>;
 
 export interface RecordRequestQuery {
   byUserAccount?: string,
@@ -151,17 +159,23 @@ export interface RecordResponseData {
   userName: string,
   userDepartment: string,
   userSection: string,
-  date: string,
+  date: Date,
   clockin?: RecordInfo,
   break?: RecordInfo,
   reenter?: RecordInfo,
-  clockout?: RecordInfo
+  clockout?: RecordInfo,
+  earlyOverTimeSeconds?: number,
+  lateOverTimeSeconds?: number,
+  onTimeStart?: Date,
+  onTimeEnd?: Date
 }
 
+/*
 export interface RecordResponseBody {
   message: string,
   records?: RecordResponseData[]
 }
+*/
 
 export interface DevicesRequestBody {
   name: string
@@ -221,7 +235,8 @@ export interface ApplyRequestBody {
   }[],
   reason?: string,
   contact?: string,
-  routeName: string
+  routeName: string,
+  workPattern?: string
 }
 
 export interface DepartmentResponseData {
@@ -238,15 +253,23 @@ export interface DepartmentResponseBody {
 
 export interface ApplyRequestQuery {
   id?: number,
-  timestampFrom?: Date,
-  timestampTo?: Date,
   type?: string,
 
+  targetedUserAccounts?: string[], // 申請対象のユーザー(複数指定)
   targetedUserAccount?: string, // 申請対象のユーザー
   appliedUserAccount?: string,
   approvingUserAccount?: string, // 回付中の申請を承認する番が回ってきているユーザー
   approvedUserAccount?: string, // 回付中あるいは回付済の申請を承認済のユーザー
 
+  // 申請した日時で検索する
+  timestampFrom?: Date,
+  timestampTo?: Date,
+
+  // 申請対象基準日で検索する
+  dateFrom?: Date,
+  dateTo?: Date,
+
+  // 申請対象期間で検索する
   dateTimeFrom?: Date,
   dateTimeTo?: Date,
 
@@ -256,9 +279,9 @@ export interface ApplyRequestQuery {
   offset?: number
 }
 
-export interface ApplyResponseData {
+export interface ApplyResponseData extends Omit<ApplyRequestBody, 'targetUserAccount'> {
   id: number,
-  timestamp: Date,
+  //timestamp: Date,
   type: Omit<ApplyTypeResponseData, 'isSystemType'>,
 
   targetUser: Omit<UserInfoResponseData, 'privilegeName' | 'defaultWorkPatternName'>,
@@ -273,17 +296,17 @@ export interface ApplyResponseData {
   approvedDecisionUser?: Omit<UserInfoResponseData, 'privilegeName' | 'defaultWorkPatternName'>,
   approvedDecisionTimestamp?: Date,
 
-  date: Date,
-  dateTimeFrom: Date,
-  dateTimeTo?: Date,
-  dateRelated?: Date,
-  options?: {
-    name: string,
-    value: string
-  }[],
-  reason?: string,
-  contact?: string,
-  routeName: string,
+  //date: Date,
+  //dateTimeFrom: Date,
+  //dateTimeTo?: Date,
+  //dateRelated?: Date,
+  //options?: {
+  //  name: string,
+  //  value: string
+  //}[],
+  //reason?: string,
+  //contact?: string,
+  //routeName: string,
   isApproved?: boolean
 }
 
@@ -292,6 +315,7 @@ export interface ApplyResponseBody {
   applies?: ApplyResponseData[]
 }
 
+/*
 export interface ApprovalRouteRoleData {
   level: number,
   names: string[]
@@ -301,6 +325,7 @@ export interface ApprovalRouteRoleBody {
   message: string,
   roles?: ApprovalRouteRoleData[]
 }
+*/
 
 export interface ApprovalRouteResponseData {
   id?: number,
@@ -316,6 +341,7 @@ export interface ApprovalRouteResponseData {
 
 export type ApprovalRouteRequestData = ApprovalRouteResponseData;
 
+/*
 export interface ApprovalRouteRequestBody {
   message: string,
   route: ApprovalRouteResponseData
@@ -325,6 +351,7 @@ export interface ApprovalRouteResponseBody {
   message: string,
   routes?: ApprovalRouteResponseData[]
 }
+*/
 
 export interface WorkPatternRequestData {
   id?: number,
@@ -361,17 +388,8 @@ export interface WorkPatternsResponseBody {
   workPatterns?: WorkPatternResponseData[]
 }
 
-export interface PrivilegeResponseData {
-  id?: number,
-  name: string,
+export interface Privilege {
   recordByLogin?: boolean,
-  applyPrivileges?: ApplyPrivilegeResponseData[],
-
-  maxApplyLateNum?: number | null,
-  maxApplyLateHours?: number | null,
-  maxApplyEarlyNum?: number | null,
-  maxApplyEarlyHours?: number | null,
-
   approve?: boolean,
   viewRecord?: boolean,
   viewRecordPerDevice?: boolean,
@@ -385,13 +403,26 @@ export interface PrivilegeResponseData {
   viewSectionUserInfo?: boolean
 }
 
+export interface PrivilegeResponseData extends Privilege {
+  id?: number,
+  name: string,
+  applyPrivileges?: ApplyPrivilegeResponseData[],
+
+  maxApplyLateNum?: number | null,
+  maxApplyLateHours?: number | null,
+  maxApplyEarlyNum?: number | null,
+  maxApplyEarlyHours?: number | null,
+}
+
 //export type PrivilageRequestData = Omit<PrivilegeResponseData, 'id'>;
 export type PrivilageRequestData = PrivilegeResponseData;
 
+/*
 export interface PrivilegeResponseBody {
   message: string,
   privileges?: PrivilegeResponseData[]
 }
+*/
 
 export interface ApplyPrivilegeResponseData {
   applyTypeId?: number,
@@ -433,28 +464,33 @@ export interface UserWorkPatternCalendarRequestQuery {
   offset?: number
 }
 
+/*
 export interface UserWorkPatternCalendarResponseData1 {
   id?: number,
   date: string,
   user: UserInfoResponseData,
   workPattern: WorkPatternResponseData | null
 }
+*/
 
 export interface UserWorkPatternCalendarResponseData {
   id?: number,
   date: string,
   user: UserInfoResponseData,
   workPattern: {
+    id: number,
     name: string,
     onDateTimeStart: string,
     onDateTimeEnd: string
-  } | null
+  } | null,
+  leaveRate?: number
 }
 
 export interface UserWorkPatternCalendarRequestData {
   date: string,
   name: string | null,
-  account?: string
+  account?: string,
+  leaveRate?: number
 }
 
 export interface UserWorkPatternCalendarResponseBody {
@@ -482,4 +518,70 @@ export type SystemConfigRequestData = SystemConfigResponseData;
 export interface SystemConfigResponseBody {
   message: string,
   config?: SystemConfigResponseData[]
+}
+
+export interface AnnualLeaveRequestData {
+  account: string
+  expireAt?: Date,
+  grantedAt?: Date,
+  dayAmount: number,
+  hourAmount: number
+}
+
+export interface AnnualLeaveResponseData extends Required<AnnualLeaveRequestData> {
+  id: number
+}
+
+export interface TotalAnnualLeavesQuery {
+  accounts?: string[],
+  date?: Date,
+  isNotExpired?: boolean,
+}
+
+export interface TotalScheduledAnnualLeavesQuery extends TotalAnnualLeavesQuery {
+  userAccount?: string,
+  userName?: string,
+  departmentName?: string,
+  sectionName?: string,
+  isPaid?: boolean,
+  dayAmount?: number,
+  limit?: number,
+  offset?: number
+}
+
+export interface TotalAnnualLeavesResponseData {
+  userAccount: string,
+  userName: string,
+  departmentName: string,
+  sectionName: string,
+  dayAmount: number,
+  hourAmount: number,
+  countPaidLeaveFrom: Date
+}
+
+export interface TotalScheduledAnnualLeavesResponseData extends TotalAnnualLeavesResponseData {
+  dayAmountScheduled: number
+}
+
+export interface TotalWorkTimeInfoRequestQuery {
+  userAccount?: string,
+  userName?: string,
+  sectionName?: string,
+  departmentName?: string,
+  dateFrom?: Date,
+  dateTo?: Date,
+  limit?: number,
+  offset?: number
+}
+
+export interface TotalWorkTimeInfoResponseData {
+  userAccount: string,
+  userName: string,
+  departmentName: string,
+  sectionName: string,
+  totalLateCount: number,
+  totalEarlyLeaveCount: number,
+  totalWorkTime: string,
+  totalEarlyOverTime: string,
+  totalLateOverTime: string
 }

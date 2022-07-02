@@ -3,14 +3,12 @@ import { ref, watch, onMounted } from 'vue';
 import { useRoute, useRouter, RouterLink } from 'vue-router';
 import { useSessionStore } from '@/stores/session';
 import Cookies from 'js-cookie';
-import { format } from 'fecha';
 import { useLoading } from 'vue-loading-overlay'
 
 import Header from '@/components/Header.vue';
 import LayoutEditButtonView from '@/components/TableLayoutEditButton.vue'
 
 import type * as apiif from 'shared/APIInterfaces';
-//import * as backendAccess from '@/BackendAccess';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
@@ -72,7 +70,7 @@ async function updateList() {
         params.approvingUserAccount = store.userAccount;
       }
       else if (route.name === 'apply-list') {
-        params.targetedUserAccount = store.userAccount;
+        params.targetedUserAccounts = [store.userAccount];
       }
       params.isApproved = null;
       break;
@@ -81,7 +79,7 @@ async function updateList() {
         params.approvedUserAccount = store.userAccount;
       }
       else if (route.name === 'apply-list') {
-        params.targetedUserAccount = store.userAccount;
+        params.targetedUserAccounts = [store.userAccount];
       }
       params.isApproved = false;
       break;
@@ -91,7 +89,7 @@ async function updateList() {
         params.isApproved = [true, null];
       }
       else if (route.name === 'apply-list') {
-        params.targetedUserAccount = store.userAccount;
+        params.targetedUserAccounts = [store.userAccount];
         params.isApproved = true;
       }
       break;
@@ -101,15 +99,11 @@ async function updateList() {
 
   const loader = $loading.show({ opacity: 0 });
   try {
-    //const token = await store.getToken();
-    //if (token) {
-    //const access = new backendAccess.TokenAccess(token);
     const access = await store.getTokenAccess();
     const appliesInfo = await access.getApplies(params);
     if (appliesInfo) {
       applies.value = [...appliesInfo];
     }
-    //}
   }
   catch (error) {
     console.error(error);
