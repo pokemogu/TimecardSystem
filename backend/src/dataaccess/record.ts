@@ -173,23 +173,32 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         clockinDeviceAccount: 'clockinDeviceAccount', breakDeviceAccount: 'breakDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
         clockinDeviceName: 'clockinDeviceName', breakDeviceName: 'breakDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
         clockinApplyId: 'clockinApply', breakApplyId: 'breakApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
-        userAccount: params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', userName: 'userName', departmentName: 'departmentName', sectionName: 'sectionName',
+        userAccount: 'user.account', userName: 'user.name', departmentName: 'department.name', sectionName: 'section.name',
         earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
         onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd'
       })
       .from('recordTimeWithOnTime')
+      .modify<any, RecordResult[]>(function (builder) {
+        if (params.selectAllDays === true && params.from && params.to) {
+          builder.rightJoin(alldaysTempTableName, { [`${alldaysTempTableName}.date`]: 'recordTimeWithOnTime.date', [`${alldaysTempTableName}.userId`]: 'recordTimeWithOnTime.userId' })
+        }
+      })
+      .join('user', { 'user.id': params.selectAllDays === true ? `${alldaysTempTableName}.userId` : 'userId' })
+      .leftJoin('section', { 'section.id': 'user.section' })
+      .leftJoin('department', { 'department.id': 'section.department' })
+      .leftJoin('schedule', { 'schedule.user': 'user.id' })
       .where(function (builder) {
         if (params.byUserAccount) {
-          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', 'like', `%${params.byUserAccount}%`);
+          builder.where('user.account', 'like', `%${params.byUserAccount}%`);
         }
         if (params.byUserName) {
-          builder.where('userName', 'like', `%${params.byUserName}%`);
+          builder.where('user.name', 'like', `%${params.byUserName}%`);
         }
         if (params.bySection) {
-          builder.where('sectionName', 'like', `%${params.bySection}%`);
+          builder.where('section.name', 'like', `%${params.bySection}%`);
         }
         if (params.byDepartment) {
-          builder.where('departmentName', 'like', `%${params.byDepartment}%`);
+          builder.where('department.name', 'like', `%${params.byDepartment}%`);
         }
         if (params.byDevice) {
           builder.where('clockinDeviceName', 'like', `%${params.byDevice}%`);
@@ -231,7 +240,7 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       })
       .modify<any, RecordResult[]>(function (builder) {
         if (params.sortBy === 'byUserAccount') {
-          builder.orderBy(params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', params.sortDesc ? 'desc' : 'asc')
+          builder.orderBy(`user.account`, params.sortDesc ? 'desc' : 'asc')
         }
         else if (params.sortBy === 'byUserName') {
           builder.orderBy('userName', params.sortDesc ? 'desc' : 'asc')
@@ -247,9 +256,6 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         }
         if (params.offset) {
           builder.offset(params.offset);
-        }
-        if (params.selectAllDays === true && params.from && params.to) {
-          builder.rightJoin(alldaysTempTableName, { [`${alldaysTempTableName}.date`]: 'recordTimeWithOnTime.date', [`${alldaysTempTableName}.userAccount`]: 'recordTimeWithOnTime.userAccount' })
         }
       })
       .transacting(trx);
@@ -304,8 +310,10 @@ export async function getRecordAndApplyList(this: DatabaseAccess, params: apiif.
 
   const recordAndApplyList: apiif.RecordAndApplyResponseData[] = await this.getRecords(params);
   if (recordAndApplyList && recordAndApplyList.length > 0) {
-    const userAccounts = recordAndApplyList.map(record => record.userAccount);
-    const applyDates = recordAndApplyList.map(record => new Date(record.date));
+    //const userAccounts = recordAndApplyList.map(record => record.userAccount);
+    const userAccounts = [...new Set(recordAndApplyList.map(record => record.userAccount))];
+    //const applyDates = recordAndApplyList.map(record => new Date(record.date));
+    const applyDates = [...new Set(recordAndApplyList.map(record => new Date(record.date)))];
     const applies = await this.getApply({
       targetedUserAccounts: userAccounts,
       dateFrom: applyDates.reduce((prev, cur) => (prev < cur) ? prev : cur),

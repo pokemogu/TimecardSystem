@@ -8,8 +8,8 @@ async function up(knex) {
     await knex.schema.createView('recordTimeWithOnTime', function (view) {
       view.as(
         knex.select({
-          userId: 'user.id', userAccount: 'user.account', userName: 'user.name',
-          departmentName: 'department.name', sectionName: 'section.name',
+          userId: 'record.user', //userAccount: 'user.account', userName: 'user.name',
+          //departmentName: 'department.name', sectionName: 'section.name',
           date: 'record.date',
           clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
           //clockin: knex.raw('SEC_TO_TIME(TIME_TO_SEC(record.clockin) - SECOND(record.clockin))'),
@@ -33,8 +33,8 @@ async function up(knex) {
         })
           .from('record')
           .join('user', { 'user.id': 'record.user' })
-          .leftJoin('section', { 'section.id': 'user.section' })
-          .leftJoin('department', { 'department.id': 'section.department' })
+          //.leftJoin('section', { 'section.id': 'user.section' })
+          //.leftJoin('department', { 'department.id': 'section.department' })
           .leftJoin('user as clockinDevice', { 'clockinDevice.id': 'record.clockinDevice' })
           .leftJoin('user as breakDevice', { 'breakDevice.id': 'record.breakDevice' })
           .leftJoin('user as reenterDevice', { 'reenterDevice.id': 'record.reenterDevice' })
@@ -52,8 +52,8 @@ async function up(knex) {
     await knex.schema.createView('workTimeInfo', function (view) {
       view.as(
         knex.select({
-          userId: 'recordTimeWithOnTime.userId', userAccount: 'recordTimeWithOnTime.userAccount', userName: 'recordTimeWithOnTime.userName',
-          departmentName: 'recordTimeWithOnTime.departmentName', sectionName: 'recordTimeWithOnTime.sectionName',
+          userId: 'recordTimeWithOnTime.userId', userAccount: 'user.account', userName: 'user.name',
+          departmentName: 'department.name', sectionName: 'section.name',
           totalLateCount: knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
           totalEarlyLeaveCount: knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
           totalWorkTime: knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
@@ -61,6 +61,9 @@ async function up(knex) {
           totalLateOverTime: knex.raw('SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))')
         })
           .from('recordTimeWithOnTime')
+          .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
+          .leftJoin('section', { 'section.id': 'user.section' })
+          .leftJoin('department', { 'department.id': 'section.department' })
           .groupBy('recordTimeWithOnTime.userId')
           .orderBy('recordTimeWithOnTime.userId')
       );
@@ -79,12 +82,12 @@ async function up(knex) {
   EXECUTE stmt;
   DEALLOCATE PREPARE stmt;
 
-  SET @sql_text = concat('create temporary table ', @table_name, '(date date, userId int, userAccount varchar(255))');
+  SET @sql_text = concat('create temporary table ', @table_name, '(date date, userId int)');
   PREPARE stmt FROM @sql_text;
   EXECUTE stmt;
   DEALLOCATE PREPARE stmt;
   
-  SET @sql_text = concat('insert into ', @table_name, ' select a.date, user.id as userId, user.account as userAccount
+  SET @sql_text = concat('insert into ', @table_name, ' select a.date, user.id as userId
   from (
       select ''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''' - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as date
       from (

@@ -151,10 +151,10 @@ async function onSubmit() {
 }
 
 function isHoliday(date: Date) {
-  const dayOfWeek = date.getDay();
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return true;
-  }
+  //const dayOfWeek = date.getDay();
+  //if (dayOfWeek === 0 || dayOfWeek === 6) {
+  //  return true;
+  //}
   return holidayInfos.value.some(holiday => holiday.date === dateToStr(date));
 }
 
@@ -218,7 +218,7 @@ function getWorkPatternNameOfDay(date: Date) {
               :class="isHoliday(date) ? 'table-danger' : 'table-primary'">
               <td>
                 <button type="button" class="btn btn-link" v-on:click="onWorkPatternCalendarClick(date)">{{
-                    `${date.getMonth() + 1}/${date.getDate()}(${getDayOfWeekName(date)})`
+                `${date.getMonth() + 1}/${date.getDate()}(${getDayOfWeekName(date)})`
                 }}</button>
               </td>
               <td class="text-start">{{ getWorkPatternNameOfDay(date) }}</td>

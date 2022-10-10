@@ -340,7 +340,7 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
     for (const date = new Date(dateFrom); date.getTime() <= dateTo.getTime(); date.setDate(date.getDate() + 1)) {
       const dateStr = dateToStr(date);
       const userWorkPattern = userNonDefaultWorkPatterns.find(workPattern => workPattern.user.id === user.id && workPattern.date === dateStr);
-      const isHoliday = date.getDay() === 0 || date.getDay() === 6 || holidays.some(holiday => dateToStr(new Date(holiday.date)) === dateStr);
+      const isHoliday = /* date.getDay() === 0 || date.getDay() === 6 || */ holidays.some(holiday => dateToStr(new Date(holiday.date)) === dateStr);
 
       const [onDateTimeStart, onDateTimeEnd] = getStartEndTimeDate(
         date, userDefaultWorkPattern.onTimeStart, userDefaultWorkPattern.onTimeEnd

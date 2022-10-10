@@ -151,11 +151,11 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
     return `${roundFunc}((${seconds}) / ${roundSeconds}) * ${roundSeconds}`;
   };
 
-  console.log(roundSql('TIME_TO_SEC(workTime)'));
+  //console.log(roundSql('TIME_TO_SEC(workTime)'));
 
   const results = await this.knex.select({
-    userAccount: 'recordTimeWithOnTime.userAccount', userName: 'recordTimeWithOnTime.userName',
-    departmentName: 'recordTimeWithOnTime.departmentName', sectionName: 'recordTimeWithOnTime.sectionName',
+    userAccount: 'user.account', userName: 'user.name',
+    departmentName: 'department.name', sectionName: 'section.name',
     totalLateCount: this.knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
     totalEarlyLeaveCount: this.knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
     //    totalWorkTime: this.knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
@@ -166,6 +166,9 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
     totalLateOverTime: this.knex.raw(`SEC_TO_TIME(SUM(IF(lateOverTime > 0, ${roundSql('TIME_TO_SEC(lateOverTime)')}, 0)))`)
   })
     .from('recordTimeWithOnTime')
+    .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
+    .leftJoin('section', { 'section.id': 'user.section' })
+    .leftJoin('department', { 'department.id': 'section.department' })
     .where(function (builder) {
       if (params?.userAccount) {
         builder.where('userAccount', 'like', `%${params.userAccount}%`);
