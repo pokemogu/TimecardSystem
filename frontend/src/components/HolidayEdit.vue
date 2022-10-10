@@ -13,7 +13,7 @@ const props = defineProps<{
 const hoildayDate = ref(props.date ? props.date : '');
 hoildayDate.value = hoildayDate.value.replace(/\//g, '-');
 const holidayName = ref(props.name ? props.name : '');
-const isNewHoliday = ref(props.date ? true : false);
+const isNewHoliday = ref(props.date ? false : true);
 
 const emits = defineEmits<{
   (event: 'update:isOpened', value: boolean): void,
@@ -50,14 +50,8 @@ async function onSubmit(event: Event) {
           <div class="row">
             <label for="date" class="col-6 col-form-label">日付</label>
             <div class="col-6">
-              <input
-                type="date"
-                class="form-control p-2"
-                id="date"
-                v-model="hoildayDate"
-                required
-                :disabled="isNewHoliday"
-              />
+              <input type="date" class="form-control p-2" id="date" v-model="hoildayDate" required
+                :disabled="!isNewHoliday" />
             </div>
           </div>
           <div class="row">
@@ -68,12 +62,8 @@ async function onSubmit(event: Event) {
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
-            <button
-              type="button"
-              class="btn btn-primary"
-              v-bind:disabled="hoildayDate === '' || holidayName === ''"
-              v-on:click="onSubmit"
-            >変更</button>
+            <button type="button" class="btn btn-primary" v-bind:disabled="hoildayDate === '' || holidayName === ''"
+              v-on:click="onSubmit"><span v-if="isNewHoliday">追加</span><span v-else>変更</span></button>
           </div>
         </div>
       </div>
@@ -91,6 +81,7 @@ async function onSubmit(event: Event) {
   width: 100%;
   background-color: rgba(0, 0, 0, 0.5);
 }
+
 .vue-modal {
   position: fixed;
   z-index: 999;

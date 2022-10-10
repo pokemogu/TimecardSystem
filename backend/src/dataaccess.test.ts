@@ -724,6 +724,20 @@ describe('データアクセス', () => {
       const candidates = await access.generateAvailableUserAccount();
       //console.log(candidates);
     });
+
+    test('Stored procedure (generateAllDays)', async () => {
+      //const access = new DatabaseAccess(knex);
+      //const candidates = await access.generateAvailableUserAccount();
+      //console.log(candidates);
+      await knex.transaction(async (trx) => {
+        // 一旦、対象勤務体系の既存勤務時間帯情報は全て消す
+        await knex.raw('CALL generateAllDays(?, ?)', [new Date('2022-08-01'), new Date('2022-08-31')]).transacting(trx);
+        const alldays = await knex.select<{ date: Date }>({ date: 'date' }).from('alldays').transacting(trx);
+        console.log(alldays);
+        //await knex('wagePattern').del().where('workPattern', workPattern.id).transacting(trx);
+        //await knex('wagePattern').insert(wagePatterns).transacting(trx);
+      });
+    });
   });
 
 });

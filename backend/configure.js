@@ -218,7 +218,7 @@ else {
           if (confirm === 'delete') {
             try {
               const knex = require('knex')(knexconfig.production);
-              await knex.migrate.rollback();
+              await knex.migrate.rollback(undefined, true);
               await knex.destroy();
               console.info(colors.bgBlue.bold.white('データベースロールバックが完了しました。'));
             }

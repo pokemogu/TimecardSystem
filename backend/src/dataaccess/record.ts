@@ -156,126 +156,177 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     onTimeEnd: Date | null
   };
 
-  const results = await this.knex
-    .select<RecordResult[]>
-    ({
-      date: 'date', clockin: 'clockin', break: 'break', reenter: 'reenter', clockout: 'clockout',
-      clockinDeviceAccount: 'clockinDeviceAccount', breakDeviceAccount: 'breakDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
-      clockinDeviceName: 'clockinDeviceName', breakDeviceName: 'breakDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
-      clockinApplyId: 'clockinApply', breakApplyId: 'breakApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
-      userAccount: 'userAccount', userName: 'userName', departmentName: 'departmentName', sectionName: 'sectionName',
-      earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
-      onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd'
-    })
-    .from('recordTimeWithOnTime')
-    .where(function (builder) {
-      if (params.byUserAccount) {
-        builder.where('userAccount', 'like', `%${params.byUserAccount}%`);
-      }
-      if (params.byUserName) {
-        builder.where('userName', 'like', `%${params.byUserName}%`);
-      }
-      if (params.bySection) {
-        builder.where('sectionName', 'like', `%${params.bySection}%`);
-      }
-      if (params.byDepartment) {
-        builder.where('departmentName', 'like', `%${params.byDepartment}%`);
-      }
-      if (params.byDevice) {
-        builder.where('clockinDeviceName', 'like', `%${params.byDevice}%`);
-      }
-      if (params.from) {
-        builder.where('date', '>=', params.from);
-      }
-      if (params.to) {
-        builder.where('date', '<=', params.to);
-      }
+  return await this.knex.transaction(async (trx) => {
 
-      if (params.clockin === true) {
-        builder.whereNotNull('clockin');
-      }
-      else if (params.clockin === false) {
-        builder.whereNull('clockin');
-      }
+    // 指定された期間の全ての日とユーザー名の組み合わせレコードを格納した一時テーブルを動的に生成する
+    // Knexではコネクションプーリングを使用している為、複数ユーザーアクセス時に一時テーブル名の重複が発生する可能性があることから、
+    // ランダムなテーブル名を動的に生成する。
+    const alldaysTempTableName = 'alldays_' + Math.random().toString(36).slice(2);
+    if (params.selectAllDays === true && params.from && params.to) {
+      await this.knex.raw('CALL generateAllDaysForUsers(?, ?, ?)', [alldaysTempTableName, params.from, params.to]).transacting(trx);
+    }
 
-      if (params.break === true) {
-        builder.whereNotNull('break');
-      }
-      else if (params.break === false) {
-        builder.whereNull('break');
-      }
+    const results = await this.knex
+      .select<RecordResult[]>
+      ({
+        date: params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', clockin: 'clockin', break: 'break', reenter: 'reenter', clockout: 'clockout',
+        clockinDeviceAccount: 'clockinDeviceAccount', breakDeviceAccount: 'breakDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
+        clockinDeviceName: 'clockinDeviceName', breakDeviceName: 'breakDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
+        clockinApplyId: 'clockinApply', breakApplyId: 'breakApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
+        userAccount: params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', userName: 'userName', departmentName: 'departmentName', sectionName: 'sectionName',
+        earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
+        onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd'
+      })
+      .from('recordTimeWithOnTime')
+      .where(function (builder) {
+        if (params.byUserAccount) {
+          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', 'like', `%${params.byUserAccount}%`);
+        }
+        if (params.byUserName) {
+          builder.where('userName', 'like', `%${params.byUserName}%`);
+        }
+        if (params.bySection) {
+          builder.where('sectionName', 'like', `%${params.bySection}%`);
+        }
+        if (params.byDepartment) {
+          builder.where('departmentName', 'like', `%${params.byDepartment}%`);
+        }
+        if (params.byDevice) {
+          builder.where('clockinDeviceName', 'like', `%${params.byDevice}%`);
+        }
+        if (params.from) {
+          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', '>=', params.from);
+        }
+        if (params.to) {
+          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', '<=', params.to);
+        }
 
-      if (params.reenter === true) {
-        builder.whereNotNull('reenter');
-      }
-      else if (params.reenter === false) {
-        builder.whereNull('reenter');
-      }
+        if (params.clockin === true) {
+          builder.whereNotNull('clockin');
+        }
+        else if (params.clockin === false) {
+          builder.whereNull('clockin');
+        }
 
-      if (params.clockout === true) {
-        builder.whereNotNull('clockout');
-      }
-      else if (params.clockout === false) {
-        builder.whereNull('clockout');
-      }
-    })
-    .modify<any, RecordResult[]>(function (builder) {
-      if (params.sortBy === 'byUserAccount') {
-        builder.orderBy('userAccount', params.sortDesc ? 'desc' : 'asc')
-      }
-      else if (params.sortBy === 'byUserName') {
-        builder.orderBy('userName', params.sortDesc ? 'desc' : 'asc')
-      }
-      else if (params.sortBy === 'byDepartment') {
-        builder.orderBy('departmentName', params.sortDesc ? 'desc' : 'asc')
-      }
-      else if (params.sortBy === 'bySection') {
-        builder.orderBy('sectionName', params.sortDesc ? 'desc' : 'asc')
-      }
-      if (params.limit) {
-        builder.limit(params.limit);
-      }
-      if (params.offset) {
-        builder.offset(params.offset);
+        if (params.break === true) {
+          builder.whereNotNull('break');
+        }
+        else if (params.break === false) {
+          builder.whereNull('break');
+        }
+
+        if (params.reenter === true) {
+          builder.whereNotNull('reenter');
+        }
+        else if (params.reenter === false) {
+          builder.whereNull('reenter');
+        }
+
+        if (params.clockout === true) {
+          builder.whereNotNull('clockout');
+        }
+        else if (params.clockout === false) {
+          builder.whereNull('clockout');
+        }
+      })
+      .modify<any, RecordResult[]>(function (builder) {
+        if (params.sortBy === 'byUserAccount') {
+          builder.orderBy(params.selectAllDays === true ? `${alldaysTempTableName}.userAccount` : 'userAccount', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'byUserName') {
+          builder.orderBy('userName', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'byDepartment') {
+          builder.orderBy('departmentName', params.sortDesc ? 'desc' : 'asc')
+        }
+        else if (params.sortBy === 'bySection') {
+          builder.orderBy('sectionName', params.sortDesc ? 'desc' : 'asc')
+        }
+        if (params.limit) {
+          builder.limit(params.limit);
+        }
+        if (params.offset) {
+          builder.offset(params.offset);
+        }
+        if (params.selectAllDays === true && params.from && params.to) {
+          builder.rightJoin(alldaysTempTableName, { [`${alldaysTempTableName}.date`]: 'recordTimeWithOnTime.date', [`${alldaysTempTableName}.userAccount`]: 'recordTimeWithOnTime.userAccount' })
+        }
+      })
+      .transacting(trx);
+
+    // 動的生成したテーブルを削除する
+    if (params.selectAllDays === true && params.from && params.to) {
+      await this.knex.raw(`DROP TEMPORARY TABLE ${alldaysTempTableName}`).transacting(trx);
+    }
+
+    return results.map<apiif.RecordResponseData>(result => {
+      return {
+        userAccount: result.userAccount,
+        userName: result.userName,
+        userDepartment: result.departmentName,
+        userSection: result.sectionName,
+        date: result.date,
+        clockin: result.clockin ? {
+          timestamp: result.clockin,
+          deviceAccount: result.clockinDeviceAccount,
+          deviceName: result.clockinDeviceName,
+          applyId: result.clockinApplyId
+        } : undefined,
+        break: result.break ? {
+          timestamp: result.break,
+          deviceAccount: result.breakDeviceAccount,
+          deviceName: result.breakDeviceName,
+          applyId: result.breakApplyId
+        } : undefined,
+        reenter: result.reenter ? {
+          timestamp: result.reenter,
+          deviceAccount: result.reenterDeviceAccount,
+          deviceName: result.reenterDeviceName,
+          applyId: result.reenterApplyId
+        } : undefined,
+        clockout: result.clockout ? {
+          timestamp: result.clockout,
+          deviceAccount: result.clockoutDeviceAccount,
+          deviceName: result.clockoutDeviceName,
+          applyId: result.clockoutApplyId
+        } : undefined,
+
+        earlyOverTimeSeconds: result.earlyOverTime ? timeStringToSeconds(result.earlyOverTime) : undefined,
+        lateOverTimeSeconds: result.lateOverTime ? timeStringToSeconds(result.lateOverTime) : undefined,
+        onTimeStart: result.onTimeStart ?? undefined,
+        onTimeEnd: result.onTimeEnd ?? undefined
       }
     });
-
-  return results.map<apiif.RecordResponseData>(result => {
-    return {
-      userAccount: result.userAccount,
-      userName: result.userName,
-      userDepartment: result.departmentName,
-      userSection: result.sectionName,
-      date: result.date,
-      clockin: result.clockin ? {
-        timestamp: result.clockin,
-        deviceAccount: result.clockinDeviceAccount,
-        deviceName: result.clockinDeviceName,
-        applyId: result.clockinApplyId
-      } : undefined,
-      break: result.break ? {
-        timestamp: result.break,
-        deviceAccount: result.breakDeviceAccount,
-        deviceName: result.breakDeviceName,
-        applyId: result.breakApplyId
-      } : undefined,
-      reenter: result.reenter ? {
-        timestamp: result.reenter,
-        deviceAccount: result.reenterDeviceAccount,
-        deviceName: result.reenterDeviceName,
-        applyId: result.reenterApplyId
-      } : undefined,
-      clockout: result.clockout ? {
-        timestamp: result.clockout,
-        deviceAccount: result.clockoutDeviceAccount,
-        deviceName: result.clockoutDeviceName,
-        applyId: result.clockoutApplyId
-      } : undefined,
-
-      earlyOverTimeSeconds: result.earlyOverTime ? timeStringToSeconds(result.earlyOverTime) : undefined,
-      lateOverTimeSeconds: result.lateOverTime ? timeStringToSeconds(result.lateOverTime) : undefined,
-      onTimeStart: result.onTimeStart ?? undefined,
-      onTimeEnd: result.onTimeEnd ?? undefined
-    }
   });
+}
+
+export async function getRecordAndApplyList(this: DatabaseAccess, params: apiif.RecordRequestQuery) {
+
+  const recordAndApplyList: apiif.RecordAndApplyResponseData[] = await this.getRecords(params);
+  if (recordAndApplyList && recordAndApplyList.length > 0) {
+    const userAccounts = recordAndApplyList.map(record => record.userAccount);
+    const applyDates = recordAndApplyList.map(record => new Date(record.date));
+    const applies = await this.getApply({
+      targetedUserAccounts: userAccounts,
+      dateFrom: applyDates.reduce((prev, cur) => (prev < cur) ? prev : cur),
+      dateTo: applyDates.reduce((prev, cur) => (prev > cur) ? prev : cur),
+    })
+
+    if (applies && applies.length > 0) {
+      for (const recordAndApply of recordAndApplyList) {
+        const existingApplies = applies.filter(apply =>
+          (apply.targetUser.account === recordAndApply.userAccount) &&
+          (apply.date?.getTime() === recordAndApply.date.getTime()) &&
+          (apply.isApproved !== false) // 否認された申請は含めない
+        );
+
+        if (existingApplies.length > 0) {
+          recordAndApply.applies = [];
+          Array.prototype.push.apply(recordAndApply.applies, existingApplies);
+        }
+      }
+    }
+  }
+
+  return recordAndApplyList;
 }

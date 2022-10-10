@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useLoading } from 'vue-loading-overlay'
 import { useSessionStore } from '@/stores/session';
 import Header from '@/components/Header.vue';
 
@@ -8,12 +9,14 @@ import type * as apiif from 'shared/APIInterfaces';
 import * as backendAccess from '@/BackendAccess';
 
 import HolidayEdit from '@/components/HolidayEdit.vue';
+import BulkAddHolidays from '@/components/BulkAddHolidays.vue';
 import { putErrorToDB } from '@/ErrorDB';
 
 const router = useRouter();
 const store = useSessionStore();
 
 const isModalOpened = ref(false);
+const isBulkModalOpened = ref(false);
 const selectedHoliday = ref<apiif.HolidayResponseData>({ date: '', name: '' });
 const holidayInfos = ref<apiif.HolidayResponseData[]>([]);
 const checks = ref<Record<string, boolean>>({});
@@ -22,7 +25,10 @@ const selectedYear = ref(new Date().getFullYear());
 const limit = ref(10);
 const offset = ref(0);
 
+const $loading = useLoading();
 async function updateTable() {
+  const loader = $loading.show({ opacity: 0 });
+
   try {
     const infos = await backendAccess.getHolidays({
       from: `${selectedYear.value.toString()}-01-01T00:00:00`,
@@ -40,6 +46,8 @@ async function updateTable() {
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
   }
+
+  loader.hide();
 }
 
 onMounted(async () => {
@@ -103,9 +111,32 @@ async function onHolidayDelete() {
 async function onHolidaySubmit() {
   try {
     const access = await store.getTokenAccess();
-    await access.setHoliday(selectedHoliday.value);
+    await access.setHolidays([selectedHoliday.value]);
   }
   catch (error) {
+    console.error(error);
+    await putErrorToDB(store.userAccount, error as Error);
+    alert(error);
+  }
+  await updateTable();
+}
+
+function onBulkAddClick() {
+  isBulkModalOpened.value = true;
+}
+
+const bulkHolidayData = ref<apiif.HolidayRequestData[]>([]);
+async function onSubmitBulk() {
+  const loader = $loading.show({ opacity: 0 });
+  try {
+    const access = await store.getTokenAccess();
+    await access.setHolidays(bulkHolidayData.value);
+
+    loader.hide();
+    alert('一括追加が完了しました。');
+  }
+  catch (error) {
+    loader.hide();
     console.error(error);
     await putErrorToDB(store.userAccount, error as Error);
     alert(error);
@@ -128,18 +159,25 @@ async function onHolidaySubmit() {
       <HolidayEdit v-model:isOpened="isModalOpened" v-model:date="selectedHoliday.date"
         v-model:name="selectedHoliday.name" v-on:submit="onHolidaySubmit"></HolidayEdit>
     </Teleport>
-    <!--
-    <Teleport to="body" v-if="isModalOpened">
-      <WorkPatternEdit
-        v-model:isOpened="isModalOpened"
-        v-model:workPattern="selectedWorkPattern"
-        v-on:submit="onWorkPatternSubmit"
-      ></WorkPatternEdit>
+
+    <Teleport to="body" v-if="isBulkModalOpened">
+      <BulkAddHolidays v-model:isOpened="isBulkModalOpened" v-model:bulkHolidays="bulkHolidayData"
+        v-on:submit="onSubmitBulk">
+      </BulkAddHolidays>
     </Teleport>
-    -->
+
     <div class="row justify-content-start p-2">
-      <div class="d-grid gap-2 col-3">
-        <button type="button" class="btn btn-primary" id="new-route" v-on:click="onHolidayClick()">休日追加</button>
+      <div class="d-grid gap-2 col-2">
+        <div class="btn-group">
+          <button type="button" class="btn btn-primary" id="new-holiday" v-on:click="onHolidayClick()">休日追加</button>
+          <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+            data-bs-toggle="dropdown"></button>
+          <ul class="dropdown-menu">
+            <li>
+              <button class="dropdown-item" v-on:click="onBulkAddClick">休日一括追加</button>
+            </li>
+          </ul>
+        </div>
       </div>
       <div class="d-grid gap-2 col-4">
         <button type="button" class="btn btn-primary" id="export"

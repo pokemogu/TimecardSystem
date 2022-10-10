@@ -20,6 +20,8 @@ const TAB_NAME = {
 } as const;
 type TAB_NAME = typeof TAB_NAME[keyof typeof TAB_NAME];
 const selectedTab = ref<TAB_NAME>(TAB_NAME.LEAVEINFO);
+const selectedRoundType = ref<'ceil' | 'floor' | 'round' | undefined>(undefined);
+const selectedRoundValue = ref(15);
 
 //const recordInfos = ref<apiif.RecordResponseData[]>([]);
 const checks = ref<boolean[]>([]);
@@ -88,6 +90,8 @@ watch(nameSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(departmentSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(sectionSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(dayAmountSearch, lodash.debounce(UpdateOnSearch, 200));
+watch(selectedRoundType, UpdateOnSearch);
+watch(selectedRoundValue, lodash.debounce(UpdateOnSearch, 200));
 
 const totalWorkTime = ref<apiif.TotalWorkTimeInfoResponseData[]>([]);
 const annualLeaves = ref<apiif.TotalScheduledAnnualLeavesResponseData[]>([]);
@@ -108,6 +112,8 @@ async function updateList() {
         sectionName: sectionSearch.value !== '' ? sectionSearch.value : undefined,
         dateFrom: dateFrom.value !== '' ? (parse(dateFrom.value, 'isoDate') ?? undefined) : undefined,
         dateTo: dateTo.value !== '' ? (parse(dateTo.value, 'isoDate') ?? undefined) : undefined,
+        roundMinutes: selectedRoundType.value ? selectedRoundValue.value : undefined,
+        roundType: selectedRoundType.value,
         limit: limit.value + 1,
         offset: offset.value
       });
@@ -256,7 +262,7 @@ async function onSendLateMail() {
     </div>
 
     <div class="row justify-content-center m-2">
-      <div class="col-12">
+      <div class="col-8">
         <ul class="nav nav-tabs">
           <li class="nav-item">
             <button :class="'nav-link' + ((selectedTab === TAB_NAME.LEAVEINFO) ? ' active' : '')"
@@ -267,6 +273,19 @@ async function onSendLateMail() {
               v-on:click="onTabClick(TAB_NAME.WORKINFO)">残業・勤務時間</button>
           </li>
         </ul>
+      </div>
+      <div class="col-4">
+        <div class="input-group input-group-sm" v-if="selectedTab === TAB_NAME.WORKINFO">
+          <select class="form-select" id="round-type" v-model="selectedRoundType">
+            <option :value="undefined">丸めなし集計</option>
+            <option value="floor">切り下げ集計</option>
+            <option value="ceil">切り上げ集計</option>
+            <option value="round">四捨五入集計</option>
+          </select>
+          <input type="number" class="form-control" id="round-value" v-model="selectedRoundValue"
+            :hidden="selectedRoundType === undefined">
+          <span class="input-group-text" :hidden="selectedRoundType === undefined">分</span>
+        </div>
       </div>
     </div>
 

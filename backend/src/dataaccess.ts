@@ -109,6 +109,7 @@ export class DatabaseAccess {
   ///////////////////////////////////////////////////////////////////////
   public submitRecord = record.submitRecord;
   public getRecords = record.getRecords;
+  public getRecordAndApplyList = record.getRecordAndApplyList;
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連 dataaccess.user
@@ -167,6 +168,7 @@ export class DatabaseAccess {
   // 休日関連
   ///////////////////////////////////////////////////////////////////////
   public setHoliday = holiday.setHoliday;
+  public setHolidays = holiday.setHolidays;
   public getHolidays = holiday.getHolidays;
   public deleteHoliday = holiday.deleteHoliday;
 

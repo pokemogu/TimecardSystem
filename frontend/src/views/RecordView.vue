@@ -154,7 +154,7 @@ onMounted(async () => {
       const worker = new RecordWorker();
 
       worker.onmessage = (ev) => {
-        const message = <{ type: string, message: string }>ev.data;
+        const message: { type: string, message: string } = ev.data;
         if (message.type === 'error') {
           headerMessage.value = message.message;
           setTimeout(() => {

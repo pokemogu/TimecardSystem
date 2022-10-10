@@ -134,6 +134,7 @@ export interface RecordRequestQuery {
   bySection?: string,
   byDepartment?: string,
   byDevice?: string,
+  selectAllDays?: boolean,
   sortBy?: 'byUserAccount' | 'byUserName' | 'bySection' | 'byDepartment',
   sortDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
   from?: string,
@@ -237,6 +238,10 @@ export interface ApplyRequestBody {
   contact?: string,
   routeName: string,
   workPattern?: string
+}
+
+export interface RecordAndApplyResponseData extends RecordResponseData {
+  applies?: ApplyResponseData[],
 }
 
 export interface DepartmentResponseData {
@@ -570,6 +575,8 @@ export interface TotalWorkTimeInfoRequestQuery {
   departmentName?: string,
   dateFrom?: Date,
   dateTo?: Date,
+  roundMinutes?: number,
+  roundType?: 'floor' | 'ceil' | 'round',
   limit?: number,
   offset?: number
 }

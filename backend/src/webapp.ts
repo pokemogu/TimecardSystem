@@ -207,9 +207,14 @@ export default function registerHandlers(app: Express, knex: Knex) {
     res.send({});
   }));
 
-  app.get<{}, apiif.RecordResponseData[], {}, { json: string }>('/api/record', asyncHandler(async (req, res) => {
+  app.get<{}, apiif.RecordAndApplyResponseData[], {}, { json: string, getApplies?: boolean }>('/api/record', asyncHandler(async (req, res) => {
     const query = <apiif.RecordRequestQuery>JSON.parse(req.query.json, isoDateStringToDateJSONReviver);
-    res.send(await new DatabaseAccess(knex).getRecords(query));
+    if (req.query.getApplies) {
+      res.send(await new DatabaseAccess(knex).getRecordAndApplyList(query));
+    }
+    else {
+      res.send(await new DatabaseAccess(knex).getRecords(query));
+    }
   }));
 
   ///////////////////////////////////////////////////////////////////////
@@ -424,8 +429,8 @@ export default function registerHandlers(app: Express, knex: Knex) {
   ///////////////////////////////////////////////////////////////////////
   // 休日登録
   ///////////////////////////////////////////////////////////////////////
-  app.post<{}, {}, apiif.HolidayRequestData>('/api/holiday', asyncHandler(async (req, res) => {
-    await new DatabaseAccess(knex).setHoliday(req.body);
+  app.post<{}, {}, apiif.HolidayRequestData[]>('/api/holiday', asyncHandler(async (req, res) => {
+    await new DatabaseAccess(knex).setHolidays(req.body);
     res.send({});
   }));
 

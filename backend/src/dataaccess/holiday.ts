@@ -10,6 +10,11 @@ export async function setHoliday(this: DatabaseAccess, holiday: apiif.HolidayReq
     .onConflict(['date']).merge(['name']); // ON DUPLICATE KEY UPDATE
 }
 
+export async function setHolidays(this: DatabaseAccess, holidays: apiif.HolidayRequestData[]) {
+  await this.knex('holiday').insert(holidays.map(holiday => ({ date: new Date(holiday.date), name: holiday.name })))
+    .onConflict(['date']).merge(['name']); // ON DUPLICATE KEY UPDATE
+}
+
 export async function getHolidays(this: DatabaseAccess, params: apiif.HolidayRequestQuery) {
   const results = await this.knex.select<{ date: Date, name: string }[]>({ date: 'date' }, { name: 'name' })
     .from('holiday')

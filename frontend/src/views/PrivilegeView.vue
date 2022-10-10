@@ -87,15 +87,15 @@ function onPrivilegeClick(privilegeId?: number) {
   else {
     selectedPrivilege.value = {
       name: '',
-      applyPrivileges: applyTypes.value.map(applyType => {
-        return <apiif.ApplyPrivilegeResponseData>{
-          applyTypeId: applyType.id,
-          applyTypeName: applyType.name,
-          applyTypeDescription: applyType.description,
-          isSystemType: applyType.isSystemType,
-          permitted: false
-        }
+      applyPrivileges: applyTypes.value.map(applyType =>
+      ({
+        applyTypeId: applyType.id,
+        applyTypeName: applyType.name,
+        applyTypeDescription: applyType.description,
+        isSystemType: applyType.isSystemType,
+        permitted: false
       })
+      )
     };
   }
   isModalOpened.value = true;

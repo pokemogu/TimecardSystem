@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import FileSaver from 'file-saver';
 import { stringify, parse } from 'csv/browser/esm/sync';
+import { format } from 'fecha';
 
 import * as backendAccess from '@/BackendAccess';
 import { useSessionStore } from '@/stores/session';
@@ -11,13 +12,13 @@ const store = useSessionStore();
 
 const props = defineProps<{
   isOpened: boolean,
-  bulkUsers: apiif.UserInfoRequestDataWithPassword[]
+  bulkHolidays: apiif.HolidayRequestData[]
 }>();
 
 const emits = defineEmits<{
   (event: 'submit'): void,
   (event: 'update:isOpened', value: boolean): void,
-  (event: 'update:bulkUsers', value: apiif.UserInfoRequestDataWithPassword[]): void,
+  (event: 'update:bulkHolidays', value: apiif.HolidayRequestData[]): void,
 }>();
 
 function onClose(event: Event) {
@@ -29,16 +30,14 @@ onMounted(async () => {
 
 function onSaveCsv() {
   const csvSample = stringify([{
-    'ID': 'USR00000', '名前': '山田 太郎', 'パスワード': 'P@ssw0rd', 'フリガナ': 'ヤマダ タロウ',
-    'メール': 'usr00000@sample.co.jp', '権限': 'XX社員', '部門': 'XXX事業所', '部署': 'XXX部',
-    '勤務体系1': 'XXX事業所社員', '勤務体系2': '', '勤務体系3': ''
+    '日付': format(new Date(), 'isoDate'), '休日名': '〇〇の日'
   }], { bom: true, header: true });
   const blob = new Blob([csvSample], { type: 'text/csv;charset=utf-8' });
-  FileSaver.saveAs(blob, 'bulk_add_users.csv');
+  FileSaver.saveAs(blob, 'bulk_add_holidays.csv');
 }
 
 const errorMessage = ref('');
-const bulkUserData = ref<apiif.UserInfoRequestDataWithPassword[]>([]);
+const bulkHolidayData = ref<apiif.HolidayRequestData[]>([]);
 
 async function loadBlobToString(blob: Blob) {
   return await new Promise<string>(function (resolve, reject) {
@@ -61,17 +60,12 @@ async function loadBlobToString(blob: Blob) {
   });
 }
 
-function checkData(data: apiif.UserInfoRequestDataWithPassword[]) {
+function checkData(data: apiif.HolidayRequestData[]) {
   for (const info of data) {
-    if (!info.account.match(/^[\w\-\.]+$/)) {
-      errorMessage.value = `IDに半角英数字以外が含まれています: ${info.account}`;
+    const date = new Date(info.date);
+    if (isNaN(date.getTime())) {
+      errorMessage.value = `不正な日付形式です: ${info.date}`;
       return false;
-    }
-    if (info.phonetic) {
-      if (!info.phonetic.match(/^[ァ-ヶ０-９0-9ー　 ]+$/)) {
-        errorMessage.value = `フリガナに全角カナ以外が含まれています: ${info.phonetic}`;
-        return false;
-      }
     }
   }
 
@@ -85,19 +79,17 @@ async function onChangeCsv(event: Event) {
 
     try {
       const result = await loadBlobToString(target.files[0]);
-      const csvResult: apiif.UserInfoRequestDataWithPassword[] = parse(result, {
+      const csvResult: apiif.HolidayRequestData[] = parse(result, {
         columns: function (header: string[]) {
           const headerMap: Record<string, string> = {
-            'ID': 'account', '名前': 'name', 'パスワード': 'password', 'フリガナ': 'phonetic',
-            'メール': 'email', '権限': 'privilegeName', '部門': 'department', '部署': 'section',
-            '勤務体系1': 'defaultWorkPatternName', '勤務体系2': 'optional1WorkPatternName', '勤務体系3': 'optional2WorkPatternName'
+            '日付': 'date', '休日名': 'name'
           };
           return header.map(column => headerMap[column]);
         }
       });
 
       if (checkData(csvResult)) {
-        bulkUserData.value.push(...csvResult);
+        bulkHolidayData.value.push(...csvResult);
       }
     }
     catch (error) {
@@ -109,30 +101,29 @@ async function onChangeCsv(event: Event) {
 }
 
 function onSubmit() {
-  emits('update:bulkUsers', bulkUserData.value);
+  emits('update:bulkHolidays', bulkHolidayData.value);
   emits('update:isOpened', false);
   emits('submit');
 }
 
 </script>
-
-<template>
+  
+  <template>
   <div class="overlay">
     <div class="modal-dialog modal-lg vue-modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">従業員ID一括追加</h5>
+          <h5 class="modal-title">休日一括追加</h5>
           <button type="button" class="btn-close" v-on:click="onClose"></button>
         </div>
         <div class="modal-body">
-          <p>1. 一括追加する従業員情報を記載するCSVファイル(.csv)をダウンロードしてください。</p>
+          <p>1. 一括追加する休日情報を記載するCSVファイル(.csv)をダウンロードしてください。</p>
           <button type="button" class="btn btn-primary" v-on:click="onSaveCsv">ダウンロード</button>
           <ul>
             <li>CSVファイルの1行目の見出しは修正や削除はしないでください。</li>
-            <li>CSVファイルの2行目以降に追加したい従業員情報を1行ずつ追加してください。</li>
-            <li>既に作成済のIDを記載するとその従業員情報が上書きされます。</li>
-            <li>設定されていない権限や勤務体系を記載するとエラーになります。</li>
-            <li>権限や勤務体系は完全に一致しないとエラーになります。半角文字と全角文字の間違いやスペースの有無に注意してください。</li>
+            <li>CSVファイルの2行目以降に追加したい休日情報を1行ずつ追加してください。</li>
+            <li>既に作成済の日付の休日を記載するとその休日情報が上書きされます。</li>
+            <li>日付は {{ format(new Date(), 'isoDate') }} の形式で記載する必要があります。</li>
           </ul>
           <p>2. 一括追加する従業員情報を記載して保存したCSVファイル(.csv)を選択してください。</p>
           <input class="form-control" type="file" accept=".csv" id="formFile" v-on:change="onChangeCsv">
@@ -142,31 +133,31 @@ function onSubmit() {
           <div v-if="errorMessage !== ''" class="alert alert-danger" role="alert">{{ errorMessage }}</div>
           <button type="button" class="btn btn-secondary" v-on:click="onClose">取消</button>
           <button type="button" class="btn btn-primary" v-on:click="onSubmit"
-            :disabled="(bulkUserData.length < 1) || errorMessage !== ''">追加</button>
+            :disabled="(bulkHolidayData.length < 1) || errorMessage !== ''">追加</button>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.overlay {
-  position: absolute;
-  z-index: 998;
-  top: 0;
-  height: 100%;
-  left: 0;
-  width: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.vue-modal {
-  position: fixed;
-  z-index: 999;
-  margin: 0 auto;
-  top: 10%;
-  bottom: 10%;
-  left: 20%;
-  right: 20%;
-}
-</style>
+  
+  <style scoped>
+  .overlay {
+    position: absolute;
+    z-index: 998;
+    top: 0;
+    height: 100%;
+    left: 0;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  
+  .vue-modal {
+    position: fixed;
+    z-index: 999;
+    margin: 0 auto;
+    top: 10%;
+    bottom: 10%;
+    left: 20%;
+    right: 20%;
+  }
+  </style>

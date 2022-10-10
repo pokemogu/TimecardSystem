@@ -198,6 +198,14 @@ export class TokenAccess {
     }
   }
 
+  public async getRecordAndApplyList(params: apiif.RecordRequestQuery) {
+    try {
+      return (await this.axios.get<apiif.RecordAndApplyResponseData[]>('/api/record', { params: { json: JSON.stringify(params), getApplies: true } })).data;
+    } catch (error) {
+      handleAxiosError(error);
+    }
+  }
+
   public async submitApply(applyType: string, params: apiif.ApplyRequestBody) {
     try {
       const data = (await this.axios.post<{ message: string, id: number }>(`/api/apply/${applyType}`, params)).data;
@@ -526,9 +534,9 @@ export class TokenAccess {
   ///////////////////////////////////////////////////////////////////////
   // 休日情報関連
   ///////////////////////////////////////////////////////////////////////
-  public async setHoliday(holiday: apiif.HolidayRequestData) {
+  public async setHolidays(holidays: apiif.HolidayRequestData[]) {
     try {
-      await this.axios.post('/api/holiday', holiday);
+      await this.axios.post('/api/holiday', holidays);
     } catch (error) {
       handleAxiosError(error);
     }
