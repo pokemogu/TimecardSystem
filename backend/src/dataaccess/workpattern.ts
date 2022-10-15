@@ -71,7 +71,8 @@ export async function addWorkPattern(this: DatabaseAccess, workPattern: apiif.Wo
   await this.knex('workPattern').insert({
     name: workPattern.name,
     onTimeStart: workPattern.onTimeStart,
-    onTimeEnd: workPattern.onTimeEnd
+    onTimeEnd: workPattern.onTimeEnd,
+    breakPeriodMinutes: workPattern.breakPeriodMinutes
   });
 
   const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first())?.id;
@@ -101,10 +102,9 @@ export async function addWorkPattern(this: DatabaseAccess, workPattern: apiif.Wo
 
 export async function getWorkPatterns(this: DatabaseAccess, params?: { limit: number, offset: number }) {
   return await this.knex
-    .select<apiif.WorkPatternResponseData[]>
-    (
-      { id: 'workPattern.id' }, { name: 'workPattern.name' }, { onTimeStart: 'onTimeStart' }, { onTimeEnd: 'onTimeEnd' }
-    )
+    .select<apiif.WorkPatternResponseData[]>({
+      id: 'workPattern.id', name: 'workPattern.name', onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd', breakPeriodMinutes: 'breakPeriodMinutes'
+    })
     .from('workPattern')
     .modify(function (builder) {
       if (params?.limit) {
@@ -119,10 +119,10 @@ export async function getWorkPatterns(this: DatabaseAccess, params?: { limit: nu
 export async function getWorkPattern(this: DatabaseAccess, idOrName: number | string, params?: { limit: number, offset: number }) {
   const workPatternResult = await this.knex
     .select<{
-      id: number, name: string, onTimeStart: string, onTimeEnd: string,
+      id: number, name: string, onTimeStart: string, onTimeEnd: string, breakPeriodMinutes: number
     }[]>
     (
-      { id: 'id' }, { name: 'name' }, { onTimeStart: 'onTimeStart' }, { onTimeEnd: 'onTimeEnd' }
+      { id: 'id', name: 'name', onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd', breakPeriodMinutes: 'breakPeriodMinutes' }
     )
     .from('workPattern')
     .where(function (builder) {
@@ -160,6 +160,7 @@ export async function getWorkPattern(this: DatabaseAccess, idOrName: number | st
     name: workPatternResult.name,
     onTimeStart: workPatternResult.onTimeStart,
     onTimeEnd: workPatternResult.onTimeEnd,
+    breakPeriodMinutes: workPatternResult.breakPeriodMinutes,
     wagePatterns: wagePatternResult
   };
 }
@@ -171,7 +172,8 @@ export async function updateWorkPattern(this: DatabaseAccess, workPattern: apiif
     .update({
       name: workPattern.name,
       onTimeStart: workPattern.onTimeStart,
-      onTimeEnd: workPattern.onTimeEnd
+      onTimeEnd: workPattern.onTimeEnd,
+      breakPeriodMinutes: workPattern.breakPeriodMinutes
     });
 
   const workPatternId = (await this.knex.select<{ id: number }[]>({ id: 'id' }).from('workPattern').where('name', workPattern.name).first())?.id;

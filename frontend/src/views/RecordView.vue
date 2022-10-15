@@ -43,7 +43,7 @@ const userName = ref('');
 const status = ref('');
 
 const clockinTime = ref('');
-const breakTime = ref('');
+const stepoutTime = ref('');
 const reenterTime = ref('');
 const clockoutTime = ref('');
 const onTime = ref('');
@@ -61,7 +61,7 @@ async function initStatus() {
   // QR打刻画面の場合
   if (!store.isLoggedIn()) {
     clockinTime.value = '';
-    breakTime.value = '';
+    stepoutTime.value = '';
     reenterTime.value = '';
     clockoutTime.value = '';
     onTime.value = '';
@@ -85,8 +85,8 @@ async function initStatus() {
         if (records[0].clockin) {
           clockinTime.value = dateToTimeStr(new Date(records[0].clockin.timestamp));
         }
-        if (records[0].break) {
-          breakTime.value = dateToTimeStr(new Date(records[0].break.timestamp));
+        if (records[0].stepout) {
+          stepoutTime.value = dateToTimeStr(new Date(records[0].stepout.timestamp));
         }
         if (records[0].reenter) {
           reenterTime.value = dateToTimeStr(new Date(records[0].reenter.timestamp));
@@ -270,8 +270,8 @@ async function onDecode(decodedQrcode: string) {
               case 'clockin':
                 clockinTime.value = dateToTimeStr(recordInfo.timestamp);
                 break;
-              case 'break':
-                breakTime.value = dateToTimeStr(recordInfo.timestamp);
+              case 'stepout':
+                stepoutTime.value = dateToTimeStr(recordInfo.timestamp);
                 break;
               case 'reenter':
                 reenterTime.value = dateToTimeStr(recordInfo.timestamp);
@@ -286,9 +286,9 @@ async function onDecode(decodedQrcode: string) {
 
         // 打鍵状況に合わせてボタンを自動的に変更する
         if (clockinTime.value !== '') {
-          recordType.value = 'break';
+          recordType.value = 'stepout';
         }
-        if (breakTime.value !== '') {
+        if (stepoutTime.value !== '') {
           recordType.value = 'reenter';
         }
         if (reenterTime.value !== '') {
@@ -337,24 +337,25 @@ function onRecordCancel() {
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">出勤記録</div>
           <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ clockinTime !== '' ? clockinTime :
-              '--:--'
+          '--:--'
           }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">外出記録</div>
-          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ breakTime !== '' ? breakTime : '--:--'
+          <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ stepoutTime !== '' ? stepoutTime :
+          '--:--'
           }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">再入記録</div>
           <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ reenterTime !== '' ? reenterTime :
-              '--:--'
+          '--:--'
           }}</p>
         </div>
         <div class="row overflow-auto p-2">
           <div class="col-4 h5">退勤記録</div>
           <p class="col p-2 h5 bg-white shadow-sm align-middle font-monospace">{{ clockoutTime !== '' ? clockoutTime :
-              '--:--'
+          '--:--'
           }}</p>
         </div>
         <div class="row overflow-auto p-2">
@@ -394,7 +395,7 @@ function onRecordCancel() {
             v-bind:disabled="status !== 'waitForRecord'">
             <span v-if="recordType === 'clockin'">出勤</span>
             <span v-else-if="recordType === 'clockout'">退勤</span>
-            <span v-else-if="recordType === 'break'">外出</span>
+            <span v-else-if="recordType === 'stepout'">外出</span>
             <span v-else-if="recordType === 'reenter'">再入</span>
             打刻
           </button>
@@ -420,9 +421,9 @@ function onRecordCancel() {
         <label class="btn btn-outline-warning btn-lg" for="clockout">退勤</label>
       </div>
       <div class="d-grid gap-2 col-2">
-        <input type="radio" class="btn-check" name="record-type" id="break" @click="recordType = 'break'"
-          autocomplete="off" v-bind:checked="recordType === 'break'" />
-        <label class="btn btn-outline-warning btn-lg" for="break">外出</label>
+        <input type="radio" class="btn-check" name="record-type" id="stepout" @click="recordType = 'stepout'"
+          autocomplete="off" v-bind:checked="recordType === 'stepout'" />
+        <label class="btn btn-outline-warning btn-lg" for="stepout">外出</label>
       </div>
       <div class="d-grid gap-2 col-2">
         <input type="radio" class="btn-check" name="record-type" id="reenter" @click="recordType = 'reenter'"

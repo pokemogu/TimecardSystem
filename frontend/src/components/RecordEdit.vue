@@ -12,7 +12,7 @@ const props = defineProps<{
   account?: string,
   date?: Date,
   clockin?: Date,
-  break?: Date,
+  stepout?: Date,
   reenter?: Date,
   clockout?: Date,
   limitDepartmentName?: string,
@@ -27,7 +27,7 @@ const recordDate = ref(props.date ? format(props.date, 'isoDate') : '');
 const isNewRecord = ref(props.date ? false : true);
 
 const recordClockin = ref(props.clockin ? format(props.clockin, 'HH:mm:ss') : '');
-const recordBreak = ref(props.break ? format(props.break, 'HH:mm:ss') : '');
+const recordStepout = ref(props.stepout ? format(props.stepout, 'HH:mm:ss') : '');
 const recordReenter = ref(props.reenter ? format(props.reenter, 'HH:mm:ss') : '');
 const recordClockout = ref(props.clockout ? format(props.clockout, 'HH:mm:ss') : '');
 
@@ -38,7 +38,7 @@ const emits = defineEmits<{
   (event: 'update:account', value: string): void,
   (event: 'update:date', value: Date): void,
   (event: 'update:clockin', value: Date): void,
-  (event: 'update:break', value: Date): void,
+  (event: 'update:stepout', value: Date): void,
   (event: 'update:reenter', value: Date): void,
   (event: 'update:clockout', value: Date): void,
   (event: 'submit'): void
@@ -62,10 +62,10 @@ async function onSubmit(event: Event) {
     emits('update:clockin', date);
   }
 
-  if (recordBreak.value !== '') {
-    date = parse(recordDate.value + ' ' + recordBreak.value, 'YYYY-MM-DD HH:mm:ss');
+  if (recordStepout.value !== '') {
+    date = parse(recordDate.value + ' ' + recordStepout.value, 'YYYY-MM-DD HH:mm:ss');
     if (date) {
-      emits('update:break', date);
+      emits('update:stepout', date);
     }
   }
   if (recordReenter.value !== '') {
@@ -130,14 +130,14 @@ async function onSubmit(event: Event) {
           <div class="row">
             <div class="col">
               <div class="input-group mb-3">
-                <span class="input-group-text" id="label-break">外出</span>
+                <span class="input-group-text" id="label-stepout">外出</span>
                 <!--
                 <div class="input-group-text">
-                  <input class="form-check-input mt-0" type="checkbox" id="nextday-break">
-                  <label class="form-check-label" for="nextday-break">翌日</label>
+                  <input class="form-check-input mt-0" type="checkbox" id="nextday-stepout">
+                  <label class="form-check-label" for="nextday-stepout">翌日</label>
                 </div>
                 -->
-                <input type="time" step="1" class="form-control p-2" id="breakTime" v-model="recordBreak" />
+                <input type="time" step="1" class="form-control p-2" id="stepoutTime" v-model="recordStepout" />
               </div>
             </div>
           </div>

@@ -83,7 +83,7 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
   // データベーステーブルで更新するフィールド名を指定する。対象となるフィールド名を文字列でmergeColumns配列に格納する。
   // これをknexのmerge関数に渡すことで、ON DUPLICATE KEY UPDATEでの更新フィールドを指定することができる。
   // 
-  // 前提としてテーブルrecordにはclockin/break/reeenter/clockoutという打刻種類のフィールド名があり
+  // 前提としてテーブルrecordにはclockin/stepout/reeenter/clockoutという打刻種類のフィールド名があり
   // これらの打刻種類のフィールド名が変数recordTypeに格納されている。
   //
   // それぞれの打刻端末と打刻申請のフィールド名は↑のフィールド名にDeviceあるいはApplyを付けたものである。
@@ -104,9 +104,9 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
     clockinDevice: recordType === 'clockin' ? deviceId : undefined,
     clockinApply: recordType === 'clockin' ? params.applyId : undefined,
 
-    break: recordType === 'break' ? params.timestamp : undefined,
-    breakDevice: recordType === 'break' ? deviceId : undefined,
-    breakApply: recordType === 'break' ? params.applyId : undefined,
+    stepout: recordType === 'stepout' ? params.timestamp : undefined,
+    stepoutDevice: recordType === 'stepout' ? deviceId : undefined,
+    stepoutApply: recordType === 'stepout' ? params.applyId : undefined,
 
     reenter: recordType === 'reenter' ? params.timestamp : undefined,
     reenterDevice: recordType === 'reenter' ? deviceId : undefined,
@@ -134,10 +134,10 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     clockinDeviceName?: string,
     clockinApplyId?: number,
 
-    break?: Date,
-    breakDeviceAccount?: string,
-    breakDeviceName?: string,
-    breakApplyId?: number,
+    stepout?: Date,
+    stepoutDeviceAccount?: string,
+    stepoutDeviceName?: string,
+    stepoutApplyId?: number,
 
     reenter?: Date,
     reenterDeviceAccount?: string,
@@ -153,7 +153,9 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     lateOverTime: string | null,
 
     onTimeStart: Date | null,
-    onTimeEnd: Date | null
+    onTimeEnd: Date | null,
+
+    applies?: string | null
   };
 
   return await this.knex.transaction(async (trx) => {
@@ -167,15 +169,16 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
     }
 
     const results = await this.knex
-      .select<RecordResult[]>
+      .select
       ({
-        date: params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', clockin: 'clockin', break: 'break', reenter: 'reenter', clockout: 'clockout',
-        clockinDeviceAccount: 'clockinDeviceAccount', breakDeviceAccount: 'breakDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
-        clockinDeviceName: 'clockinDeviceName', breakDeviceName: 'breakDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
-        clockinApplyId: 'clockinApply', breakApplyId: 'breakApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
+        date: params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'recordTimeWithOnTime.date', clockin: 'clockin', stepout: 'stepout', reenter: 'reenter', clockout: 'clockout',
+        clockinDeviceAccount: 'clockinDeviceAccount', stepoutDeviceAccount: 'stepoutDeviceAccount', reenterDeviceAccount: 'reenterDeviceAccount', clockoutDeviceAccount: 'clockoutDeviceAccount',
+        clockinDeviceName: 'clockinDeviceName', stepoutDeviceName: 'stepoutDeviceName', reenterDeviceName: 'reenterDeviceName', clockoutDeviceName: 'clockoutDeviceName',
+        clockinApplyId: 'clockinApply', stepoutApplyId: 'stepoutApply', reenterApplyId: 'reenterApply', clockoutApplyId: 'clockoutApply',
         userAccount: 'user.account', userName: 'user.name', departmentName: 'department.name', sectionName: 'section.name',
         earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
-        onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd'
+        onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd',
+        //applies: this.knex.raw('JSON_ARRAYAGG(apply.id)')
       })
       .from('recordTimeWithOnTime')
       .modify<any, RecordResult[]>(function (builder) {
@@ -187,6 +190,7 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       .leftJoin('section', { 'section.id': 'user.section' })
       .leftJoin('department', { 'department.id': 'section.department' })
       .leftJoin('schedule', { 'schedule.user': 'user.id' })
+      //.leftJoin('apply', { 'apply.user': 'user.id', 'apply.date': params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date' })
       .where(function (builder) {
         if (params.byUserAccount) {
           builder.where('user.account', 'like', `%${params.byUserAccount}%`);
@@ -204,10 +208,10 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
           builder.where('clockinDeviceName', 'like', `%${params.byDevice}%`);
         }
         if (params.from) {
-          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', '>=', params.from);
+          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'recordTimeWithOnTime.date', '>=', params.from);
         }
         if (params.to) {
-          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date', '<=', params.to);
+          builder.where(params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'recordTimeWithOnTime.date', '<=', params.to);
         }
 
         if (params.clockin === true) {
@@ -217,11 +221,11 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
           builder.whereNull('clockin');
         }
 
-        if (params.break === true) {
-          builder.whereNotNull('break');
+        if (params.stepout === true) {
+          builder.whereNotNull('stepout');
         }
-        else if (params.break === false) {
-          builder.whereNull('break');
+        else if (params.stepout === false) {
+          builder.whereNull('stepout');
         }
 
         if (params.reenter === true) {
@@ -258,6 +262,17 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
           builder.offset(params.offset);
         }
       })
+      /*
+      .groupBy([
+        params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date',
+        'clockin', 'stepout', 'reenter', 'clockout',
+        'clockinDeviceAccount', 'stepoutDeviceAccount', 'reenterDeviceAccount', 'clockoutDeviceAccount',
+        'clockinDeviceName', 'stepoutDeviceName', 'reenterDeviceName', 'clockoutDeviceName',
+        'clockinApply', 'stepoutApply', 'reenterApply', 'clockoutApply',
+        'user.account', 'user.name', 'department.name', 'section.name',
+        'earlyOverTime', 'lateOverTime', 'onTimeStart', 'onTimeEnd'
+      ])
+      */
       .transacting(trx);
 
     // 動的生成したテーブルを削除する
@@ -278,11 +293,11 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
           deviceName: result.clockinDeviceName,
           applyId: result.clockinApplyId
         } : undefined,
-        break: result.break ? {
-          timestamp: result.break,
-          deviceAccount: result.breakDeviceAccount,
-          deviceName: result.breakDeviceName,
-          applyId: result.breakApplyId
+        stepout: result.stepout ? {
+          timestamp: result.stepout,
+          deviceAccount: result.stepoutDeviceAccount,
+          deviceName: result.stepoutDeviceName,
+          applyId: result.stepoutApplyId
         } : undefined,
         reenter: result.reenter ? {
           timestamp: result.reenter,
@@ -307,7 +322,7 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
 }
 
 export async function getRecordAndApplyList(this: DatabaseAccess, params: apiif.RecordRequestQuery) {
-
+  console.time('getRecordAndApplyList')
   const recordAndApplyList: apiif.RecordAndApplyResponseData[] = await this.getRecords(params);
   if (recordAndApplyList && recordAndApplyList.length > 0) {
     //const userAccounts = recordAndApplyList.map(record => record.userAccount);
@@ -335,6 +350,6 @@ export async function getRecordAndApplyList(this: DatabaseAccess, params: apiif.
       }
     }
   }
-
+  console.timeEnd('getRecordAndApplyList')
   return recordAndApplyList;
 }

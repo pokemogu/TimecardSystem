@@ -141,7 +141,7 @@ export interface RecordRequestQuery {
   to?: string,
   sortDateDesc?: boolean, // true:昇順、false:降順、undefined:ソートなし
   clockin?: boolean,
-  break?: boolean,
+  stepout?: boolean,
   reenter?: boolean,
   clockout?: boolean,
   limit?: number,
@@ -162,7 +162,7 @@ export interface RecordResponseData {
   userSection: string,
   date: Date,
   clockin?: RecordInfo,
-  break?: RecordInfo,
+  stepout?: RecordInfo,
   reenter?: RecordInfo,
   clockout?: RecordInfo,
   earlyOverTimeSeconds?: number,
@@ -230,6 +230,7 @@ export interface ApplyRequestBody {
   dateTimeFrom: Date,
   dateTimeTo?: Date,
   dateRelated?: Date,
+  breakPeriodMinutes?: number,
   options?: {
     name: string,
     value: string
@@ -363,6 +364,7 @@ export interface WorkPatternRequestData {
   name: string,
   onTimeStart: string,
   onTimeEnd: string,
+  breakPeriodMinutes: number,
   wagePatterns?: {
     id?: number,
     name: string,
@@ -515,7 +517,8 @@ export interface SystemConfigResponseData {
   title?: string,
   description?: string,
   isMultiLine?: boolean,
-  isPassword?: boolean
+  isPassword?: boolean,
+  isNumeric?: boolean
 }
 
 export type SystemConfigRequestData = SystemConfigResponseData;

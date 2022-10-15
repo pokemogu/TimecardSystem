@@ -19,7 +19,7 @@ const applyTypeAndName: { [name: string]: string } = {
   'overtime': '残業',
   'lateness': '遅刻',
   'leave-early': '早退',
-  'break': '外出',
+  'stepout': '外出',
   'holiday-work': '休日出勤',
 };
 
@@ -35,6 +35,7 @@ else {
 const dateFrom = ref('');
 const timeFrom = ref('');
 const timeTo = ref('');
+const breakPeriodMinutes = ref<number>();
 const reason = ref('');
 const apply = ref<apiif.ApplyResponseData>();
 const isMounted = ref(false);
@@ -42,13 +43,19 @@ const isMounted = ref(false);
 onMounted(async () => {
 
   try {
+    const access = await store.getTokenAccess();
     if (route.params.id) {
       const applyId = parseInt(route.params.id as string);
-      const access = await store.getTokenAccess();
       apply.value = await access.getApply(applyId);
     }
     else {
-      console.log(route.params);
+      if (applyType.value === 'overtime') {
+        breakPeriodMinutes.value = 60;
+        //const defaultBreakPeriodMinutesStr = await access.getSystemConfigValue('defaultBreakPeriodMinutes');
+        //if (defaultBreakPeriodMinutesStr) {
+        //  breakPeriodMinutes.value = parseInt(defaultBreakPeriodMinutesStr);
+        //}
+      }
       if (route.params.date) {
         dateFrom.value = route.params.date as string;
       }
@@ -122,6 +129,7 @@ async function onRouteSubmit() {
       dateTimeFrom: new Date(`${dateFrom.value}T${timeFrom.value}:00`),
       dateTimeTo: new Date(`${dateFrom.value}T${timeTo.value}:00`),
       timestamp: new Date(),
+      breakPeriodMinutes: breakPeriodMinutes.value,
       reason: reason.value,
       routeName: routeName.value
     });
@@ -157,8 +165,9 @@ async function onRouteSubmit() {
         <div class="row">
           <ApplyForm v-if="isMounted" v-bind:applyName="applyType ? applyTypeAndName[applyType] : ''"
             v-bind:applyType="applyType || ''" v-model:dateFrom="dateFrom" v-model:timeFrom="timeFrom"
-            v-model:timeTo="timeTo" v-model:reason="reason" :apply="apply" v-on:submit="onFormSubmit"
-            v-on:submitReject="onFormSubmitReject"></ApplyForm>
+            v-model:timeTo="timeTo" v-model:breakPeriodMinutes="breakPeriodMinutes" v-model:reason="reason"
+            :apply="apply" v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject">
+          </ApplyForm>
         </div>
         <!--
         <div v-if="applyType === 'holiday-work'" class="row">

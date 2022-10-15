@@ -68,6 +68,7 @@ export async function submitApply(this: DatabaseAccess, userInfo: UserInfo, appl
       dateTimeFrom: apply.dateTimeFrom,
       dateTimeTo: apply.dateTimeTo,
       dateRelated: apply.dateRelated,
+      breakPeriodMinutes: apply.breakPeriodMinutes,
       reason: apply.reason,
       contact: apply.contact,
       route: routeInfo.id,
@@ -157,7 +158,7 @@ export async function getApply(this: DatabaseAccess, params?: apiif.ApplyRequest
     approvedLevel2UserId: number, approvedLevel2UserAccount: string, approvedLevel2UserName: string, approvedLevel2Timestamp: Date,
     approvedLevel3UserId: number, approvedLevel3UserAccount: string, approvedLevel3UserName: string, approvedLevel3Timestamp: Date,
     approvedDecisionUserId: number, approvedDecisionUserAccount: string, approvedDecisionUserName: string, approvedDecisionTimestamp: Date,
-    date: Date, dateTimeFrom: Date, dateTimeTo: Date, dateRelated: Date,
+    date: Date, dateTimeFrom: Date, dateTimeTo: Date, dateRelated: Date, breakPeriodMinutes: number,
     reason: string, contact: string, routeName: string, isApproved: boolean,
     workPattern: string
   };
@@ -172,7 +173,7 @@ export async function getApply(this: DatabaseAccess, params?: apiif.ApplyRequest
     approvedDecisionUserId: 'u5.id', approvedDecisionUserAccount: 'u5.account', approvedDecisionUserName: 'u5.name', approvedDecisionTimestamp: 'apply.approvedDecisionUserTimestamp',
     currentApprovingMainUserId: 'u6.id', currentApprovingMainUserAccount: 'u6.account', currentApprovingMainUserName: 'u6.name',
     currentApprovingSubUserId: 'u7.id', currentApprovingSubUserAccount: 'u7.account', currentApprovingSubUserName: 'u7.name',
-    date: 'apply.date', dateTimeFrom: 'apply.dateTimeFrom', dateTimeTo: 'apply.dateTimeTo', dateRelated: 'apply.dateRelated',
+    date: 'apply.date', dateTimeFrom: 'apply.dateTimeFrom', dateTimeTo: 'apply.dateTimeTo', dateRelated: 'apply.dateRelated', breakPeriodMinutes: 'apply.breakPeriodMinutes',
     reason: 'apply.reason', contact: 'apply.contact', routeName: 'approvalRoute.name', isApproved: 'apply.isApproved',
     workPattern: 'workPattern.name'
   })
@@ -335,6 +336,7 @@ export async function getApply(this: DatabaseAccess, params?: apiif.ApplyRequest
       dateTimeFrom: result.dateTimeFrom,
       dateTimeTo: result.dateTimeTo ? result.dateTimeTo : undefined,
       dateRelated: result.dateRelated ? result.dateRelated : undefined,
+      breakPeriodMinutes: result.breakPeriodMinutes ?? undefined,
       reason: result.reason ?? undefined,
       contact: result.contact ?? undefined,
       routeName: result.routeName ?? undefined,
@@ -395,8 +397,8 @@ export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyI
 }
 
 export async function addSchedules(this: DatabaseAccess, params: {
-  userInfo: UserInfo, applyId: number, workPatternId?: number, dateFrom: Date, dateTo?: Date,
-  leaveRate?: number, isPaid?: boolean
+  userInfo: UserInfo, applyId: number, workPatternId?: number | null, dateFrom: Date, dateTo?: Date,
+  leaveRate?: number, isPaid?: boolean, breakPeriodMinutes?: number
 }) {
 
   const setTimeToZero = (date: Date) => {
@@ -409,9 +411,9 @@ export async function addSchedules(this: DatabaseAccess, params: {
   const dayFrom = new Date(params.dateFrom);
   setTimeToZero(dayFrom);
   const schedules = [{
-    date: dayFrom, apply: params.applyId, isWorking: params.workPatternId !== undefined,
-    dayAmount: params.leaveRate ? Math.abs(params.leaveRate) : 1.0,
-    isPaid: params.isPaid, user: params.userInfo.id
+    date: dayFrom, apply: params.applyId, isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
+    dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
+    isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
   }];
 
   // 終日休暇では無い場合は、その日の勤務体系を再設定する必要があるので、取得する
@@ -426,7 +428,7 @@ export async function addSchedules(this: DatabaseAccess, params: {
     // 休日出勤等で勤務体系が指定されている場合はその勤務体系にて設定する。
     // 勤務体系が指定されておらず、かつ終日休暇で無い場合はその日の現状の勤務体系とする。
     // 勤務体系が指定されておらず、かつ終日休暇の場合は勤務体系を無し(NULL)とする
-    workPattern: params.workPatternId ?? (params.leaveRate ? dayFromWorkPattern?.workPattern?.id : null),
+    workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayFromWorkPattern?.workPattern?.id : null),
     date: dayFrom,
     leaveRate: params.leaveRate ?? null
   }];
@@ -445,15 +447,15 @@ export async function addSchedules(this: DatabaseAccess, params: {
       day.setDate(day.getDate() + i);
 
       schedules.push({
-        date: day, apply: params.applyId, isWorking: params.workPatternId !== undefined,
-        dayAmount: params.leaveRate ? Math.abs(params.leaveRate) : 1.0,
-        isPaid: params.isPaid, user: params.userInfo.id
+        date: day, apply: params.applyId, isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
+        dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
+        isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
       });
 
       const dayWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(day, 'isoDate'));
       userWorkPatternCalendars.push({
         user: params.userInfo.id,
-        workPattern: params.workPatternId ?? (params.leaveRate ? dayWorkPattern?.workPattern?.id : null),
+        workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayWorkPattern?.workPattern?.id : null),
         date: day,
         leaveRate: params.leaveRate ?? null
       });
@@ -474,7 +476,7 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     approvalLevel3MainUser: number, approvalLevel3SubUser: number,
     approvalDecisionUser: number,
     currentApprovingMainUser: number, currentApprovingSubUser: number,
-    workPatternId: number
+    workPatternId: number, breakPeriodMinutes: number
   }[]>({
     applyId: 'apply.id', isApproved: 'apply.isApproved', applyTypeName: 'applyType.name',
     applyDate: 'apply.date', applyDateTimeFrom: 'apply.dateTimeFrom', applyDateTimeTo: 'apply.dateTimeTo',
@@ -484,7 +486,7 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
     approvalLevel3MainUser: 'approvalRoute.approvalLevel3MainUser', approvalLevel3SubUser: 'approvalRoute.approvalLevel3SubUser',
     approvalDecisionUser: 'approvalRoute.approvalDecisionUser',
     currentApprovingMainUser: 'apply.currentApprovingMainUser', currentApprovingSubUser: 'apply.currentApprovingSubUser',
-    workPatternId: 'apply.workPattern'
+    workPatternId: 'apply.workPattern', breakPeriodMinutes: 'apply.breakPeriodMinutes'
   })
     .from('apply')
     .leftJoin('user', { 'user.id': 'apply.user' })
@@ -634,16 +636,22 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
         }
         await this.addSchedules({
           userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          workPatternId: apply.workPatternId
+          workPatternId: apply.workPatternId, breakPeriodMinutes: apply.breakPeriodMinutes,
+          leaveRate: 0
         });
         break;
       case 'overtime': // 残業
+        await this.addSchedules({
+          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom,
+          breakPeriodMinutes: apply.breakPeriodMinutes,
+          leaveRate: 0
+        });
         break;
       case 'lateness': // 遅刻
         break;
       case 'leave-early': // 早退
         break;
-      case 'break': // 外出
+      case 'stepout': // 外出
         break;
     }
   }

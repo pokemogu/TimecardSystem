@@ -19,8 +19,7 @@ const applyTypeOptions1 = ref<{ type: string, options: { name: string, descripti
 const applyTypeValue1 = ref('');
 const dateFrom = ref('');
 const dateTo = ref('');
-const timeFrom = ref('');
-const timeTo = ref('');
+const breakPeriodMinutes = ref(60);
 const contact = ref('');
 const apply = ref<apiif.ApplyResponseData>();
 const isMounted = ref(false);
@@ -123,6 +122,7 @@ async function onRouteSubmit() {
       date: new Date(dateFrom.value),
       dateTimeFrom: new Date(`${dateFrom.value}T00:00:00`),
       timestamp: new Date(),
+      breakPeriodMinutes: breakPeriodMinutes.value,
       contact: contact.value,
       routeName: routeName.value,
       workPattern: applyTypeValue1.value
@@ -165,17 +165,20 @@ async function onRouteSubmit() {
         <div class="row">
           <ApplyForm v-if="isMounted" applyName="休日出勤" applyType="hoilday-work" :isApplyTypeOptionsDropdown="true"
             v-model:applyTypeValue1="applyTypeValue1" v-bind:applyTypeOptions1="applyTypeOptions1"
-            v-model:dateFrom="dateFrom" v-model:dateTo="dateTo" v-bind:isDateToOptional="true" v-model:contact="contact"
-            :apply="apply" v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject"> </ApplyForm>
+            v-model:dateFrom="dateFrom" v-model:dateTo="dateTo" v-bind:isDateToOptional="true"
+            v-model:breakPeriodMinutes="breakPeriodMinutes" v-model:contact="contact" :apply="apply"
+            v-on:submit="onFormSubmit" v-on:submitReject="onFormSubmitReject"> </ApplyForm>
           <!-- v-model:timeFrom="timeFrom" v-model:timeTo="timeTo" -->
-          <div class="col-9"></div>
-          <div class="col-3">
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" value id="flexCheckChecked"
-                v-model="doApplyMakeupLeave" />
-              <label class="form-check-label" for="flexCheckChecked">同時に代休を申請する</label>
+          <template v-if="apply === undefined">
+            <div class="col-9"></div>
+            <div class="col-3">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" value id="flexCheckChecked"
+                  v-model="doApplyMakeupLeave" />
+                <label class="form-check-label" for="flexCheckChecked">同時に代休を申請する</label>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
       <div class="col-2">

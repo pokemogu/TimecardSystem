@@ -41,6 +41,7 @@ const props = defineProps<{
   dateTo?: string,
   timeFrom?: string,
   timeTo?: string,
+  breakPeriodMinutes?: number,
   reason?: string,
   contact?: string
 
@@ -55,6 +56,7 @@ const dateFrom = ref(props.dateFrom ?? '');
 const dateTo = ref(props.dateTo ?? '');
 const timeFrom = ref(props.timeFrom ?? '');
 const timeTo = ref(props.timeTo ?? '');
+const breakPeriodMinutes = ref(props.breakPeriodMinutes ?? 0);
 const reason = ref(props.reason ?? '');
 const contact = ref(props.contact ?? '');
 const approvingUsersInfo = ref<apiif.UserInfoResponseData[]>([]);
@@ -78,6 +80,7 @@ const emits = defineEmits<{
   (event: 'update:dateTo', value: string): void,
   (event: 'update:timeFrom', value: string): void,
   (event: 'update:timeTo', value: string): void,
+  (event: 'update:breakPeriodMinutes', value: number): void,
   (event: 'update:reason', value: string): void,
   (event: 'update:contact', value: string): void,
   (event: 'submit'): void,
@@ -157,6 +160,7 @@ function onSubmit() {
   emits('update:dateOptional', dateOptional.value);
   emits('update:timeFrom', timeFrom.value);
   emits('update:timeTo', timeTo.value);
+  emits('update:breakPeriodMinutes', breakPeriodMinutes.value);
   emits('update:reason', reason.value);
   emits('update:contact', contact.value);
   emits('submit');
@@ -183,8 +187,8 @@ function onDeleteSubmit() {
             <div class="card-body m-0 p-1">
               <p class="card-text fs-6 m-0">{{ new Date().toLocaleDateString() }}</p>
               <p class="card-title fs-6 m-0">{{ props.apply ? (props.apply.appliedUser?.name ??
-                  props.apply.targetUser?.name) :
-                  store.userName
+              props.apply.targetUser?.name) :
+              store.userName
               }}</p>
             </div>
           </div>
@@ -320,9 +324,9 @@ function onDeleteSubmit() {
               </template>
               <template v-else>
                 {{ props.applyTypeOptions1.options.find(applyTypeOption =>
-                    props.apply?.options?.find(option => option.name === props.applyTypeOptions1?.type)?.value ===
-                    applyTypeOption.name
-                  )?.description
+                props.apply?.options?.find(option => option.name === props.applyTypeOptions1?.type)?.value ===
+                applyTypeOption.name
+                )?.description
                 }}
               </template>
             </template>
@@ -334,14 +338,14 @@ function onDeleteSubmit() {
                 v-bind:id="'apply-type-option1-' + option.name" v-bind:checked="index === 0" v-model="applyTypeValue1"
                 :value="option.name" />
               <label class="form-check-label" v-bind:for="'apply-type-option1-' + option.name">{{
-                  option.description
+              option.description
               }}</label>
             </div>
 
             <select v-else class="form-select" v-model="applyTypeValue1" required>
               <option value disabled>申請種類を選択してください</option>
               <option v-for="(option, index) in props.applyTypeOptions1.options" :value="option.name">{{
-                  option.description
+              option.description
               }}
               </option>
             </select>
@@ -423,9 +427,9 @@ function onDeleteSubmit() {
             <template v-if="props.applyTypeOptions2 !== undefined">
               <span v-if="props.apply !== undefined">
                 {{ props.applyTypeOptions2.options.find(applyTypeOption =>
-                    props.apply?.options?.find(option => option.name === props.applyTypeOptions2?.type)?.value ===
-                    applyTypeOption.name
-                  )?.description
+                props.apply?.options?.find(option => option.name === props.applyTypeOptions2?.type)?.value ===
+                applyTypeOption.name
+                )?.description
                 }}
               </span>
               <div v-else class="input-group">
@@ -434,7 +438,7 @@ function onDeleteSubmit() {
                     v-bind:id="'apply-type-option2-' + option.name" v-bind:value="option.name"
                     v-bind:checked="index === 0" v-model="applyTypeValue2" :value="option.name" />
                   <label class="form-check-label" v-bind:for="'apply-type-option2-' + option.name">{{
-                      option.description
+                  option.description
                   }}</label>
                 </div>
               </div>
@@ -462,6 +466,18 @@ function onDeleteSubmit() {
 
             </template>
 
+          </div>
+        </div>
+
+        <!-- 休憩時間 -->
+        <div class="row" v-if="props.breakPeriodMinutes !== undefined || props.apply?.breakPeriodMinutes !== undefined">
+          <div class="col-2 bg-dark text-white border border-dark">1日の合計休憩時間</div>
+          <div class="col-9 bg-white text-black border border-dark p-2">
+            <span v-if="props.apply?.breakPeriodMinutes !== undefined">{{ props.apply?.breakPeriodMinutes }}分</span>
+            <div v-else class="input-group">
+              <input v-model="breakPeriodMinutes" type="number" class="form-control" min="0">
+              <span class="input-group-text">分</span>
+            </div>
           </div>
         </div>
 

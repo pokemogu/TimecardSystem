@@ -53,7 +53,7 @@ if (applyPrivileges) {
   if (applyPermitted('overtime')) { applyMenus.push({ description: '残業申請', linkName: 'apply-overtime' }); }
   if (applyPermitted('lateness')) { applyMenus.push({ description: '遅刻申請', linkName: 'apply-lateness' }); }
   if (applyPermitted('leave-early')) { applyMenus.push({ description: '早退申請', linkName: 'apply-leave-early' }); }
-  if (applyPermitted('break')) { applyMenus.push({ description: '外出申請', linkName: 'apply-break' }); }
+  if (applyPermitted('stepout')) { applyMenus.push({ description: '外出申請', linkName: 'apply-stepout' }); }
   if (applyPermitted('holiday-work')) { applyMenus.push({ description: '休日出勤申請', linkName: 'apply-holiday-work' }); }
   if (applyPermitted('makeup-leave')) { applyMenus.push({ description: '代休申請', linkName: 'apply-makeup-leave' }); }
 

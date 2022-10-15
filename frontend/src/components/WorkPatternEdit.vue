@@ -46,12 +46,14 @@ const editedWorkPattern = ref<{
   onTimeStart: string,
   isOnTimeEndNextDay: boolean,
   onTimeEnd: string,
+  breakPeriodMinutes: number
 }>({
   name: props.workPattern?.name ? props.workPattern.name : '',
   isOnTimeStartNextDay: props.workPattern?.onTimeStart ? isNextDayTime(props.workPattern.onTimeStart) : false,
   onTimeStart: props.workPattern?.onTimeStart ? getNextDayTime(props.workPattern.onTimeStart) : '09:00:00',
   isOnTimeEndNextDay: props.workPattern?.onTimeEnd ? isNextDayTime(props.workPattern.onTimeEnd) : false,
   onTimeEnd: props.workPattern?.onTimeStart ? getNextDayTime(props.workPattern.onTimeEnd) : '18:00:00',
+  breakPeriodMinutes: props.workPattern?.breakPeriodMinutes ?? 60
 });
 
 const editedWagePatterns = ref<{
@@ -100,6 +102,7 @@ function onSubmit(event: Event) {
     name: editedWorkPattern.value.name,
     onTimeStart: addNextDayTime(editedWorkPattern.value.isOnTimeStartNextDay, editedWorkPattern.value.onTimeStart),
     onTimeEnd: addNextDayTime(editedWorkPattern.value.isOnTimeEndNextDay, editedWorkPattern.value.onTimeEnd),
+    breakPeriodMinutes: editedWorkPattern.value.breakPeriodMinutes,
     wagePatterns: editedWagePatterns.value.map(pattern => {
       return {
         id: pattern.id,
@@ -172,13 +175,15 @@ function onDeleteWagePattern(index: number) {
             <button type="button" class="btn-close" v-on:click="onClose"></button>
           </div>
           <div class="modal-body">
-            <div class="row">
-              <label for="workpattern-name" class="col-2 col-form-label text-end">勤務体系名</label>
-              <div class="col-3">
-                <input type="text" class="form-control" id="workpattern-name" v-model="editedWorkPattern.name"
-                  required />
+            <div class="row p-1">
+              <label for="workpattern-name" class="col-2 col-form-label">勤務体系名</label>
+              <div class="col-4">
+                <input type="text" class="form-control form-control" id="workpattern-name"
+                  v-model="editedWorkPattern.name" required />
               </div>
-              <label for="ontime-start" class="col-1 col-form-label text-end">定時</label>
+            </div>
+            <div class="row p-1">
+              <label for="ontime-start" class="col-1 col-form-label">定時</label>
               <div class="col-6">
                 <div class="input-group">
                   <select class="form-select" v-model="editedWorkPattern.isOnTimeStartNextDay">
@@ -192,6 +197,14 @@ function onDeleteWagePattern(index: number) {
                     <option :value="true">翌日</option>
                   </select>
                   <input type="time" class="form-control" v-model="editedWorkPattern.onTimeEnd" required />
+                </div>
+              </div>
+              <label for="workpattern-name" class="col-1 col-form-label text-end">休憩</label>
+              <div class="col-2">
+                <div class="input-group">
+                  <input type="number" class="form-control" id="workpattern-break" min="0" step="1"
+                    v-model="editedWorkPattern.breakPeriodMinutes" required />
+                  <span class="input-group-text">分</span>
                 </div>
               </div>
             </div>

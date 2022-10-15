@@ -23,7 +23,7 @@ const router = useRouter();
 const store = useSessionStore();
 
 const isModalOpened = ref(false);
-const selectedWorkPattern = ref<apiif.WorkPatternRequestData>({ name: '', onTimeStart: '', onTimeEnd: '', wagePatterns: [] });
+const selectedWorkPattern = ref<apiif.WorkPatternRequestData>({ name: '', onTimeStart: '', onTimeEnd: '', breakPeriodMinutes: 60, wagePatterns: [] });
 const workPatternInfos = ref<apiif.WorkPatternResponseData[]>([]);
 const checks = ref<Record<number, boolean>>({});
 
@@ -118,7 +118,7 @@ async function onWorkPatternSubmit() {
   try {
     const access = await store.getTokenAccess();
 
-    // 承認ルートIDが作成済であれば既存ルートの更新、そうでなければ新規作成
+    // 勤務体系IDが作成済であれば既存ルートの更新、そうでなければ新規作成
     if (selectedWorkPattern.value.id) {
       await access.updateWorkPattern(selectedWorkPattern.value);
     }
@@ -181,7 +181,7 @@ async function onWorkPatternSubmit() {
               </th>
               <td>
                 <button type="button" class="btn btn-link" v-on:click="onWorkPatternClick(workPattern.name)">{{
-                    workPattern.name
+                workPattern.name
                 }}</button>
               </td>
               <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>

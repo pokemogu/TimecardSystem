@@ -14,11 +14,11 @@ function saveEnv(configDict, savePath) {
 }
 
 /**
- * @param {string} dbHost
- * @param {number} dbPort
- * @param {string} dbUser
- * @param {string} dbPass
- * @param {string} dbName
+ * @param { string } dbHost
+ * @param { number } dbPort
+ * @param { string } dbUser
+ * @param { string } dbPass
+ * @param { string | undefined } dbName
  */
 async function connectMySQL(dbHost, dbPort, dbUser, dbPass, dbName = undefined) {
   return await mysql2.createConnection({
@@ -31,10 +31,10 @@ async function connectMySQL(dbHost, dbPort, dbUser, dbPass, dbName = undefined) 
 }
 
 /**
- * @param {mysql2.Connection} conn
- * @param {string} dbName
- * @param {string} dbUser
- * @param {string} dbPass
+ * @param { mysql2.Connection } conn
+ * @param { string } dbName
+ * @param { string } dbUser
+ * @param { string } dbPass
  */
 async function createMySQLDatabase(conn, dbName, dbUser, dbPass) {
   await conn.execute(`CREATE DATABASE IF NOT EXISTS ${dbName}`);
@@ -42,6 +42,16 @@ async function createMySQLDatabase(conn, dbName, dbUser, dbPass) {
   await conn.execute(`CREATE USER IF NOT EXISTS '${dbUser}'@'%' IDENTIFIED BY '${dbPass}'`);
   await conn.execute(`GRANT ALL PRIVILEGES ON ${dbName}.* TO '${dbUser}'@'%'`)
   await conn.execute(`FLUSH PRIVILEGES`);
+}
+
+/**
+ * @param { mysql2.Connection } conn
+ * @param { string } dbName
+ * @param { string } dbUser
+ */
+async function dropMySQLDatabase(conn, dbName, dbUser) {
+  await conn.execute(`DROP USER IF EXISTS '${dbUser}'@'%'`);
+  await conn.execute(`DROP DATABASE IF EXISTS ${dbName}`);
 }
 
 /** @param {string|undefined} code */
@@ -115,11 +125,17 @@ else {
 (async function () {
 
   while (true) {
-    const menuSelect = await (new Select({
-      name: 'menu',
-      message: '設定メニュー',
-      choices: ['データベース接続設定', 'データベース作成', 'データベース接続テスト', 'データベーススキーマ構築', 'データベース初期データ設定', 'データベースロールバック', 'アプリケーションサーバー設定', '終了']
-    }).run())
+    let menuSelect = '';
+    try {
+      menuSelect = await (new Select({
+        name: 'menu',
+        message: '設定メニュー',
+        choices: ['データベース接続設定', 'データベース作成', 'データベース削除', 'データベース接続テスト', 'データベーススキーマ構築', 'データベース初期データ設定', 'データベースロールバック', 'アプリケーションサーバー設定', '終了']
+      }).run())
+    }
+    catch {
+      return;
+    }
 
     switch (menuSelect) {
       case 'データベース接続設定':
@@ -155,23 +171,23 @@ else {
         break;
 
       case 'データベース作成':
-        const dbRootUser = await (new Input({
-          initial: 'root',
-          message: 'データベースサーバーへの接続rootユーザー名を入力してエンターキーを押してください。'
-        }).run());
-
-        const dbRootPassword = await (new Password({
-          initial: '',
-          message: 'データベースサーバーへの接続rootパスワードを入力してエンターキーを押してください。'
-        }).run());
-
         try {
+          const dbRootUser = await (new Input({
+            initial: 'root',
+            message: 'データベースサーバーへの接続rootユーザー名を入力してエンターキーを押してください。'
+          }).run());
+
+          const dbRootPassword = await (new Password({
+            initial: '',
+            message: 'データベースサーバーへの接続rootパスワードを入力してエンターキーを押してください。'
+          }).run());
+
           const connRoot = await connectMySQL(config['DB_HOST'], config['DB_PORT'], dbRootUser, dbRootPassword);
           if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: 'データベースへのroot接続が確認できました。データベースを作成しますか?' }).run())) {
             await createMySQLDatabase(connRoot, config['DB_NAME'], config['DB_USER'], config['DB_PASSWORD']);
-            connRoot.end();
             console.info(colors.bgBlue.bold.white('データベースの作成が完了しました。'));
           }
+          connRoot.end();
         }
         catch (error) {
           console.error(colors.bgRed.bold.white('データベースへのroot接続でエラーが発生しました。'));
@@ -180,6 +196,34 @@ else {
         }
 
         break;
+
+      case 'データベース削除':
+        try {
+          const dbRootUser = await (new Input({
+            initial: 'root',
+            message: 'データベースサーバーへの接続rootユーザー名を入力してエンターキーを押してください。'
+          }).run());
+
+          const dbRootPassword = await (new Password({
+            initial: '',
+            message: 'データベースサーバーへの接続rootパスワードを入力してエンターキーを押してください。'
+          }).run());
+
+          const connRoot = await connectMySQL(config['DB_HOST'], config['DB_PORT'], dbRootUser, dbRootPassword);
+          if (await (new Toggle({ initial: false, enabled: 'はい', disabled: 'いいえ', message: 'データベースへのroot接続が確認できました。データベースを削除しますか? この操作は元に戻せません。' }).run())) {
+            await dropMySQLDatabase(connRoot, config['DB_NAME'], config['DB_USER']);
+            console.info(colors.bgBlue.bold.white('データベースの削除が完了しました。'));
+          }
+          connRoot.end();
+        }
+        catch (error) {
+          console.error(colors.bgRed.bold.white('データベースへのroot接続でエラーが発生しました。'));
+          showErrorForMySQLConnectionFailure(error.code);
+          console.error(error.message);
+        }
+
+        break;
+
       case 'データベーススキーマ構築':
         if (await (new Toggle({ initial: true, enabled: 'はい', disabled: 'いいえ', message: 'データベーススキーマ構築を実行しますか?' }).run())) {
           try {

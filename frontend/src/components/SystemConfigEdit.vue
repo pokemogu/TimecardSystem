@@ -11,7 +11,8 @@ const props = defineProps<{
   description: string,
   value: string,
   isMultiLine: boolean,
-  isPassword: boolean
+  isPassword: boolean,
+  isNumeric: boolean
 }>();
 
 const configValue = ref(props.value);
@@ -56,6 +57,9 @@ async function onSubmit(event: Event) {
                 </template>
                 <template v-else-if="props.isPassword">
                   <input type="password" class="form-control" v-model="configValue">
+                </template>
+                <template v-else-if="props.isNumeric">
+                  <input type="number" class="form-control" v-model="configValue">
                 </template>
                 <template v-else>
                   <input type="text" class="form-control" v-model="configValue">

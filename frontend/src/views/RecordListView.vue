@@ -80,7 +80,7 @@ else {
 
 const deviceSearch = ref('');
 const clockinSearch = ref('');
-const breakSearch = ref('');
+const stepoutSearch = ref('');
 const reenterSearch = ref('');
 const clockoutSearch = ref('');
 
@@ -111,7 +111,7 @@ watch(departmentSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(sectionSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(deviceSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(clockinSearch, lodash.debounce(UpdateOnSearch, 200));
-watch(breakSearch, lodash.debounce(UpdateOnSearch, 200));
+watch(stepoutSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(reenterSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(clockoutSearch, lodash.debounce(UpdateOnSearch, 200));
 
@@ -175,7 +175,7 @@ const $loading = useLoading();
 
 async function getRecordList(searchOptions?: {
   account?: string, name?: string, department?: string, section?: string, device?: string, dateFrom?: Date, dateTo?: Date,
-  clockin?: boolean, break?: boolean, reenter?: boolean, clockout?: boolean, limit?: number, offset?: number
+  clockin?: boolean, stepout?: boolean, reenter?: boolean, clockout?: boolean, limit?: number, offset?: number
 }) {
   const recordAndApplyInfoValue: RecordAndApllyInfo[] = []
 
@@ -189,7 +189,7 @@ async function getRecordList(searchOptions?: {
     from: searchOptions?.dateFrom ? searchOptions.dateFrom.toLocaleDateString() : undefined,
     to: searchOptions?.dateTo ? searchOptions.dateTo.toLocaleDateString() : undefined,
     clockin: searchOptions?.clockin,
-    break: searchOptions?.break,
+    stepout: searchOptions?.stepout,
     reenter: searchOptions?.reenter,
     clockout: searchOptions?.clockout,
     limit: searchOptions?.limit ? searchOptions.limit + 1 : undefined,
@@ -321,7 +321,7 @@ async function getRecordListBySearchForm(enableLimit = true) {
     dateFrom: dateFrom.value !== '' ? new Date(dateFrom.value) : undefined,
     dateTo: dateTo.value !== '' ? new Date(dateTo.value) : undefined,
     clockin: clockinSearch.value === 'notRecorded' ? false : (clockinSearch.value === 'recorded' ? true : undefined),
-    break: breakSearch.value === 'notRecorded' ? false : (breakSearch.value === 'recorded' ? true : undefined),
+    stepout: stepoutSearch.value === 'notRecorded' ? false : (stepoutSearch.value === 'recorded' ? true : undefined),
     reenter: reenterSearch.value === 'notRecorded' ? false : (reenterSearch.value === 'recorded' ? true : undefined),
     clockout: clockoutSearch.value === 'notRecorded' ? false : (clockoutSearch.value === 'recorded' ? true : undefined),
     limit: enableLimit ? limit.value : undefined,
@@ -364,7 +364,7 @@ onMounted(async () => {
 const selectedUserAccount = ref('');
 const selectedRecordDate = ref<Date>();
 const selectedClockinTime = ref<Date>();
-const selectedBreakTime = ref<Date>();
+const selectedStepoutTime = ref<Date>();
 const selectedReenterTime = ref<Date>();
 const selectedClockoutTime = ref<Date>();
 
@@ -396,7 +396,7 @@ async function onExportCsv() {
           '部署': record.userSection,
           '端末': record.clockin?.deviceName,
           '出勤': record.clockin?.timestamp ? format(record.clockin.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
-          '外出': record.break?.timestamp ? format(record.break.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
+          '外出': record.stepout?.timestamp ? format(record.stepout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '再入': record.reenter?.timestamp ? format(record.reenter.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '退勤': record.clockout?.timestamp ? format(record.clockout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined
         }
@@ -419,12 +419,12 @@ async function onExportCsv() {
   }
 }
 
-async function onRecordClick(params: { account: string, date: Date, clockin?: Date, break?: Date, reenter?: Date, clockout?: Date }) {
+async function onRecordClick(params: { account: string, date: Date, clockin?: Date, stepout?: Date, reenter?: Date, clockout?: Date }) {
   selectedUserAccount.value = params.account;
   selectedRecordDate.value = new Date(params.date);
 
   selectedClockinTime.value = params.clockin ? new Date(params.clockin) : undefined;
-  selectedBreakTime.value = params.break ? new Date(params.break) : undefined;
+  selectedStepoutTime.value = params.stepout ? new Date(params.stepout) : undefined;
   selectedReenterTime.value = params.reenter ? new Date(params.reenter) : undefined;
   selectedClockoutTime.value = params.clockout ? new Date(params.clockout) : undefined;
 
@@ -435,7 +435,7 @@ async function onAddRecord() {
   selectedUserAccount.value = '';
   selectedRecordDate.value = undefined;
   selectedClockinTime.value = undefined;
-  selectedBreakTime.value = undefined;
+  selectedStepoutTime.value = undefined;
   selectedReenterTime.value = undefined;
   selectedClockoutTime.value = undefined;
 
@@ -448,8 +448,8 @@ async function onRecordEditSubmit() {
   if (selectedClockinTime.value) {
     await access.submitRecord('clockin', { account: selectedUserAccount.value, timestamp: selectedClockinTime.value });
   }
-  if (selectedBreakTime.value) {
-    await access.submitRecord('break', { account: selectedUserAccount.value, timestamp: selectedBreakTime.value });
+  if (selectedStepoutTime.value) {
+    await access.submitRecord('stepout', { account: selectedUserAccount.value, timestamp: selectedStepoutTime.value });
   }
   if (selectedReenterTime.value) {
     await access.submitRecord('reenter', { account: selectedUserAccount.value, timestamp: selectedReenterTime.value });
@@ -461,7 +461,7 @@ async function onRecordEditSubmit() {
   selectedUserAccount.value = '';
   selectedRecordDate.value = undefined;
   selectedClockinTime.value = undefined;
-  selectedBreakTime.value = undefined;
+  selectedStepoutTime.value = undefined;
   selectedReenterTime.value = undefined;
   selectedClockoutTime.value = undefined;
 
@@ -487,7 +487,7 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
 
   <Teleport to="body" v-if="isModalOpened">
     <RecordEdit v-model:isOpened="isModalOpened" v-model:account="selectedUserAccount" v-model:date="selectedRecordDate"
-      v-model:clockin="selectedClockinTime" v-model:break="selectedBreakTime" v-model:reenter="selectedReenterTime"
+      v-model:clockin="selectedClockinTime" v-model:stepout="selectedStepoutTime" v-model:reenter="selectedReenterTime"
       v-model:clockout="selectedClockoutTime"
       :limitDepartmentName="isDepartmentSearchable === false ? store.userDepartment : undefined"
       :limitSectionName="isSectionSearchable === false ? store.userSection : undefined"
@@ -565,7 +565,7 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
                 </select>
 
                 <select v-else-if="columnNames[columnIndex] === '外出'" class="form-select form-select-sm"
-                  v-model="breakSearch">
+                  v-model="stepoutSearch">
                   <option selected></option>
                   <option value="notRecorded">未打刻</option>
                   <option value="recorded">打刻済</option>
@@ -601,7 +601,7 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
                     class="btn btn-link" v-on:click="onRecordClick({
                       account: recordAndApply.record.userAccount, date: new Date(recordAndApply.record.date),
                       clockin: recordAndApply.record.clockin?.timestamp,
-                      break: recordAndApply.record.break?.timestamp,
+                      stepout: recordAndApply.record.stepout?.timestamp,
                       reenter: recordAndApply.record.reenter?.timestamp,
                       clockout: recordAndApply.record.clockout?.timestamp,
                     })">
@@ -622,7 +622,7 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
                 recordAndApply.record.clockin?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
                 }}</span>
                 <span v-else-if="columnNames[columnIndex] === '外出'">{{
-                recordAndApply.record.break?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
+                recordAndApply.record.stepout?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
                 }}</span>
                 <span v-else-if="columnNames[columnIndex] === '再入'">{{
                 recordAndApply.record.reenter?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''

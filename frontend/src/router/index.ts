@@ -217,19 +217,19 @@ const router = createRouter({
     },
     // 外出申請
     {
-      path: '/apply/break',
-      name: 'apply-break',
+      path: '/apply/stepout',
+      name: 'apply-stepout',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period', params: { type: 'break', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
+        return { name: 'apply-generic-time-period', params: { type: 'stepout', date: to.params.date, timeFrom: to.params.timeFrom, timeTo: to.params.timeTo } }
       }
     },
     {
-      path: '/apply/break/:id',
-      name: 'apply-break-view',
+      path: '/apply/stepout/:id',
+      name: 'apply-stepout-view',
       component: () => { },
       redirect: to => {
-        return { name: 'apply-generic-time-period-view', params: { type: 'break', id: to.params.id } }
+        return { name: 'apply-generic-time-period-view', params: { type: 'stepout', id: to.params.id } }
       }
     },
     // 休日出勤申請

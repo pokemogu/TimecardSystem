@@ -59,17 +59,8 @@ async function up(knex) {
       table.string('name').notNullable().unique();
       table.boolean('isSystemPrivilege').defaultTo(false).comment('システム内部の権限設定かどうか(システム内部権限は打刻機アカウントに使用される)');
       table.boolean('recordByLogin').notNullable().defaultTo(false);
-      //table.boolean('applyRecord').notNullable().defaultTo(false);
-      //table.boolean('applyLeave').notNullable().defaultTo(false);
-      //table.boolean('applyHalfDayLeave').notNullable().defaultTo(false);
-      //table.boolean('applyMakeupLeave').notNullable().defaultTo(false);
-      //table.boolean('applyMourningLeave').notNullable().defaultTo(false);
-      //table.boolean('applyMeasureLeave').notNullable().defaultTo(false);
-      //table.boolean('applyOvertime').notNullable().defaultTo(false);
-      //table.boolean('applyLate').notNullable().defaultTo(false);
       table.integer('maxApplyLateNum').unsigned();
       table.integer('maxApplyLateHours').unsigned();
-      //table.boolean('applyEarly').notNullable().defaultTo(false);
       table.integer('maxApplyEarlyNum').unsigned();
       table.integer('maxApplyEarlyHours').unsigned();
       table.boolean('approve').notNullable().defaultTo(false);
@@ -90,6 +81,7 @@ async function up(knex) {
       table.string('name').notNullable().unique();
       table.time('onTimeStart').notNullable();
       table.time('onTimeEnd').notNullable();
+      table.integer('breakPeriodMinutes').unsigned().notNullable().defaultTo(60);
     });
 
     await knex.schema.createTable('wagePattern', function (table) {
@@ -136,23 +128,12 @@ async function up(knex) {
     await knex.schema.raw('ALTER TABLE user MODIFY account VARCHAR(255) CHARACTER SET ascii;');
     await knex.schema.raw('ALTER TABLE user MODIFY password VARCHAR(255) CHARACTER SET ascii;');
 
-    /*
-    await knex.schema.createTable('userWorkPattern', function (table) {
-      table.increments('id');
-      table.integer('user').unsigned().notNullable().index();
-      table.integer('workPattern').unsigned().notNullable();
-      table.boolean('isDefault').defaultTo(false);
-
-      table.foreign('user').references('id').inTable('user');
-      table.foreign('workPattern').references('id').inTable('workPattern');
-    });
-    */
-
     await knex.schema.createTable('userWorkPatternCalendar', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
-      table.integer('workPattern').unsigned().comment('その日の勤務体系を指定する。NULLの場合はいずれの勤務体系でも無いことを明示する。');
+      table.integer('workPattern').unsigned().comment('その日の勤務体系を指定する。NULLの場合は終日休暇を意味する。');
       table.date('date').notNullable();
+      table.decimal('leaveRate', 5, 4).comment('勤務体系の時間帯内で休暇等で不在となる時間の割合。正の数の場合は勤務開始時から不在で途中から勤務開始する場合。負の数の場合は勤務開始は予定通りで勤務途中から不在となる場合。');
 
       table.unique(['user', 'date']);
       table.foreign('user').references('id').inTable('user');
@@ -177,9 +158,12 @@ async function up(knex) {
     await knex.schema.createTable('annualLeave', function (table) {
       table.increments('id');
       table.integer('user').unsigned().notNullable().index();
-      table.date('grantedAt').notNullable();
-      table.date('expireAt').notNullable();
+      table.date('grantedAt').notNullable().index().comment('有給付与日時');
+      table.date('expireAt').notNullable().index().comment('有給期限切れ日時');
+      table.decimal('dayAmount', 4, 1).notNullable().comment('通常有給付与数');
+      table.integer('hourAmount').notNullable().comment('時間有給付与数');
 
+      table.unique(['user', 'grantedAt', 'expireAt']);
       table.foreign('user').references('id').inTable('user');
     });
 
@@ -205,10 +189,10 @@ async function up(knex) {
       { name: 'makeup-leave', isSystemType: true, description: '代休', isLeaveOrWorkSchedule: true },
       { name: 'mourning-leave', isSystemType: true, description: '慶弔休', isLeaveOrWorkSchedule: true },
       { name: 'measure-leave', isSystemType: true, description: '措置休', isLeaveOrWorkSchedule: true },
-      { name: 'overtime', isSystemType: true, description: '早出・残業', isLeaveOrWorkSchedule: false },
+      { name: 'overtime', isSystemType: true, description: '残業', isLeaveOrWorkSchedule: false },
       { name: 'lateness', isSystemType: true, description: '遅刻', isLeaveOrWorkSchedule: true },
       { name: 'leave-early', isSystemType: true, description: '早退', isLeaveOrWorkSchedule: true },
-      { name: 'break', isSystemType: true, description: '外出', isLeaveOrWorkSchedule: true },
+      { name: 'stepout', isSystemType: true, description: '外出', isLeaveOrWorkSchedule: true },
       { name: 'holiday-work', isSystemType: true, description: '休日出勤', isLeaveOrWorkSchedule: false },
     ]);
 
@@ -265,10 +249,10 @@ async function up(knex) {
       { optionType: optionTypeRecordSituation.id, name: 'notyet', isSystemType: true, description: '未打刻' },
       { optionType: optionTypeRecordSituation.id, name: 'athome', isSystemType: true, description: '在宅' },
       { optionType: optionTypeRecordSituation.id, name: 'trip', isSystemType: true, description: '出張' },
-      { optionType: optionTypeRecordSituation.id, name: 'break', isSystemType: true, description: '外出' },
+      { optionType: optionTypeRecordSituation.id, name: 'stepout', isSystemType: true, description: '外出' },
       { optionType: optionTypeRecordType.id, name: 'clockin', isSystemType: true, description: '出勤' },
       { optionType: optionTypeRecordType.id, name: 'clockout', isSystemType: true, description: '退勤' },
-      { optionType: optionTypeRecordType.id, name: 'break', isSystemType: true, description: '外出' },
+      { optionType: optionTypeRecordType.id, name: 'stepout', isSystemType: true, description: '外出' },
       { optionType: optionTypeRecordType.id, name: 'reenter', isSystemType: true, description: '再入' },
       { optionType: optionTypeLeaveType.id, name: 'normal', isSystemType: true, description: '有給' },
       { optionType: optionTypeLeaveType.id, name: 'am-halfday', isSystemType: true, description: '午前半休' },
@@ -309,6 +293,8 @@ async function up(knex) {
       table.datetime('dateTimeFrom').notNullable().comment('申請内容の開始日時');
       table.datetime('dateTimeTo').comment('申請内容の終了日時');
       table.datetime('dateRelated').comment('申請内容に関連する日時(例: 代休申請での休日出勤日)');
+      table.integer('breakPeriodMinutes').nullable().unsigned().comment('残業時か休日出勤時の休憩時間');
+      table.integer('workPattern').unsigned().comment('休日出勤時の勤務体系');
       table.string('reason').comment('申請理由');
       table.string('contact').comment('申請における連絡先(休暇取得時の連絡先)');
       table.integer('route').unsigned().notNullable().index().comment('申請承認ルート');
@@ -327,6 +313,7 @@ async function up(knex) {
       table.foreign('user').references('id').inTable('user');
       table.foreign('appliedUser').references('id').inTable('user');
       table.foreign('type').references('id').inTable('applyType');
+      table.foreign('workPattern').references('id').inTable('workPattern');
       table.foreign('route').references('id').inTable('approvalRoute');
       table.foreign('currentApprovingMainUser').references('id').inTable('user');
       table.foreign('currentApprovingSubUser').references('id').inTable('user');
@@ -360,39 +347,17 @@ async function up(knex) {
 
     await knex.schema.createTable('schedule', function (table) {
       table.increments('id');
+      table.integer('user').unsigned().notNullable();
       table.date('date').notNullable().comment('申請対象の基準日(労働日)');
-      table.integer('apply').unsigned().notNullable().comment('スケジュールの元となる申請');
+      table.integer('apply').unsigned().nullable().comment('スケジュールの元となる申請');
       table.boolean('isWorking').notNullable().defaultTo(false).comment('この予定が勤務時間扱いかそうでないか');
+      table.decimal('dayAmount', 4, 1).notNullable().defaultTo(1.0).comment('終日予定の場合は1.0、半日予定の場合は0.5');
+      table.boolean('isPaid').defaultTo(false).notNullable().comment('有給かどうか');
+      table.integer('breakPeriodMinutes').nullable().unsigned().comment('休憩時間');
 
+      table.foreign('user').references('id').inTable('user');
       table.foreign('apply').references('id').inTable('apply');
     });
-
-    /*
-    await knex.schema.createView('applyPrivilegeExistingList', function (view) {
-      view.as(
-        knex.select({
-          userId: 'user.id', userAccount: 'user.account', userName: 'user.name', applyTypeId: 'applyType.id',
-          isSystemType: 'applyType.isSystemType', permitted: 'applyPrivilege.permitted'
-        })
-          .from('applyType')
-          .join('applyPrivilege', { 'applyPrivilege.type': 'applyType.id' })
-          .join('user', { 'user.privilege': 'applyPrivilege.privilege' })
-      );
-    });
-
-    await knex.schema.createView('applyPrivilegeAllList', function (view) {
-      view.as(
-        knex
-          .select({
-            applyTypeId: 'applyType.id', applyTypeName: 'applyType.name', applyTypeDescription: 'applyType.description',
-            userId: 'userId', userAccount: 'userAccount', userName: 'userName',
-            isSystemType: 'applyPrivilegeExistingList.isSystemType', permitted: 'applyPrivilegeExistingList.permitted'
-          })
-          .from('applyType')
-          .leftJoin('applyPrivilegeExistingList', { 'applyType.id': 'applyPrivilegeExistingList.applyTypeId' })
-      );
-    });
-    */
 
     ///////////////////////////////////////////////////////////////////////
     // 打刻関連
@@ -409,53 +374,22 @@ async function up(knex) {
     await knex('recordType').insert([
       { name: 'clockin', description: '出勤' },
       { name: 'clockout', description: '退勤' },
-      { name: 'break', description: '外出' },
+      { name: 'stepout', description: '外出' },
       { name: 'reenter', description: '再入' },
     ]);
-
-    /*
-    await knex.schema.createTable('recordLog', function (table) {
-      table.increments('id');
-      table.integer('user').unsigned().notNullable();
-      table.integer('type').unsigned().notNullable();
-      table.integer('device').unsigned();
-      table.datetime('timestamp').notNullable().comment('打刻が行なわれた日時');
-      table.integer('apply').unsigned().comment('申請によって打刻が行なわれた場合の申請番号');
-
-      table.foreign('user').references('id').inTable('user');
-      table.foreign('type').references('id').inTable('recordType');
-      table.foreign('device').references('id').inTable('device');
-      table.foreign('apply').references('id').inTable('apply');
-    });
-    */
-
-    /*
-    await knex.raw(`create table recordLogTemp(
-      id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
-      user INT UNSIGNED NOT NULL,
-      type INT UNSIGNED NOT NULL,
-      device INT,
-      timestamp DATETIME NOT NULL,
-      apply INT UNSIGNED
-    ) ENGINE=MEMORY`);
-    */
 
     await knex.schema.createTable('record', function (table) {
       table.increments('id');
       table.integer('user').unsigned().index().notNullable();
       table.date('date').notNullable().index().comment('打刻基準日(労働日)');
-      //table.integer('clockin').unsigned().comment('使用する出勤打刻ログ');
-      //table.integer('clockout').unsigned().comment('使用する退勤打刻ログ');
-      //table.integer('break').unsigned().comment('使用する外出打刻ログ');
-      //table.integer('reenter').unsigned().comment('使用する再入打刻ログ');
 
       table.datetime('clockin').comment('出勤打刻時刻');
       table.integer('clockinDevice').unsigned().comment('出勤打刻機器');
       table.integer('clockinApply').unsigned().comment('出勤打刻申請');
 
-      table.datetime('break').comment('外出打刻時刻');
-      table.integer('breakDevice').unsigned().comment('外出打刻機器');
-      table.integer('breakApply').unsigned().comment('外出打刻申請');
+      table.datetime('stepout').comment('外出打刻時刻');
+      table.integer('stepoutDevice').unsigned().comment('外出打刻機器');
+      table.integer('stepoutApply').unsigned().comment('外出打刻申請');
 
       table.datetime('reenter').comment('再入打刻時刻');
       table.integer('reenterDevice').unsigned().comment('再入打刻機器');
@@ -467,49 +401,29 @@ async function up(knex) {
 
       table.unique(['user', 'date']);
       table.foreign('user').references('id').inTable('user');
-      //table.foreign('clockin').references('id').inTable('recordLog');
-      //table.foreign('clockout').references('id').inTable('recordLog');
-      //table.foreign('break').references('id').inTable('recordLog');
-      //table.foreign('reenter').references('id').inTable('recordLog');
     });
-
-    /*
-    await knex.schema.createView('recordTime', function (view) {
-      view.as(
-        knex.select({
-          userId: 'user.id', userAccount: 'user.account', userName: 'user.name', date: 'record.date',
-          clockin: 't1.timestamp', break: 't2.timestamp', reenter: 't3.timestamp', clockout: 't4.timestamp'
-        })
-          .from('record')
-          .leftJoin('recordLog as t1', { 't1.id': 'record.clockin' })
-          .leftJoin('recordLog as t2', { 't2.id': 'record.break' })
-          .leftJoin('recordLog as t3', { 't3.id': 'record.reenter' })
-          .leftJoin('recordLog as t4', { 't4.id': 'record.clockout' })
-          .join('user', { 'user.id': 'record.user' })
-          .orderBy('record.date')
-          .orderBy('record.user')
-      );
-    });
-    */
 
     await knex.schema.createView('recordTimeWithOnTime', function (view) {
       view.as(
         knex.select({
-          userId: 'user.id', userAccount: 'user.account', userName: 'user.name', date: 'record.date',
-          clockin: 'record.clockin', break: 'record.break', reenter: 'record.reenter', clockout: 'record.clockout',
+          userId: 'record.user', date: 'record.date',
+          clockin: 'record.clockin', stepout: 'record.stepout', reenter: 'record.reenter', clockout: 'record.clockout',
+          clockinApply: 'record.clockinApply', stepoutApply: 'record.stepoutApply', reenterApply: 'record.reenterApply', clockoutApply: 'record.clockoutApply',
           clockinDeviceAccount: 'clockinDevice.account', clockinDeviceName: 'clockinDevice.name',
-          breakDeviceAccount: 'breakDevice.account', breakDeviceName: 'breakDevice.name',
+          stepoutDeviceAccount: 'stepoutDevice.account', stepoutDeviceName: 'stepoutDevice.name',
           reenterDeviceAccount: 'reenterDevice.account', reenterDeviceName: 'reenterDevice.name',
           clockoutDeviceAccount: 'clockoutDevice.account', clockoutDeviceName: 'clockoutDevice.name',
           workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
-          workTime: knex.raw('TIMEDIFF(clockout, clockin)'),
+          // 勤務時間は(退出時刻 - 出勤時刻)で算出する。その際は退出時刻と出勤時刻の秒は切り捨てる
+          workTime: knex.raw('TIMEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockout) - SECOND(record.clockout)), FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockin) - SECOND(record.clockin)))'),
           onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
-          earlyOverTime: knex.raw('TIMEDIFF(ADDTIME(record.date, workPattern.onTimeStart), clockin)'), lateOverTime: knex.raw('TIMEDIFF(clockout, ADDTIME(record.date, workPattern.onTimeEnd))')
+          earlyOverTime: knex.raw('TIMEDIFF(ADDTIME(record.date, workPattern.onTimeStart), FROM_UNIXTIME(UNIX_TIMESTAMP(clockin) - SECOND(clockin)))'),
+          lateOverTime: knex.raw('TIMEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(clockout) - SECOND(clockout)), ADDTIME(record.date, workPattern.onTimeEnd))')
         })
           .from('record')
           .join('user', { 'user.id': 'record.user' })
           .leftJoin('user as clockinDevice', { 'clockinDevice.id': 'record.clockinDevice' })
-          .leftJoin('user as breakDevice', { 'breakDevice.id': 'record.breakDevice' })
+          .leftJoin('user as stepoutDevice', { 'stepoutDevice.id': 'record.stepoutDevice' })
           .leftJoin('user as reenterDevice', { 'reenterDevice.id': 'record.reenterDevice' })
           .leftJoin('user as clockoutDevice', { 'clockoutDevice.id': 'record.clockoutDevice' })
           .leftJoin('userWorkPatternCalendar', function () {
@@ -522,76 +436,25 @@ async function up(knex) {
       );
     });
 
-    /*
-
-select recordTimeWithOnTime.*,
-TIMEDIFF(clockout, clockin) as workTime,
-TIMEDIFF(onTimeStart, clockin) as earlyOverTime,
-TIMEDIFF(clockout, onTimeEnd) as lateOverTime,
-IF(DAYOFWEEK(recordTimeWithOnTime.date) = 7 OR DAYOFWEEK(recordTimeWithOnTime.date) = 1 OR (holiday.date IS NOT NULL), 1, 0) as isHoliday
-
-from recordTimeWithOnTime
-left join holiday on holiday.date = recordTimeWithOnTime.date
-    */
-
-    ///////////////////////////////////////////////////////////////////////
-    // 承認関連
-    ///////////////////////////////////////////////////////////////////////
-
-    /*
-    await knex.schema.createTable('role', function (table) {
-      table.increments('id');
-      table.string('name').notNullable();
-      table.integer('level').unsigned().notNullable();
-    });
-
-    await knex.schema.createTable('roleLevel', function (table) {
-      table.integer('level').unsigned().primary();
-      table.string('name').notNullable();
-    });
-
-    await knex.schema.createTable('approval', function (table) {
-      table.increments('id');
-      table.integer('apply').unsigned().notNullable();
-      table.integer('user').unsigned().notNullable();
-      table.integer('role').unsigned().notNullable().comment('実際に承認された際の権限の実値を記録する。従業員に紐付いた権限は昇格等で変更される可能性がある為。');
-      table.datetime('timestamp').notNullable();
-      table.boolean('rejected').notNullable().index().comment('TRUEの場合は否認、FALSEの場合は承認');
-      table.string('comment');
-
-      table.foreign('apply').references('id').inTable('apply');
-      table.foreign('user').references('id').inTable('user');
-      table.foreign('role').references('id').inTable('role');
-    });
-
-    await knex.schema.createTable('approvalRouteMember', function (table) {
-      table.increments('id');
-      table.integer('route').unsigned().notNullable();
-      table.integer('user').unsigned().notNullable();
-      table.integer('role').unsigned().notNullable();
-
-      table.foreign('route').references('id').inTable('approvalRoute');
-      table.foreign('user').references('id').inTable('user');
-      table.foreign('role').references('id').inTable('role');
-    });
-
-    await knex.schema.createView('approvalRouteMemberInfo', function (view) {
+    await knex.schema.createView('workTimeInfo', function (view) {
       view.as(
         knex.select({
-          routeId: 'approvalRoute.id', routeName: 'approvalRoute.name', roleLevel: 'role.level',
-          roleLevelName: 'roleLevel.name', roleName: 'role.name', userId: 'user.id',
-          userAccount: 'user.account', userName: 'user.name'
+          userId: 'recordTimeWithOnTime.userId', userAccount: 'user.account', userName: 'user.name',
+          departmentName: 'department.name', sectionName: 'section.name',
+          totalLateCount: knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
+          totalEarlyLeaveCount: knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
+          totalWorkTime: knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
+          totalEarlyOverTime: knex.raw('SEC_TO_TIME(SUM(IF(earlyOverTime > 0, TIME_TO_SEC(earlyOverTime), 0)))'),
+          totalLateOverTime: knex.raw('SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))')
         })
-          .from('approvalRouteMember')
-          .join('approvalRoute', { 'approvalRoute.id': 'approvalRouteMember.route' })
-          .join('role', { 'role.id': 'approvalRouteMember.role' })
-          .join('roleLevel', { 'roleLevel.level': 'role.level' })
-          .join('user', { 'user.id': 'approvalRouteMember.user' })
-          .orderBy('approvalRoute.id')
-          .orderBy('role.level')
+          .from('recordTimeWithOnTime')
+          .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
+          .leftJoin('section', { 'section.id': 'user.section' })
+          .leftJoin('department', { 'department.id': 'section.department' })
+          .groupBy('recordTimeWithOnTime.userId')
+          .orderBy('recordTimeWithOnTime.userId')
       );
     });
-    */
 
     ///////////////////////////////////////////////////////////////////////
     // その他
@@ -605,6 +468,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
       table.string('description').comment('設定データ説明');
       table.boolean('isMultiLine').notNullable().defaultTo(false).comment('設定データ値が複数行になる可能性が有るか');
       table.boolean('isPassword').notNullable().defaultTo(false).comment('設定データ値はパスワードか');
+      table.boolean('isNumeric').notNullable().defaultTo(false).comment('設定データ値は数値か');
     });
 
     // ユーザー別設定項目
@@ -620,7 +484,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
 
     await knex('systemConfig').insert([
       { key: 'smtpHost', value: '', title: 'SMTPホスト名', description: 'メール送信に使用する(SMTP)サーバーのホスト名かIPアドレス' },
-      { key: 'smtpPort', value: '', title: 'SMTPポート番号', description: 'メール送信に使用する(SMTP)サーバーのポート番号' },
+      { key: 'smtpPort', value: '', title: 'SMTPポート番号', description: 'メール送信に使用する(SMTP)サーバーのポート番号', isNumeric: true },
       { key: 'smtpUsername', value: '', title: 'SMTPログインID', description: 'メール送信(SMTP)サーバーログインユーザー名' },
       { key: 'smtpPassword', value: '', title: 'SMTPパスワード', description: 'メール送信(SMTP)サーバーログインパスワード', isPassword: true },
       { key: 'fromEmailAddress', value: '', title: 'SMTP送信元メールアドレス', description: 'メール送信(SMTP)時の送信元メールアドレス設定' },
@@ -670,6 +534,7 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     // 例)
     // CALL generateAllDays('2022-01-01', '2022-03-01'); SELECT date FROM alldays;
     //
+    /*
     await knex.schema.raw(`
     CREATE PROCEDURE generateAllDays( IN fromDate DATE, IN toDate DATE )
     BEGIN
@@ -687,6 +552,50 @@ left join holiday on holiday.date = recordTimeWithOnTime.date
     
     END
     `);
+    */
+
+    await knex.schema.raw(`
+      CREATE PROCEDURE generateAllDaysForUsers( IN tempTableName VARCHAR(32), IN fromDate DATE, IN toDate DATE )
+      BEGIN
+
+        SET @table_name = tempTableName;
+        SET @from_date = fromDate;
+        SET @to_date = toDate;
+
+        SET @sql_text = CONCAT('drop temporary table if exists ', @table_name);
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        SET @sql_text = CONCAT('create temporary table ', @table_name, '(date date, userId int)');
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+  
+        SET @sql_text = CONCAT('INSERT INTO ', @table_name, ' SELECT a.date, user.id AS userId
+        FROM (
+            SELECT ''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''' - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY AS date
+            FROM (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS a
+            CROSS JOIN (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS b
+            CROSS JOIN (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS c
+        ) a 
+        CROSS JOIN user
+        WHERE a.date BETWEEN ''', DATE_FORMAT(@from_date, '%Y-%m-%d'), ''' AND LAST_DAY(''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''') AND IFNULL(user.isDevice, 0) = 0
+        ORDER BY a.date
+        ');
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+      END
+  `);
+
+
   }
   catch (error) {
     await down(knex);
@@ -700,26 +609,17 @@ exports.up = up;
  * @returns { Promise<void> }
  */
 async function down(knex) {
-  await knex.schema.raw('drop procedure if exists generateAllDays');
+  await knex.schema.raw('DROP PROCEDURE IF EXISTS generateAllDaysForUsers');
 
-  //await knex.schema.dropViewIfExists('applyPrivilegeAllList');
-  //await knex.schema.dropViewIfExists('applyPrivilegeExistingList');
-  //await knex.schema.dropViewIfExists('approvalRouteMemberInfo');
+  await knex.schema.dropViewIfExists('workTimeInfo');
   await knex.schema.dropViewIfExists('recordTimeWithOnTime');
-  await knex.schema.dropViewIfExists('recordTime');
 
   await knex.schema.dropTableIfExists('auditLog');
   await knex.schema.dropTableIfExists('mailQueue');
   await knex.schema.dropTableIfExists('userConfig');
   await knex.schema.dropTableIfExists('systemConfig');
   await knex.schema.dropTableIfExists('config');
-  //await knex.schema.dropTableIfExists('approvalRouteMember');
-  //await knex.schema.dropTableIfExists('approval');
-  //await knex.schema.dropTableIfExists('roleLevel');
-  //await knex.schema.dropTableIfExists('role');
   await knex.schema.dropTableIfExists('record');
-  //await knex.schema.dropTableIfExists('recordLogTemp');
-  //await knex.schema.dropTableIfExists('recordLog');
   await knex.schema.dropTableIfExists('schedule');
   await knex.schema.dropTableIfExists('applyPrivilege');
   await knex.schema.dropTableIfExists('applyOption');

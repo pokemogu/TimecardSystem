@@ -667,7 +667,7 @@ async function seed(knex) {
 
   let tempDate = new Date(baseDate);
 
-  /** @type {{user: number, date: string, clockin: Date, break: Date, reenter: Date, clockout: Date}[]} */
+  /** @type {{user: number, date: string, clockin: Date, stepout: Date, reenter: Date, clockout: Date}[]} */
   const records = [];
   for (let i = 0; i < 90; i++) { // 90日間(3ヶ月)のデータを生成する
     const dayOfWeek = tempDate.getDay();
@@ -681,7 +681,7 @@ async function seed(knex) {
         tempDate.setHours(12);
         tempDate.setMinutes(randomTableLookup() % 15);
         tempDate.setSeconds(randomTableLookup() % 59);
-        const breakDate = new Date(tempDate);
+        const stepoutDate = new Date(tempDate);
 
         tempDate.setHours(12);
         tempDate.setMinutes(44 + (randomTableLookup() % 15));
@@ -695,8 +695,8 @@ async function seed(knex) {
 
         records.push({
           user: hamamatsuUser.id, date: dateToLocalString(tempDate),
-          clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate,
-          clockinDevice: devices[0].id, breakDevice: devices[0].id, reenterDevice: devices[0].id, clockoutDevice: devices[0].id
+          clockin: clockinDate, stepout: stepoutDate, reenter: reenterDate, clockout: clockoutDate,
+          clockinDevice: devices[0].id, stepoutDevice: devices[0].id, reenterDevice: devices[0].id, clockoutDevice: devices[0].id
         });
       }
 
@@ -709,7 +709,7 @@ async function seed(knex) {
         tempDate.setHours(12);
         tempDate.setMinutes(randomTableLookup() % 15);
         tempDate.setSeconds(randomTableLookup() % 59);
-        const breakDate = new Date(tempDate);
+        const stepoutDate = new Date(tempDate);
 
         tempDate.setHours(12);
         tempDate.setMinutes(44 + (randomTableLookup() % 15));
@@ -723,7 +723,7 @@ async function seed(knex) {
 
         records.push({
           user: nagoyaUser.id, date: dateToLocalString(tempDate),
-          clockin: clockinDate, break: breakDate, reenter: reenterDate, clockout: clockoutDate
+          clockin: clockinDate, stepout: stepoutDate, reenter: reenterDate, clockout: clockoutDate
         });
       }
 

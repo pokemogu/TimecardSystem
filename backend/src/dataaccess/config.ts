@@ -19,7 +19,8 @@ export async function getSystemConfigValue(this: DatabaseAccess, key: string) {
 export async function getSystemConfig(this: DatabaseAccess, params: apiif.SystemConfigQuery) {
 
   return await this.knex.select<apiif.SystemConfigResponseData[]>({
-    key: 'key', value: 'value', title: 'title', description: 'description', isMultiLine: 'isMultiLine', isPassword: 'isPassword'
+    key: 'key', value: 'value', title: 'title', description: 'description',
+    isMultiLine: 'isMultiLine', isPassword: 'isPassword', isNumeric: 'isNumeric'
   })
     .from('systemConfig')
     .where(function (builder) {

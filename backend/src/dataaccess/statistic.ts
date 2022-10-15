@@ -171,16 +171,16 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
     .leftJoin('department', { 'department.id': 'section.department' })
     .where(function (builder) {
       if (params?.userAccount) {
-        builder.where('userAccount', 'like', `%${params.userAccount}%`);
+        builder.where('user.account', 'like', `%${params.userAccount}%`);
       }
       if (params?.userName) {
-        builder.where('userName', 'like', `%${params.userName}%`);
+        builder.where('user.name', 'like', `%${params.userName}%`);
       }
       if (params?.departmentName) {
-        builder.where('departmentName', 'like', `%${params.departmentName}%`);
+        builder.where('department.name', 'like', `%${params.departmentName}%`);
       }
       if (params?.sectionName) {
-        builder.where('sectionName', 'like', `%${params.sectionName}%`);
+        builder.where('section.name', 'like', `%${params.sectionName}%`);
       }
       if (params?.dateFrom) {
         const date = new Date(params.dateFrom);

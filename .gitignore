@@ -13,3 +13,4 @@ client
 **/*.pdf
 *.old
 **/dbbackup
+**/migrations_old

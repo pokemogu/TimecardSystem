@@ -67,6 +67,7 @@ async function onConfigClick(configKey: string) {
     selectedConfig.value.description = config.description;
     selectedConfig.value.isMultiLine = config.isMultiLine;
     selectedConfig.value.isPassword = config.isPassword;
+    selectedConfig.value.isNumeric = config.isNumeric;
     selectedConfigValue.value = config.value;
 
     isModalOpened.value = true;
@@ -77,7 +78,7 @@ async function onConfigSubmit() {
   const loader = $loading.show({ opacity: 0 });
   try {
     const access = await store.getTokenAccess();
-    access.setSystemConfig(selectedConfig.value.key, selectedConfigValue.value);
+    await access.setSystemConfig(selectedConfig.value.key, selectedConfigValue.value);
   }
   catch (error) {
     console.error(error);
@@ -104,7 +105,8 @@ async function onConfigSubmit() {
       <SystemConfigEdit v-model:isOpened="isModalOpened" v-model:value="selectedConfigValue"
         :keyName="selectedConfig.key ?? ''" :title="selectedConfig.title ?? ''"
         :description="selectedConfig.description ?? ''" :isMultiLine="selectedConfig.isMultiLine ?? false"
-        :isPassword="selectedConfig.isPassword ?? false" v-on:submit="onConfigSubmit"></SystemConfigEdit>
+        :isPassword="selectedConfig.isPassword ?? false" :isNumeric="selectedConfig.isNumeric ?? false"
+        v-on:submit="onConfigSubmit"></SystemConfigEdit>
     </Teleport>
 
     <div class="row justify-content-start p-2">
@@ -118,7 +120,7 @@ async function onConfigSubmit() {
               <div v-for="(config, index) in configInfos.slice(0, limit)" class="card">
                 <div class="card-header">
                   <button type="button" class="btn btn-link" v-on:click="onConfigClick(config.key)">{{
-                      config.title
+                  config.title
                   }}</button> ({{ config.key }})
                 </div>
                 <div class="card-body">
