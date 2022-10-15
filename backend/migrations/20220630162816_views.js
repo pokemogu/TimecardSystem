@@ -5,6 +5,153 @@
 async function up(knex) {
   try {
 
+    await knex.schema.createView('scheduleByApply', function (view) {
+      view.as(
+        knex.select({
+          applyId: 'apply.id', userId: 'apply.user', date: 'apply.date',
+          dateTimeFrom: 'apply.dateTimeFrom', dateTimeTo: 'apply.dateTimeTo',
+          isWorking: knex.raw(`CASE WHEN applyType.name IN ('leave', 'am-leave', 'pm-leave', 'makeup-leave', 'mourning-leave', 'measure-leave') THEN FALSE ELSE TRUE END`),
+          dayAmount: knex.raw(`CASE WHEN applyType.name IN ('am-leave', 'pm-leave') THEN 0.5 ELSE 1.0 END`),
+          isPaid: knex.raw(`CASE WHEN applyType.name IN ('leave', 'am-leave', 'pm-leave') THEN TRUE ELSE FALSE END`),
+          breakPeriodMinutes: 'breakPeriodMinutes'
+        })
+          .from('apply')
+          .leftJoin('applyType', { 'applyType.id': 'apply.type' })
+          .where('apply.isApproved', true)
+        //.orderBy('record.date')
+        //.orderBy('record.user')
+      );
+    });
+
+    await knex.schema.createView('recordTimeWithOnTimePre', function (view) {
+      view.as(
+        knex.select({
+          userId: 'record.user', date: 'record.date',
+          // 秒は切り捨てる
+          clockin: knex.raw('FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockin) - SECOND(record.clockin))'),
+          stepout: knex.raw('FROM_UNIXTIME(UNIX_TIMESTAMP(record.stepout) - SECOND(record.stepout))'),
+          reenter: knex.raw('FROM_UNIXTIME(UNIX_TIMESTAMP(record.reenter) - SECOND(record.reenter))'),
+          clockout: knex.raw('FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockout) - SECOND(record.clockout))'),
+          clockinApply: 'record.clockinApply', stepoutApply: 'record.stepoutApply', reenterApply: 'record.reenterApply', clockoutApply: 'record.clockoutApply',
+          clockinDeviceAccount: 'clockinDevice.account', clockinDeviceName: 'clockinDevice.name',
+          stepoutDeviceAccount: 'stepoutDevice.account', stepoutDeviceName: 'stepoutDevice.name',
+          reenterDeviceAccount: 'reenterDevice.account', reenterDeviceName: 'reenterDevice.name',
+          clockoutDeviceAccount: 'clockoutDevice.account', clockoutDeviceName: 'clockoutDevice.name',
+          //workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
+          // 休憩時間は申請でスケジュールされたものがあればそれを適用し、特に申請がなければ勤務体系の休憩時間を適用する
+          breakPeriodMinutes: knex.raw('CASE WHEN MAX(scheduleByApply.breakPeriodMinutes) IS NULL THEN workPattern.breakPeriodMinutes ELSE MAX(scheduleByApply.breakPeriodMinutes) END'),
+          onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
+        })
+          .from('record')
+          .join('user', { 'user.id': 'record.user' })
+          .leftJoin('user as clockinDevice', { 'clockinDevice.id': 'record.clockinDevice' })
+          .leftJoin('user as stepoutDevice', { 'stepoutDevice.id': 'record.stepoutDevice' })
+          .leftJoin('user as reenterDevice', { 'reenterDevice.id': 'record.reenterDevice' })
+          .leftJoin('user as clockoutDevice', { 'clockoutDevice.id': 'record.clockoutDevice' })
+          .leftJoin('userWorkPatternCalendar', function () {
+            this.on('userWorkPatternCalendar.user', 'record.user');
+            this.andOn('userWorkPatternCalendar.date', 'record.date');
+          })
+          .joinRaw('JOIN `workPattern` ON IF(ISNULL(`userWorkPatternCalendar`.`workPattern`), `user`.`defaultWorkPattern`, `userWorkPatternCalendar`.`workPattern`) = `workPattern`.`id`')
+          .leftJoin('schedule', { 'schedule.user': 'record.user', 'schedule.date': 'record.date' })
+          .leftJoin('scheduleByApply', { 'scheduleByApply.applyId': 'schedule.apply' })
+          .groupBy(['record.user', 'record.date', 'workPattern.id'])
+        //.leftJoin('schedule', function () {
+        //  this.on('schedule.user', 'record.user');
+        //  this.andOn('schedule.date', 'record.date');
+        //})
+        //.orderBy('record.date')
+        //.orderBy('record.user')
+      );
+    });
+
+    await knex.schema.createView('recordTimeWithOnTime', function (view) {
+      view.as(
+        knex.select({
+          userId: 'userId', date: 'date',
+          clockin: 'clockin', stepout: 'stepout', reenter: 'reenter', clockout: 'clockout',
+          clockinApply: 'clockinApply', stepoutApply: 'stepoutApply', reenterApply: 'reenterApply', clockoutApply: 'clockoutApply',
+          clockinDeviceAccount: 'clockinDeviceAccount', clockinDeviceName: 'clockinDeviceName',
+          stepoutDeviceAccount: 'stepoutDeviceAccount', stepoutDeviceName: 'stepoutDeviceName',
+          reenterDeviceAccount: 'reenterDeviceAccount', reenterDeviceName: 'reenterDeviceName',
+          clockoutDeviceAccount: 'clockoutDeviceAccount', clockoutDeviceName: 'clockoutDeviceName',
+          //workPatternId: 'workPatternId', workPatternName: 'workPatternName',
+          breakPeriodMinutes: 'breakPeriodMinutes',
+          onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd',
+          // 勤務時間は(退出時刻 - 出勤時刻 - 休憩時間)で算出する。
+          workTime: knex.raw('TIMESTAMPADD(MINUTE, 0 - breakPeriodMinutes, TIMEDIFF(clockout, clockin))'),
+          earlyOverTime: knex.raw('TIMEDIFF(onTimeStart, clockin)'),
+          lateOverTime: knex.raw('TIMEDIFF(clockout, onTimeEnd)')
+        })
+          .from('recordTimeWithOnTimePre')
+          .orderBy('date')
+          .orderBy('userId')
+      );
+    });
+
+    await knex.schema.createView('workTimeInfo', function (view) {
+      view.as(
+        knex.select({
+          userId: 'recordTimeWithOnTime.userId', userAccount: 'user.account', userName: 'user.name',
+          departmentName: 'department.name', sectionName: 'section.name',
+          totalLateCount: knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
+          totalEarlyLeaveCount: knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
+          totalWorkTime: knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
+          totalEarlyOverTime: knex.raw('SEC_TO_TIME(SUM(IF(earlyOverTime > 0, TIME_TO_SEC(earlyOverTime), 0)))'),
+          totalLateOverTime: knex.raw('SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))')
+        })
+          .from('recordTimeWithOnTime')
+          .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
+          .leftJoin('section', { 'section.id': 'user.section' })
+          .leftJoin('department', { 'department.id': 'section.department' })
+          .groupBy('recordTimeWithOnTime.userId')
+          .orderBy('recordTimeWithOnTime.userId')
+      );
+    });
+
+    await knex.schema.raw(`
+      CREATE PROCEDURE generateAllDaysForUsers( IN tempTableName VARCHAR(32), IN fromDate DATE, IN toDate DATE )
+      BEGIN
+
+        SET @table_name = tempTableName;
+        SET @from_date = fromDate;
+        SET @to_date = toDate;
+
+        SET @sql_text = CONCAT('DROP TEMPORARY TABLE if exists ', @table_name);
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+
+        SET @sql_text = CONCAT('CREATE TEMPORARY TABLE ', @table_name, '(date DATE, userId INT)');
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+  
+        SET @sql_text = CONCAT('INSERT INTO ', @table_name, ' SELECT a.date, user.id AS userId
+        FROM (
+            SELECT ''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''' - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY AS date
+            FROM (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS a
+            CROSS JOIN (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS b
+            CROSS JOIN (
+              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
+            ) AS c
+        ) a 
+        CROSS JOIN user
+        WHERE a.date BETWEEN ''', DATE_FORMAT(@from_date, '%Y-%m-%d'), ''' AND LAST_DAY(''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''') AND IFNULL(user.isDevice, 0) = 0
+        ORDER BY a.date
+        ');
+        PREPARE stmt FROM @sql_text;
+        EXECUTE stmt;
+        DEALLOCATE PREPARE stmt;
+      END
+  `);
+
+
+
     await knex.schema.createView('applyPivot', function (view) {
       view.as(
         knex
@@ -295,5 +442,10 @@ async function down(knex) {
 
   await knex.schema.dropViewIfExists('applyPivot');
 
+  await knex.schema.raw('DROP PROCEDURE IF EXISTS generateAllDaysForUsers');
+  await knex.schema.dropViewIfExists('workTimeInfo');
+  await knex.schema.dropViewIfExists('recordTimeWithOnTime');
+  await knex.schema.dropViewIfExists('recordTimeWithOnTimePre');
+  await knex.schema.dropViewIfExists('scheduleByApply');
 };
 exports.down = down;

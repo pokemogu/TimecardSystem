@@ -4,6 +4,7 @@ import { format } from 'fecha';
 import { DatabaseAccess } from '../dataaccess';
 import type { UserInfo } from '../dataaccess';
 import * as apiif from '../APIInterfaces';
+import { Knex } from 'knex';
 
 ///////////////////////////////////////////////////////////////////////
 // 申請関連
@@ -398,8 +399,8 @@ export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyI
 
 export async function addSchedules(this: DatabaseAccess, params: {
   userInfo: UserInfo, applyId: number, workPatternId?: number | null, dateFrom: Date, dateTo?: Date,
-  leaveRate?: number, isPaid?: boolean, breakPeriodMinutes?: number
-}) {
+  //leaveRate?: number, isPaid?: boolean, breakPeriodMinutes?: number
+}, trx: Knex.Transaction) {
 
   const setTimeToZero = (date: Date) => {
     date.setHours(0);
@@ -410,29 +411,50 @@ export async function addSchedules(this: DatabaseAccess, params: {
 
   const dayFrom = new Date(params.dateFrom);
   setTimeToZero(dayFrom);
-  const schedules = [{
-    date: dayFrom, apply: params.applyId, isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
-    dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
-    isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
-  }];
+  const dayTo = new Date(params.dateTo ?? params.dateFrom);
+  setTimeToZero(dayTo);
+  const numberOfDays = 1 + (dayTo.getTime() - dayFrom.getTime()) / (1000 * 60 * 60 * 24);
+
+  const schedules: { date: Date, user: number, apply: number }[] = [];
+  const userWorkPatternCalendars: { user: number, date: Date, workPattern: number | null }[] = [];
+
+  for (let i = 0; i < numberOfDays; i++) {
+    const day = new Date(dayFrom);
+    day.setDate(day.getDate() + i);
+
+    schedules.push({
+      date: day, user: params.userInfo.id, apply: params.applyId
+    });
+
+    if (params.workPatternId !== undefined) {
+      userWorkPatternCalendars.push({ user: params.userInfo.id, date: day, workPattern: params.workPatternId });
+    }
+  }
+
+  //const schedules = [{
+  //  date: dayFrom, apply: params.applyId, //isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
+  //dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
+  //isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
+  //}];
 
   // 終日休暇では無い場合は、その日の勤務体系を再設定する必要があるので、取得する
-  const workPatternCalendar = await this.getUserWorkPatternCalendar(params.userInfo, {
-    from: format(dayFrom, 'isoDate'),
-    to: format(params.dateTo ?? params.dateFrom, 'isoDate')
-  });
+  //const workPatternCalendar = await this.getUserWorkPatternCalendar(params.userInfo, {
+  //  from: format(dayFrom, 'isoDate'),
+  //  to: format(params.dateTo ?? params.dateFrom, 'isoDate')
+  //});
 
-  const dayFromWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(dayFrom, 'isoDate'));
-  const userWorkPatternCalendars = [{
-    user: params.userInfo.id,
-    // 休日出勤等で勤務体系が指定されている場合はその勤務体系にて設定する。
-    // 勤務体系が指定されておらず、かつ終日休暇で無い場合はその日の現状の勤務体系とする。
-    // 勤務体系が指定されておらず、かつ終日休暇の場合は勤務体系を無し(NULL)とする
-    workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayFromWorkPattern?.workPattern?.id : null),
-    date: dayFrom,
-    leaveRate: params.leaveRate ?? null
-  }];
+  //const dayFromWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(dayFrom, 'isoDate'));
+  //const userWorkPatternCalendars = [{
+  //  user: params.userInfo.id,
+  // 休日出勤等で勤務体系が指定されている場合はその勤務体系にて設定する。
+  // 勤務体系が指定されておらず、かつ終日休暇で無い場合はその日の現状の勤務体系とする。
+  // 勤務体系が指定されておらず、かつ終日休暇の場合は勤務体系を無し(NULL)とする
+  //  workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayFromWorkPattern?.workPattern?.id : null),
+  //  date: dayFrom,
+  //  leaveRate: params.leaveRate ?? null
+  //}];
 
+  /*
   if (params.dateTo) {
     const dayTo = new Date(params.dateTo);
     setTimeToZero(dayTo);
@@ -447,9 +469,9 @@ export async function addSchedules(this: DatabaseAccess, params: {
       day.setDate(day.getDate() + i);
 
       schedules.push({
-        date: day, apply: params.applyId, isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
-        dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
-        isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
+        date: day, apply: params.applyId, //isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
+        //dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
+        //isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
       });
 
       const dayWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(day, 'isoDate'));
@@ -461,8 +483,9 @@ export async function addSchedules(this: DatabaseAccess, params: {
       });
     }
   }
-  await this.knex('schedule').insert(schedules);
-  await this.knex('userWorkPatternCalendar').insert(userWorkPatternCalendars).onConflict(['user', 'date']).merge(['workPattern', 'leaveRate']);
+  */
+  await this.knex('schedule').insert(schedules).transacting(trx);
+  await this.knex('userWorkPatternCalendar').insert(userWorkPatternCalendars).onConflict(['user', 'date']).merge(['workPattern']).transacting(trx);
 }
 
 export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, applyId: number, approve: boolean = true) {
@@ -505,95 +528,97 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
 
   let isApproved: boolean | undefined = approve;
 
-  // 自分が承認者1の場合
-  if (userInfo.id === apply.approvalLevel1MainUser || userInfo.id === apply.approvalLevel1SubUser) {
-    let currentApprovingMainUser: number | null = null;
-    let currentApprovingSubUser: number | null = null;
+  await this.knex.transaction(async (trx) => {
 
-    if (apply.approvalLevel2MainUser || apply.approvalLevel2SubUser) {
-      currentApprovingMainUser = apply.approvalLevel2MainUser;
-      currentApprovingSubUser = apply.approvalLevel2SubUser;
+    // 自分が承認者1の場合
+    if (userInfo.id === apply.approvalLevel1MainUser || userInfo.id === apply.approvalLevel1SubUser) {
+      let currentApprovingMainUser: number | null = null;
+      let currentApprovingSubUser: number | null = null;
+
+      if (apply.approvalLevel2MainUser || apply.approvalLevel2SubUser) {
+        currentApprovingMainUser = apply.approvalLevel2MainUser;
+        currentApprovingSubUser = apply.approvalLevel2SubUser;
+      }
+      else if (apply.approvalLevel3MainUser || apply.approvalLevel3SubUser) {
+        currentApprovingMainUser = apply.approvalLevel3MainUser;
+        currentApprovingSubUser = apply.approvalLevel3SubUser;
+      }
+      else {
+        currentApprovingMainUser = apply.approvalDecisionUser;
+        currentApprovingSubUser = null;
+      }
+
+      // 否認の場合は後続の承認者の有無に関わらず否認扱いとする
+      // 承認者2〜3か決裁者がいないのであれば承認扱いとする
+      isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
+
+      await this.knex('apply').where('id', applyId).update({
+        approvedLevel1User: userInfo.id,
+        approvedLevel1UserTimestamp: new Date(),
+        currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
+        currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
+        isApproved: isApproved
+      }).transacting(trx);
     }
-    else if (apply.approvalLevel3MainUser || apply.approvalLevel3SubUser) {
-      currentApprovingMainUser = apply.approvalLevel3MainUser;
-      currentApprovingSubUser = apply.approvalLevel3SubUser;
+    // 自分が承認者2の場合
+    else if (userInfo.id === apply.approvalLevel2MainUser || userInfo.id === apply.approvalLevel2SubUser) {
+      let currentApprovingMainUser: number | null = null;
+      let currentApprovingSubUser: number | null = null;
+
+      if (apply.approvalLevel3MainUser || apply.approvalLevel3SubUser) {
+        currentApprovingMainUser = apply.approvalLevel3MainUser;
+        currentApprovingSubUser = apply.approvalLevel3SubUser;
+      }
+      else {
+        currentApprovingMainUser = apply.approvalDecisionUser;
+        currentApprovingSubUser = null;
+      }
+
+      // 承認者3か決裁者がいないのであれば承認扱いとする
+      isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
+
+      await this.knex('apply').where('id', applyId).update({
+        approvedLevel2User: userInfo.id,
+        approvedLevel2UserTimestamp: new Date(),
+        currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
+        currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
+        isApproved: isApproved
+      }).transacting(trx);
     }
+    // 自分が承認者3の場合
+    else if (userInfo.id === apply.approvalLevel3MainUser || userInfo.id === apply.approvalLevel3SubUser) {
+      // 決裁者がいないのであれば承認扱いとする
+      isApproved = approve === true ? (apply.approvalDecisionUser ? undefined : true) : false;
+
+      await this.knex('apply').where('id', applyId).update({
+        approvedLevel3User: userInfo.id,
+        approvedLevel3UserTimestamp: new Date(),
+        currentApprovingMainUser: approve === true ? (apply.approvalDecisionUser) : null,
+        currentApprovingSubUser: null,
+        isApproved: isApproved
+      }).transacting(trx);
+    }
+    // 自分が決裁者の場合
+    else if (userInfo.id === apply.approvalDecisionUser) {
+      await this.knex('apply').where('id', applyId).update({
+        approvedDecisionUser: userInfo.id,
+        approvedDecisionUserTimestamp: new Date(),
+        currentApprovingMainUser: null,
+        currentApprovingSubUser: null,
+        isApproved: approve // 決裁者の承認/否認で完了とする
+      }).transacting(trx);
+    }
+    // 承認ルートに自分が含まれていない場合はエラー
     else {
-      currentApprovingMainUser = apply.approvalDecisionUser;
-      currentApprovingSubUser = null;
+      throw new createHttpError.Forbidden('承認ルートに含まれていません');
     }
 
-    // 否認の場合は後続の承認者の有無に関わらず否認扱いとする
-    // 承認者2〜3か決裁者がいないのであれば承認扱いとする
-    isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
+    // 承認された場合は申請種類に応じた処理を行なう
+    if (isApproved === true) {
+      const targetUserInfo: UserInfo = { id: apply.targetUserId, account: apply.targetUserAccount };
 
-    await this.knex('apply').where('id', applyId).update({
-      approvedLevel1User: userInfo.id,
-      approvedLevel1UserTimestamp: new Date(),
-      currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
-      currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
-      isApproved: isApproved
-    });
-  }
-  // 自分が承認者2の場合
-  else if (userInfo.id === apply.approvalLevel2MainUser || userInfo.id === apply.approvalLevel2SubUser) {
-    let currentApprovingMainUser: number | null = null;
-    let currentApprovingSubUser: number | null = null;
-
-    if (apply.approvalLevel3MainUser || apply.approvalLevel3SubUser) {
-      currentApprovingMainUser = apply.approvalLevel3MainUser;
-      currentApprovingSubUser = apply.approvalLevel3SubUser;
-    }
-    else {
-      currentApprovingMainUser = apply.approvalDecisionUser;
-      currentApprovingSubUser = null;
-    }
-
-    // 承認者3か決裁者がいないのであれば承認扱いとする
-    isApproved = approve === true ? ((currentApprovingMainUser || currentApprovingSubUser) ? undefined : true) : false;
-
-    await this.knex('apply').where('id', applyId).update({
-      approvedLevel2User: userInfo.id,
-      approvedLevel2UserTimestamp: new Date(),
-      currentApprovingMainUser: approve === true ? currentApprovingMainUser : null,
-      currentApprovingSubUser: approve === true ? currentApprovingSubUser : null,
-      isApproved: isApproved
-    });
-  }
-  // 自分が承認者3の場合
-  else if (userInfo.id === apply.approvalLevel3MainUser || userInfo.id === apply.approvalLevel3SubUser) {
-    // 決裁者がいないのであれば承認扱いとする
-    isApproved = approve === true ? (apply.approvalDecisionUser ? undefined : true) : false;
-
-    await this.knex('apply').where('id', applyId).update({
-      approvedLevel3User: userInfo.id,
-      approvedLevel3UserTimestamp: new Date(),
-      currentApprovingMainUser: approve === true ? (apply.approvalDecisionUser) : null,
-      currentApprovingSubUser: null,
-      isApproved: isApproved
-    });
-  }
-  // 自分が決裁者の場合
-  else if (userInfo.id === apply.approvalDecisionUser) {
-    await this.knex('apply').where('id', applyId).update({
-      approvedDecisionUser: userInfo.id,
-      approvedDecisionUserTimestamp: new Date(),
-      currentApprovingMainUser: null,
-      currentApprovingSubUser: null,
-      isApproved: approve // 決裁者の承認/否認で完了とする
-    });
-  }
-  // 承認ルートに自分が含まれていない場合はエラー
-  else {
-    throw new createHttpError.Forbidden('承認ルートに含まれていません');
-  }
-
-  // 承認された場合は申請種類に応じた処理を行なう
-  if (isApproved === true) {
-    const targetUserInfo: UserInfo = { id: apply.targetUserId, account: apply.targetUserAccount };
-
-    switch (apply.applyTypeName) {
-      case 'record': // 打刻
+      // 打刻
+      if (apply.applyTypeName === 'record') {
         const recordOption = (await this.getApplyOptions([applyId])).find(applyOption => applyOption.optionTypeName === 'recordType');
         if (recordOption) {
           const targetUser = await this.getUserInfoById(apply.targetUserId);
@@ -604,57 +629,99 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
             );
           }
         }
-        break;
-      case 'leave': // 有給
-        await this.addSchedules({
-          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          isPaid: true
-        });
-        break;
-      case 'mourning-leave': // 慶弔休
-      case 'measure-leave': // 措置休
-      case 'makeup-leave': // 代休
+      }
+      // 午前半休、午後半休、残業、遅刻、早退、外出は予定登録のみ
+      else if (['am-leave', 'pm-leave', 'overtime', 'lateness', 'leave-early', 'stepout'].includes(apply.applyTypeName)) {
         await this.addSchedules({
           userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo
-        });
-        break;
-      case 'am-leave': // 午前半休
+        }, trx);
+      }
+      // 有給、慶弔休、措置休、代休は予定登録に加えてその日の勤務体系を休暇にする
+      else if (['leave', 'mourning-leave', 'measure-leave', 'makeup-leave'].includes(apply.applyTypeName)) {
         await this.addSchedules({
           userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          leaveRate: 0.5, isPaid: true
-        });
-        break;
-      case 'pm-leave': // 午後半休
-        await this.addSchedules({
-          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          leaveRate: -0.5, isPaid: true
-        });
-        break;
-      case 'holiday-work': // 休日出勤
+          workPatternId: null
+        }, trx);
+      }
+      // 休日出勤は指定された勤務体系をその日に設定する
+      else if (apply.applyTypeName === 'holiday-work') {
         if (!apply.workPatternId) {
           throw new createHttpError.BadRequest('休日出勤での勤務体系が指定されていません。');
         }
+
         await this.addSchedules({
           userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          workPatternId: apply.workPatternId, breakPeriodMinutes: apply.breakPeriodMinutes,
-          leaveRate: 0
-        });
-        break;
-      case 'overtime': // 残業
-        await this.addSchedules({
-          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom,
-          breakPeriodMinutes: apply.breakPeriodMinutes,
-          leaveRate: 0
-        });
-        break;
-      case 'lateness': // 遅刻
-        break;
-      case 'leave-early': // 早退
-        break;
-      case 'stepout': // 外出
-        break;
+          workPatternId: apply.workPatternId
+        }, trx);
+      }
+
+      /*
+      switch (apply.applyTypeName) {
+        case 'record': // 打刻
+          const recordOption = (await this.getApplyOptions([applyId])).find(applyOption => applyOption.optionTypeName === 'recordType');
+          if (recordOption) {
+            const targetUser = await this.getUserInfoById(apply.targetUserId);
+            if (targetUser) {
+              await this.submitRecord(
+                userInfo, recordOption.optionValueName,
+                { account: targetUser.account, timestamp: apply.applyDateTimeFrom, applyId: applyId }
+              );
+            }
+          }
+          break;
+        case 'leave': // 有給
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
+            isPaid: true
+          });
+          break;
+        case 'mourning-leave': // 慶弔休
+        case 'measure-leave': // 措置休
+        case 'makeup-leave': // 代休
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo
+          });
+          break;
+        case 'am-leave': // 午前半休
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
+            leaveRate: 0.5, isPaid: true
+          });
+          break;
+        case 'pm-leave': // 午後半休
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
+            leaveRate: -0.5, isPaid: true
+          });
+          break;
+        case 'holiday-work': // 休日出勤
+          if (!apply.workPatternId) {
+            throw new createHttpError.BadRequest('休日出勤での勤務体系が指定されていません。');
+          }
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
+            workPatternId: apply.workPatternId, breakPeriodMinutes: apply.breakPeriodMinutes,
+            leaveRate: 0
+          });
+          break;
+        case 'overtime': // 残業
+          await this.addSchedules({
+            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom,
+            breakPeriodMinutes: apply.breakPeriodMinutes,
+            leaveRate: 0
+          });
+          break;
+        case 'lateness': // 遅刻
+          break;
+        case 'leave-early': // 早退
+          break;
+        case 'stepout': // 外出
+          break;
+      }
+      */
     }
-  }
+
+  });
 }
 
 export async function getEmailsOfApply(this: DatabaseAccess, applyId: number) {

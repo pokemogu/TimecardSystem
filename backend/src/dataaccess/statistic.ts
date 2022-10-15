@@ -1,5 +1,6 @@
 import type * as apiif from '../APIInterfaces';
 import { DatabaseAccess } from '../dataaccess';
+import { format } from 'fecha';
 
 function setTimeToZero(date: Date) {
   date.setHours(0);
@@ -55,17 +56,29 @@ export async function getTotalAnnualLeaves(this: DatabaseAccess, params?: { acco
 export async function getTotalScheduledAnnualLeaves(this: DatabaseAccess, params?: apiif.TotalScheduledAnnualLeavesQuery) {
   type ResultRecord = { userAccount: string, userName: string, departmentName: string, sectionName: string, dayAmountScheduled: number };
   const isPaid = params?.isPaid ?? true;
+  const searchDate = params?.date ? new Date(params.date) : undefined;
+  if (searchDate) {
+    setTimeToZero(searchDate);
+  }
 
-  const results = await this.knex.select<ResultRecord[]>({
+  const aggSQL =
+    'CASE WHEN scheduleByApply.isWorking = FALSE' +
+    (isPaid ? ' AND scheduleByApply.isPaid = TRUE' : '') +
+    (searchDate ? ` AND scheduleByApply.date <= '${format(searchDate!, 'isoDate')}'` : '') +
+    ' THEN dayAmount ELSE 0 END';
+
+  const results = await this.knex.select({
     userAccount: 'user.account', userName: 'user.name',
-    departmentName: 'department.name', sectionName: 'section.name'
+    departmentName: 'department.name', sectionName: 'section.name',
+    dayAmountScheduled: this.knex.raw(`SUM(${aggSQL})`),
+    dayAmountScheduledCount: this.knex.raw(`COUNT(${aggSQL})`),
   })
     .from('user')
     .leftJoin('section', { 'section.id': 'user.section' })
     .leftJoin('department', { 'department.id': 'section.department' })
-    .leftJoin('schedule', { 'schedule.user': 'user.id' })
-    .sum('schedule.dayAmount', { as: 'dayAmountScheduled' })
-    .count('schedule.dayAmount', { as: 'dayAmountScheduledCount' })
+    .leftJoin('scheduleByApply', { 'scheduleByApply.userId': 'user.id' })
+    //.sum('schedule.dayAmount', { as: 'dayAmountScheduled' })
+    //.count('schedule.dayAmount', { as: 'dayAmountScheduledCount' })
     .where(function (builder) {
       builder.where('user.isDevice', false);
 
@@ -83,15 +96,6 @@ export async function getTotalScheduledAnnualLeaves(this: DatabaseAccess, params
       }
       if (params?.sectionName) {
         builder.where('section.name', 'like', `%${params.sectionName}%`)
-      }
-
-      if (params?.date) {
-        const date = new Date(params.date);
-        setTimeToZero(date);
-        builder.having('date', '>=', date);
-      }
-      if (isPaid === true) {
-        builder.having('isPaid', '=', true);
       }
     })
     .groupBy('user.id')

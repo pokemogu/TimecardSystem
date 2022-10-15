@@ -189,7 +189,6 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
       .join('user', { 'user.id': params.selectAllDays === true ? `${alldaysTempTableName}.userId` : 'userId' })
       .leftJoin('section', { 'section.id': 'user.section' })
       .leftJoin('department', { 'department.id': 'section.department' })
-      .leftJoin('schedule', { 'schedule.user': 'user.id' })
       //.leftJoin('apply', { 'apply.user': 'user.id', 'apply.date': params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date' })
       .where(function (builder) {
         if (params.byUserAccount) {
@@ -273,6 +272,10 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         'earlyOverTime', 'lateOverTime', 'onTimeStart', 'onTimeEnd'
       ])
       */
+      //.groupBy([
+      //  params.selectAllDays === true ? `${alldaysTempTableName}.date` : 'date',
+      //  params.selectAllDays === true ? `${alldaysTempTableName}.userId` : 'user.id',
+      //])
       .transacting(trx);
 
     // 動的生成したテーブルを削除する

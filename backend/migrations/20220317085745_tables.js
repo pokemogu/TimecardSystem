@@ -81,7 +81,7 @@ async function up(knex) {
       table.string('name').notNullable().unique();
       table.time('onTimeStart').notNullable();
       table.time('onTimeEnd').notNullable();
-      table.integer('breakPeriodMinutes').unsigned().notNullable().defaultTo(60);
+      table.integer('breakPeriodMinutes').notNullable().defaultTo(60);
     });
 
     await knex.schema.createTable('wagePattern', function (table) {
@@ -133,7 +133,7 @@ async function up(knex) {
       table.integer('user').unsigned().notNullable().index();
       table.integer('workPattern').unsigned().comment('その日の勤務体系を指定する。NULLの場合は終日休暇を意味する。');
       table.date('date').notNullable();
-      table.decimal('leaveRate', 5, 4).comment('勤務体系の時間帯内で休暇等で不在となる時間の割合。正の数の場合は勤務開始時から不在で途中から勤務開始する場合。負の数の場合は勤務開始は予定通りで勤務途中から不在となる場合。');
+      //table.decimal('leaveRate', 5, 4).comment('勤務体系の時間帯内で休暇等で不在となる時間の割合。正の数の場合は勤務開始時から不在で途中から勤務開始する場合。負の数の場合は勤務開始は予定通りで勤務途中から不在となる場合。');
 
       table.unique(['user', 'date']);
       table.foreign('user').references('id').inTable('user');
@@ -350,10 +350,10 @@ async function up(knex) {
       table.integer('user').unsigned().notNullable();
       table.date('date').notNullable().comment('申請対象の基準日(労働日)');
       table.integer('apply').unsigned().nullable().comment('スケジュールの元となる申請');
-      table.boolean('isWorking').notNullable().defaultTo(false).comment('この予定が勤務時間扱いかそうでないか');
-      table.decimal('dayAmount', 4, 1).notNullable().defaultTo(1.0).comment('終日予定の場合は1.0、半日予定の場合は0.5');
-      table.boolean('isPaid').defaultTo(false).notNullable().comment('有給かどうか');
-      table.integer('breakPeriodMinutes').nullable().unsigned().comment('休憩時間');
+      //table.boolean('isWorking').notNullable().defaultTo(false).comment('この予定が勤務時間扱いかそうでないか');
+      //table.decimal('dayAmount', 4, 1).notNullable().defaultTo(1.0).comment('終日予定の場合は1.0、半日予定の場合は0.5');
+      //table.boolean('isPaid').defaultTo(false).notNullable().comment('有給かどうか');
+      //table.integer('breakPeriodMinutes').nullable().comment('休憩時間');
 
       table.foreign('user').references('id').inTable('user');
       table.foreign('apply').references('id').inTable('apply');
@@ -401,59 +401,6 @@ async function up(knex) {
 
       table.unique(['user', 'date']);
       table.foreign('user').references('id').inTable('user');
-    });
-
-    await knex.schema.createView('recordTimeWithOnTime', function (view) {
-      view.as(
-        knex.select({
-          userId: 'record.user', date: 'record.date',
-          clockin: 'record.clockin', stepout: 'record.stepout', reenter: 'record.reenter', clockout: 'record.clockout',
-          clockinApply: 'record.clockinApply', stepoutApply: 'record.stepoutApply', reenterApply: 'record.reenterApply', clockoutApply: 'record.clockoutApply',
-          clockinDeviceAccount: 'clockinDevice.account', clockinDeviceName: 'clockinDevice.name',
-          stepoutDeviceAccount: 'stepoutDevice.account', stepoutDeviceName: 'stepoutDevice.name',
-          reenterDeviceAccount: 'reenterDevice.account', reenterDeviceName: 'reenterDevice.name',
-          clockoutDeviceAccount: 'clockoutDevice.account', clockoutDeviceName: 'clockoutDevice.name',
-          workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
-          // 勤務時間は(退出時刻 - 出勤時刻)で算出する。その際は退出時刻と出勤時刻の秒は切り捨てる
-          workTime: knex.raw('TIMEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockout) - SECOND(record.clockout)), FROM_UNIXTIME(UNIX_TIMESTAMP(record.clockin) - SECOND(record.clockin)))'),
-          onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
-          earlyOverTime: knex.raw('TIMEDIFF(ADDTIME(record.date, workPattern.onTimeStart), FROM_UNIXTIME(UNIX_TIMESTAMP(clockin) - SECOND(clockin)))'),
-          lateOverTime: knex.raw('TIMEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(clockout) - SECOND(clockout)), ADDTIME(record.date, workPattern.onTimeEnd))')
-        })
-          .from('record')
-          .join('user', { 'user.id': 'record.user' })
-          .leftJoin('user as clockinDevice', { 'clockinDevice.id': 'record.clockinDevice' })
-          .leftJoin('user as stepoutDevice', { 'stepoutDevice.id': 'record.stepoutDevice' })
-          .leftJoin('user as reenterDevice', { 'reenterDevice.id': 'record.reenterDevice' })
-          .leftJoin('user as clockoutDevice', { 'clockoutDevice.id': 'record.clockoutDevice' })
-          .leftJoin('userWorkPatternCalendar', function () {
-            this.on('userWorkPatternCalendar.user', 'record.user');
-            this.andOn('userWorkPatternCalendar.date', 'record.date');
-          })
-          .joinRaw('join `workPattern` on if(isnull(`userWorkPatternCalendar`.`workPattern`), `user`.`defaultWorkPattern`, `userWorkPatternCalendar`.`workPattern`) = `workPattern`.`id`')
-          .orderBy('record.date')
-          .orderBy('record.user')
-      );
-    });
-
-    await knex.schema.createView('workTimeInfo', function (view) {
-      view.as(
-        knex.select({
-          userId: 'recordTimeWithOnTime.userId', userAccount: 'user.account', userName: 'user.name',
-          departmentName: 'department.name', sectionName: 'section.name',
-          totalLateCount: knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
-          totalEarlyLeaveCount: knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
-          totalWorkTime: knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
-          totalEarlyOverTime: knex.raw('SEC_TO_TIME(SUM(IF(earlyOverTime > 0, TIME_TO_SEC(earlyOverTime), 0)))'),
-          totalLateOverTime: knex.raw('SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))')
-        })
-          .from('recordTimeWithOnTime')
-          .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
-          .leftJoin('section', { 'section.id': 'user.section' })
-          .leftJoin('department', { 'department.id': 'section.department' })
-          .groupBy('recordTimeWithOnTime.userId')
-          .orderBy('recordTimeWithOnTime.userId')
-      );
     });
 
     ///////////////////////////////////////////////////////////////////////
@@ -527,75 +474,6 @@ async function up(knex) {
       table.string('query');
       table.string('body', 1023);
     });
-
-    // 指定された月の全ての日を生成するストアドプロシージャgenerateAllDays
-    // 生成結果は一時テーブルalldaysに書き込まれる
-    //
-    // 例)
-    // CALL generateAllDays('2022-01-01', '2022-03-01'); SELECT date FROM alldays;
-    //
-    /*
-    await knex.schema.raw(`
-    CREATE PROCEDURE generateAllDays( IN fromDate DATE, IN toDate DATE )
-    BEGIN
-    
-    create temporary table alldays(date date);
-    
-    insert into alldays select a.date 
-    from (
-        select last_day(toDate) - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as date
-        from (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as a
-        cross join (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as b
-        cross join (select 0 as a union all select 1 union all select 2 union all select 3 union all select 4 union all select 5 union all select 6 union all select 7 union all select 8 union all select 9) as c
-    ) a 
-    where a.date between fromDate and last_day(toDate) order by a.date;
-    
-    END
-    `);
-    */
-
-    await knex.schema.raw(`
-      CREATE PROCEDURE generateAllDaysForUsers( IN tempTableName VARCHAR(32), IN fromDate DATE, IN toDate DATE )
-      BEGIN
-
-        SET @table_name = tempTableName;
-        SET @from_date = fromDate;
-        SET @to_date = toDate;
-
-        SET @sql_text = CONCAT('drop temporary table if exists ', @table_name);
-        PREPARE stmt FROM @sql_text;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-
-        SET @sql_text = CONCAT('create temporary table ', @table_name, '(date date, userId int)');
-        PREPARE stmt FROM @sql_text;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-  
-        SET @sql_text = CONCAT('INSERT INTO ', @table_name, ' SELECT a.date, user.id AS userId
-        FROM (
-            SELECT ''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''' - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY AS date
-            FROM (
-              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-            ) AS a
-            CROSS JOIN (
-              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-            ) AS b
-            CROSS JOIN (
-              SELECT 0 AS a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9
-            ) AS c
-        ) a 
-        CROSS JOIN user
-        WHERE a.date BETWEEN ''', DATE_FORMAT(@from_date, '%Y-%m-%d'), ''' AND LAST_DAY(''', DATE_FORMAT(@to_date, '%Y-%m-%d'), ''') AND IFNULL(user.isDevice, 0) = 0
-        ORDER BY a.date
-        ');
-        PREPARE stmt FROM @sql_text;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-      END
-  `);
-
-
   }
   catch (error) {
     await down(knex);
@@ -609,11 +487,6 @@ exports.up = up;
  * @returns { Promise<void> }
  */
 async function down(knex) {
-  await knex.schema.raw('DROP PROCEDURE IF EXISTS generateAllDaysForUsers');
-
-  await knex.schema.dropViewIfExists('workTimeInfo');
-  await knex.schema.dropViewIfExists('recordTimeWithOnTime');
-
   await knex.schema.dropTableIfExists('auditLog');
   await knex.schema.dropTableIfExists('mailQueue');
   await knex.schema.dropTableIfExists('userConfig');

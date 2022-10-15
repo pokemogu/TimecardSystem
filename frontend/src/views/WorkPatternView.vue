@@ -170,6 +170,7 @@ async function onWorkPatternSubmit() {
               <th scope="col">勤務体系名</th>
               <th scope="col">定時開始時刻</th>
               <th scope="col">定時終了時刻</th>
+              <th scope="col">休憩時間</th>
               <!-- <th v-for="roleName in roleNamesLinear">{{ roleName }}</th> -->
             </tr>
           </thead>
@@ -186,6 +187,7 @@ async function onWorkPatternSubmit() {
               </td>
               <td>{{ formatTimeString(workPattern.onTimeStart) }}</td>
               <td>{{ formatTimeString(workPattern.onTimeEnd) }}</td>
+              <td>{{ workPattern.breakPeriodMinutes }}分</td>
             </tr>
           </tbody>
           <tfoot>
