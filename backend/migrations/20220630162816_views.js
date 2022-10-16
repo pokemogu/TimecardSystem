@@ -39,7 +39,13 @@ async function up(knex) {
           clockoutDeviceAccount: 'clockoutDevice.account', clockoutDeviceName: 'clockoutDevice.name',
           //workPatternId: 'workPattern.id', workPatternName: 'workPattern.name',
           // 休憩時間は申請でスケジュールされたものがあればそれを適用し、特に申請がなければ勤務体系の休憩時間を適用する
-          breakPeriodMinutes: knex.raw('CASE WHEN MAX(scheduleByApply.breakPeriodMinutes) IS NULL THEN workPattern.breakPeriodMinutes ELSE MAX(scheduleByApply.breakPeriodMinutes) END'),
+          breakPeriodMinutes: knex.raw(`
+            CASE
+              WHEN MAX(scheduleByApply.isWorking) = FALSE THEN NULL
+              WHEN MAX(scheduleByApply.breakPeriodMinutes) IS NULL THEN workPattern.breakPeriodMinutes
+              ELSE MAX(scheduleByApply.breakPeriodMinutes)
+            END
+          `),
           onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),
         })
           .from('record')

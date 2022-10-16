@@ -65,7 +65,7 @@ async function seed(knex) {
   await knex("privilege").del();
   await knex('section').del();
   await knex('department').del();
-  await knex('systemConfig').update({ value: '' });
+  //await knex('systemConfig').update({ value: '' });
 
   // 部署情報
   await knex('department').insert([

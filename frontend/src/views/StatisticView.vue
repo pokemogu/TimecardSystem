@@ -20,8 +20,8 @@ const TAB_NAME = {
 } as const;
 type TAB_NAME = typeof TAB_NAME[keyof typeof TAB_NAME];
 const selectedTab = ref<TAB_NAME>(TAB_NAME.LEAVEINFO);
-const selectedRoundType = ref<'ceil' | 'floor' | 'round' | undefined>(undefined);
-const selectedRoundValue = ref(15);
+//const selectedRoundType = ref<'ceil' | 'floor' | 'round' | undefined>(undefined);
+//const selectedRoundValue = ref(15);
 
 //const recordInfos = ref<apiif.RecordResponseData[]>([]);
 const checks = ref<boolean[]>([]);
@@ -56,6 +56,8 @@ const dayAmountSearch = ref<number>();
 const isAccountSearchable = ref(false);
 const isDepartmentSearchable = ref(false);
 const isSectionSearchable = ref(false);
+const isRoundEnabled = ref(true);
+const roundMinutes = ref(15);
 
 if (store.privilege?.viewAllUserInfo) {
   isAccountSearchable.value = true;
@@ -83,6 +85,10 @@ const UpdateOnSearch = async function () {
   await updateList();
 }
 
+async function UpdateOnSearchKeepOffset() {
+  await updateList();
+}
+
 watch(dateFrom, lodash.debounce(UpdateOnSearch, 200));
 watch(dateTo, lodash.debounce(UpdateOnSearch, 200));
 watch(accountSearch, lodash.debounce(UpdateOnSearch, 200));
@@ -90,8 +96,8 @@ watch(nameSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(departmentSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(sectionSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(dayAmountSearch, lodash.debounce(UpdateOnSearch, 200));
-watch(selectedRoundType, UpdateOnSearch);
-watch(selectedRoundValue, lodash.debounce(UpdateOnSearch, 200));
+watch(isRoundEnabled, lodash.debounce(UpdateOnSearchKeepOffset, 200));
+watch(roundMinutes, lodash.debounce(UpdateOnSearchKeepOffset, 200));
 
 const totalWorkTime = ref<apiif.TotalWorkTimeInfoResponseData[]>([]);
 const annualLeaves = ref<apiif.TotalScheduledAnnualLeavesResponseData[]>([]);
@@ -112,8 +118,8 @@ async function updateList() {
         sectionName: sectionSearch.value !== '' ? sectionSearch.value : undefined,
         dateFrom: dateFrom.value !== '' ? (parse(dateFrom.value, 'isoDate') ?? undefined) : undefined,
         dateTo: dateTo.value !== '' ? (parse(dateTo.value, 'isoDate') ?? undefined) : undefined,
-        roundMinutes: selectedRoundType.value ? selectedRoundValue.value : undefined,
-        roundType: selectedRoundType.value,
+        roundMinutes: isRoundEnabled.value === true ? roundMinutes.value : undefined,
+        //roundType: selectedRoundType.value,
         limit: limit.value + 1,
         offset: offset.value
       });
@@ -276,15 +282,15 @@ async function onSendLateMail() {
       </div>
       <div class="col-4">
         <div class="input-group input-group-sm" v-if="selectedTab === TAB_NAME.WORKINFO">
-          <select class="form-select" id="round-type" v-model="selectedRoundType">
-            <option :value="undefined">丸めなし集計</option>
-            <option value="floor">切り下げ集計</option>
-            <option value="ceil">切り上げ集計</option>
-            <option value="round">四捨五入集計</option>
-          </select>
-          <input type="number" class="form-control" id="round-value" v-model="selectedRoundValue"
-            :hidden="selectedRoundType === undefined">
-          <span class="input-group-text" :hidden="selectedRoundType === undefined">分</span>
+          <div class="input-group input-group-sm mb-3">
+            <div class="input-group-text">
+              <input class="form-check-input mt-0" type="checkbox" id="round-enabled" v-model="isRoundEnabled">
+            </div>
+            <label class="input-group-text" for="round-enabled">各日の打刻時刻を丸めてから集計</label>
+            <input type="number" class="form-control" min="1" step="1" max="59" v-model="roundMinutes"
+              :disabled="isRoundEnabled === false">
+            <span class="input-group-text">分</span>
+          </div>
         </div>
       </div>
     </div>

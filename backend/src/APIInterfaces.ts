@@ -144,6 +144,7 @@ export interface RecordRequestQuery {
   stepout?: boolean,
   reenter?: boolean,
   clockout?: boolean,
+  roundMinutes?: number,
   limit?: number,
   offset?: number
 }
@@ -168,7 +169,8 @@ export interface RecordResponseData {
   earlyOverTimeSeconds?: number,
   lateOverTimeSeconds?: number,
   onTimeStart?: Date,
-  onTimeEnd?: Date
+  onTimeEnd?: Date,
+  breakPeriodMinutes?: number
 }
 
 /*

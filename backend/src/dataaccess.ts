@@ -110,6 +110,7 @@ export class DatabaseAccess {
   public submitRecord = record.submitRecord;
   public getRecords = record.getRecords;
   public getRecordAndApplyList = record.getRecordAndApplyList;
+  protected getRecordTimeWithOnTimeQuery = record.getRecordTimeWithOnTimeQuery;
 
   ///////////////////////////////////////////////////////////////////////
   // ユーザー情報関連 dataaccess.user

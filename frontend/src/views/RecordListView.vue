@@ -56,6 +56,8 @@ const sectionSearch = ref('');
 const isAccountSearchable = ref(false);
 const isDepartmentSearchable = ref(false);
 const isSectionSearchable = ref(false);
+const isRoundEnabled = ref(true);
+const roundMinutes = ref(15);
 
 if (store.privilege?.viewAllUserInfo) {
   isAccountSearchable.value = true;
@@ -103,6 +105,10 @@ async function UpdateOnSearch() {
   await updateRecordListView();
 }
 
+async function UpdateOnSearchKeepOffset() {
+  await updateRecordListView();
+}
+
 watch(dateFrom, lodash.debounce(UpdateOnSearch, 200));
 watch(dateTo, lodash.debounce(UpdateOnSearch, 200));
 watch(accountSearch, lodash.debounce(UpdateOnSearch, 200));
@@ -114,10 +120,13 @@ watch(clockinSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(stepoutSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(reenterSearch, lodash.debounce(UpdateOnSearch, 200));
 watch(clockoutSearch, lodash.debounce(UpdateOnSearch, 200));
+watch(isRoundEnabled, lodash.debounce(UpdateOnSearchKeepOffset, 200));
+watch(roundMinutes, lodash.debounce(UpdateOnSearchKeepOffset, 200));
 
 // テーブルレイアウトのカスタマイズ
 const columnNames = ref<string[]>([
-  '打刻日', 'ID', '氏名', '部門', '部署', '端末', '出勤', '外出', '再入', '退勤', '遅刻', '早退', '残業'
+  '打刻日', 'ID', '氏名', '部門', '部署', '端末', '出勤', '外出', '再入', '退勤', '遅刻', '早退', '残業', '休憩',
+  '休暇', '時間外申請'
 ]);
 const defaultLayout = ref<{ name: string, columnIndices: number[] }>({
   name: '標準レイアウト',
@@ -175,7 +184,8 @@ const $loading = useLoading();
 
 async function getRecordList(searchOptions?: {
   account?: string, name?: string, department?: string, section?: string, device?: string, dateFrom?: Date, dateTo?: Date,
-  clockin?: boolean, stepout?: boolean, reenter?: boolean, clockout?: boolean, limit?: number, offset?: number
+  clockin?: boolean, stepout?: boolean, reenter?: boolean, clockout?: boolean, limit?: number, offset?: number,
+  roundMinutes?: number
 }) {
   const recordAndApplyInfoValue: RecordAndApllyInfo[] = []
 
@@ -194,7 +204,8 @@ async function getRecordList(searchOptions?: {
     clockout: searchOptions?.clockout,
     limit: searchOptions?.limit ? searchOptions.limit + 1 : undefined,
     offset: searchOptions?.offset,
-    selectAllDays: true
+    selectAllDays: true,
+    roundMinutes: searchOptions?.roundMinutes
   });
 
   if (records) {
@@ -325,7 +336,8 @@ async function getRecordListBySearchForm(enableLimit = true) {
     reenter: reenterSearch.value === 'notRecorded' ? false : (reenterSearch.value === 'recorded' ? true : undefined),
     clockout: clockoutSearch.value === 'notRecorded' ? false : (clockoutSearch.value === 'recorded' ? true : undefined),
     limit: enableLimit ? limit.value : undefined,
-    offset: enableLimit ? offset.value : undefined
+    offset: enableLimit ? offset.value : undefined,
+    roundMinutes: isRoundEnabled.value === true ? roundMinutes.value : undefined
   };
 
   return await getRecordList(searchOptions);
@@ -356,6 +368,14 @@ onMounted(async () => {
   const devices = await access.getDevices();
   if (devices) {
     devices.forEach(device => deviceNames.value.push(device.name));
+  }
+
+  const configRoundMinutesStr = await access.getSystemConfigValue('defaultRoundMinutes');
+  if (configRoundMinutesStr) {
+    const configRoundMinutes = parseInt(configRoundMinutesStr);
+    if (!isNaN(configRoundMinutes)) {
+      roundMinutes.value = configRoundMinutes;
+    }
   }
 
   await updateRecordListView();
@@ -398,7 +418,8 @@ async function onExportCsv() {
           '出勤': record.clockin?.timestamp ? format(record.clockin.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '外出': record.stepout?.timestamp ? format(record.stepout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '再入': record.reenter?.timestamp ? format(record.reenter.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
-          '退勤': record.clockout?.timestamp ? format(record.clockout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined
+          '退勤': record.clockout?.timestamp ? format(record.clockout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
+          '休憩': record.breakPeriodMinutes ?? '',
         }
       });
       const recordCsvString = stringify(recordCsvData, {
@@ -422,16 +443,25 @@ async function onExportCsv() {
 async function onRecordClick(params: { account: string, date: Date, clockin?: Date, stepout?: Date, reenter?: Date, clockout?: Date }) {
   selectedUserAccount.value = params.account;
   selectedRecordDate.value = new Date(params.date);
-
-  selectedClockinTime.value = params.clockin ? new Date(params.clockin) : undefined;
+  selectedClockinTime.value = (params.clockin ? new Date(params.clockin) : undefined);
   selectedStepoutTime.value = params.stepout ? new Date(params.stepout) : undefined;
   selectedReenterTime.value = params.reenter ? new Date(params.reenter) : undefined;
   selectedClockoutTime.value = params.clockout ? new Date(params.clockout) : undefined;
 
+  const loader = $loading.show({ opacity: 0 });
+  const record = await (await store.getTokenAccess()).getRecords({ byUserAccount: params.account, from: format(params.date, 'isoDate') });
+  loader.hide();
+  if (record && record.length > 0) {
+    selectedClockinTime.value = record[0].clockin?.timestamp;
+    selectedStepoutTime.value = record[0].stepout?.timestamp;
+    selectedReenterTime.value = record[0].reenter?.timestamp;
+    selectedClockoutTime.value = record[0].clockout?.timestamp;
+  }
+
   isModalOpened.value = true;
 }
 
-async function onAddRecord() {
+function onAddRecord() {
   selectedUserAccount.value = '';
   selectedRecordDate.value = undefined;
   selectedClockinTime.value = undefined;
@@ -520,6 +550,20 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
           <span class="input-group-text">打刻日で検索</span>
           <input class="form-control form-control-sm" type="date" v-model="dateFrom" />〜
           <input class="form-control form-control-sm" type="date" v-model="dateTo" />
+        </div>
+      </div>
+    </div>
+
+    <div class="row justify-content-end">
+      <div class="col-2">
+        <div class="input-group input-group-sm mb-3">
+          <div class="input-group-text">
+            <input class="form-check-input mt-0" type="checkbox" id="round-enabled" v-model="isRoundEnabled">
+          </div>
+          <label class="input-group-text" for="round-enabled">丸め</label>
+          <input type="number" class="form-control" min="1" step="1" max="59" v-model="roundMinutes"
+            :disabled="isRoundEnabled === false">
+          <span class="input-group-text">分</span>
         </div>
       </div>
     </div>
@@ -679,6 +723,10 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
                     </template>
                   </template>
                 </template>
+
+                <span v-else-if="columnNames[columnIndex] === '休憩'">{{ recordAndApply.record.breakPeriodMinutes ?
+                recordAndApply.record.breakPeriodMinutes + '分'
+                : ''}}</span>
 
               </td>
             </tr>

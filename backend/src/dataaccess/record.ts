@@ -3,6 +3,7 @@ import createHttpError from 'http-errors';
 import { DatabaseAccess } from '../dataaccess';
 import type { UserInfo } from '../dataaccess';
 import type * as apiif from '../APIInterfaces';
+import { Knex } from 'knex';
 
 function dateToLocalString(date: Date) {
   return `${date.getFullYear()}-${(date.getMonth() + 1)}-${date.getDate()}`;
@@ -26,7 +27,7 @@ function timeStringToSeconds(timeStr: string) {
 // 打刻情報関連
 ///////////////////////////////////////////////////////////////////////
 
-export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, recordType: string, params: apiif.RecordRequestBody) {
+export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, recordType: string, params: apiif.RecordRequestBody, trx?: Knex.Transaction) {
 
   // type はデータベースから取得済のキャッシュを利用する
   if (!(recordType in DatabaseAccess.recordTypeCache)) {
@@ -96,7 +97,7 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
     mergeColumns.push(`${recordType}Apply`);
   }
 
-  await this.knex('record').insert({
+  const insertOperation = this.knex('record').insert({
     user: userId,
     date: recordDateString,
 
@@ -118,6 +119,53 @@ export async function submitRecord(this: DatabaseAccess, userInfo: UserInfo, rec
   })
     .onConflict(['user', 'date'])
     .merge(mergeColumns); // ON DUPLICATE KEY UPDATE
+
+  if (trx) {
+    await insertOperation.transacting(trx);
+  }
+  else {
+    await insertOperation;
+  }
+}
+
+export function getRecordTimeWithOnTimeQuery(this: DatabaseAccess, roundMinutes: number = 0) {
+  const roundSql = (datetime: string, isRoundUp: boolean) => {
+    if (roundMinutes <= 0) {
+      return undefined;
+    }
+    const roundSeconds = roundMinutes * 60;
+    const roundFunc = isRoundUp ? 'CEIL' : 'FLOOR';
+    return `FROM_UNIXTIME( ${roundFunc}( UNIX_TIMESTAMP(${datetime}) / ${roundSeconds} ) * ${roundSeconds} )`;
+  }
+
+  const clockInRoundSql = roundSql('clockin', true);
+  const stepoutRoundSql = roundSql('stepout', false);
+  const reenterRoundSql = roundSql('reenter', true);
+  const clockOutRoundSql = roundSql('clockout', false);
+
+  return this.knex.select({
+    userId: 'userId', date: 'date',
+    clockin: clockInRoundSql ? this.knex.raw(clockInRoundSql) : 'clockin',
+    stepout: stepoutRoundSql ? this.knex.raw(stepoutRoundSql) : 'stepout',
+    reenter: reenterRoundSql ? this.knex.raw(reenterRoundSql) : 'reenter',
+    clockout: clockOutRoundSql ? this.knex.raw(clockOutRoundSql) : 'clockout',
+    clockinApply: 'clockinApply', stepoutApply: 'stepoutApply', reenterApply: 'reenterApply', clockoutApply: 'clockoutApply',
+    clockinDeviceAccount: 'clockinDeviceAccount', clockinDeviceName: 'clockinDeviceName',
+    stepoutDeviceAccount: 'stepoutDeviceAccount', stepoutDeviceName: 'stepoutDeviceName',
+    reenterDeviceAccount: 'reenterDeviceAccount', reenterDeviceName: 'reenterDeviceName',
+    clockoutDeviceAccount: 'clockoutDeviceAccount', clockoutDeviceName: 'clockoutDeviceName',
+    //workPatternId: 'workPatternId', workPatternName: 'workPatternName',
+    breakPeriodMinutes: 'breakPeriodMinutes',
+    onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd',
+    // 勤務時間は(退出時刻 - 出勤時刻 - 休憩時間)で算出する。
+    workTime: this.knex.raw(`TIMESTAMPADD(MINUTE, 0 - breakPeriodMinutes, TIMEDIFF(${clockOutRoundSql ?? 'clockout'}, ${clockInRoundSql ?? 'clockin'}))`),
+    earlyOverTime: this.knex.raw(`TIMEDIFF(onTimeStart, ${clockInRoundSql ?? 'clockin'})`),
+    lateOverTime: this.knex.raw(`TIMEDIFF(${clockOutRoundSql ?? 'clockout'}, onTimeEnd)`)
+  })
+    .from('recordTimeWithOnTimePre')
+    .orderBy('date')
+    .orderBy('userId')
+    .as('recordTimeWithOnTime');
 }
 
 export async function getRecords(this: DatabaseAccess, params: apiif.RecordRequestQuery) {
@@ -154,6 +202,7 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
 
     onTimeStart: Date | null,
     onTimeEnd: Date | null,
+    breakPeriodMinutes: number | null,
 
     applies?: string | null
   };
@@ -178,9 +227,11 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         userAccount: 'user.account', userName: 'user.name', departmentName: 'department.name', sectionName: 'section.name',
         earlyOverTime: 'earlyOverTime', lateOverTime: 'lateOverTime',
         onTimeStart: 'onTimeStart', onTimeEnd: 'onTimeEnd',
+        breakPeriodMinutes: 'breakPeriodMinutes'
         //applies: this.knex.raw('JSON_ARRAYAGG(apply.id)')
       })
-      .from('recordTimeWithOnTime')
+      //.from('recordTimeWithOnTime')
+      .from(this.getRecordTimeWithOnTimeQuery(params.roundMinutes ?? 0))
       .modify<any, RecordResult[]>(function (builder) {
         if (params.selectAllDays === true && params.from && params.to) {
           builder.rightJoin(alldaysTempTableName, { [`${alldaysTempTableName}.date`]: 'recordTimeWithOnTime.date', [`${alldaysTempTableName}.userId`]: 'recordTimeWithOnTime.userId' })
@@ -318,7 +369,8 @@ export async function getRecords(this: DatabaseAccess, params: apiif.RecordReque
         earlyOverTimeSeconds: result.earlyOverTime ? timeStringToSeconds(result.earlyOverTime) : undefined,
         lateOverTimeSeconds: result.lateOverTime ? timeStringToSeconds(result.lateOverTime) : undefined,
         onTimeStart: result.onTimeStart ?? undefined,
-        onTimeEnd: result.onTimeEnd ?? undefined
+        onTimeEnd: result.onTimeEnd ?? undefined,
+        breakPeriodMinutes: result.breakPeriodMinutes ?? undefined
       }
     });
   });

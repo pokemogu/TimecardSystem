@@ -257,13 +257,13 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
   type RecordUserWorkPatternCalendar = {
     id: number, date: string, userId: number,
     workPatternId: number, workPatternName: string, workPatternOnTimeStart: string, workPatternOnTimeEnd: string,
-    workPatternLeaveRate: number
+    //workPatternLeaveRate: number
   };
 
   const results = await this.knex.select<RecordUserWorkPatternCalendar[]>({
     id: 'userWorkPatternCalendar.id', date: 'userWorkPatternCalendar.date', userId: 'user.id',
     workPatternId: 'workPattern.id', workPatternName: 'workPattern.name', workPatternOnTimeStart: 'workPattern.onTimeStart', workPatternOnTimeEnd: 'workPattern.onTimeEnd',
-    workPatternLeaveRate: 'userWorkPatternCalendar.leaveRate'
+    //workPatternLeaveRate: 'userWorkPatternCalendar.leaveRate'
   })
     .from('userWorkPatternCalendar')
     .join('user', { 'user.id': 'userWorkPatternCalendar.user' })
@@ -300,7 +300,7 @@ export async function getUserWorkPatternCalendar(this: DatabaseAccess, userInfo:
   const userNonDefaultWorkPatterns = <apiif.UserWorkPatternCalendarResponseData[]>results.map((result) => {
     const date = new Date(result.date);
     const [onDateTimeStart, onDateTimeEnd] = getStartEndTimeDate(
-      date, result.workPatternOnTimeStart, result.workPatternOnTimeEnd, result.workPatternLeaveRate
+      date, result.workPatternOnTimeStart, result.workPatternOnTimeEnd//, result.workPatternLeaveRate
     );
 
     return {

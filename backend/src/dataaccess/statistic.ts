@@ -146,6 +146,7 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
 
   // 時刻の丸め指定がある場合はMySQLの関数で丸めを行なう
   // 切り上げはCEIL関数、切り下げはFLOOR関数、四捨五入はROUND関数を使用する
+  /*
   const roundSql = function (seconds: string) {
 
     const roundType = params?.roundType ?? 'floor';
@@ -154,6 +155,7 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
 
     return `${roundFunc}((${seconds}) / ${roundSeconds}) * ${roundSeconds}`;
   };
+  */
 
   //console.log(roundSql('TIME_TO_SEC(workTime)'));
 
@@ -163,13 +165,14 @@ export async function getTotalWorkTimeInfo(this: DatabaseAccess, params?: apiif.
     totalLateCount: this.knex.raw('SUM(IF(earlyOverTime < 0, 1, 0))'),
     totalEarlyLeaveCount: this.knex.raw('SUM(IF(lateOverTime < 0, 1, 0))'),
     //    totalWorkTime: this.knex.raw('SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))'),
-    totalWorkTime: this.knex.raw(`SEC_TO_TIME(SUM(${roundSql('TIME_TO_SEC(workTime)')}))`),
+    totalWorkTime: this.knex.raw(`SEC_TO_TIME(SUM(TIME_TO_SEC(workTime)))`),
     //    totalEarlyOverTime: this.knex.raw('SEC_TO_TIME(SUM(IF(earlyOverTime > 0, TIME_TO_SEC(earlyOverTime), 0)))'),
-    totalEarlyOverTime: this.knex.raw(`SEC_TO_TIME(SUM(IF(earlyOverTime > 0, ${roundSql('TIME_TO_SEC(earlyOverTime)')}, 0)))`),
+    totalEarlyOverTime: this.knex.raw(`SEC_TO_TIME(SUM(IF(earlyOverTime > 0, TIME_TO_SEC(earlyOverTime), 0)))`),
     //    totalLateOverTime: this.knex.raw('SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))')
-    totalLateOverTime: this.knex.raw(`SEC_TO_TIME(SUM(IF(lateOverTime > 0, ${roundSql('TIME_TO_SEC(lateOverTime)')}, 0)))`)
+    totalLateOverTime: this.knex.raw(`SEC_TO_TIME(SUM(IF(lateOverTime > 0, TIME_TO_SEC(lateOverTime), 0)))`)
   })
-    .from('recordTimeWithOnTime')
+    //.from('recordTimeWithOnTime')
+    .from(this.getRecordTimeWithOnTimeQuery(params?.roundMinutes ?? 0))
     .join('user', { 'user.id': 'recordTimeWithOnTime.userId' })
     .leftJoin('section', { 'section.id': 'user.section' })
     .leftJoin('department', { 'department.id': 'section.department' })

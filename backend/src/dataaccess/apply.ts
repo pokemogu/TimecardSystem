@@ -399,6 +399,7 @@ export async function getApplyCurrentApprovingUsers(this: DatabaseAccess, applyI
 
 export async function addSchedules(this: DatabaseAccess, params: {
   userInfo: UserInfo, applyId: number, workPatternId?: number | null, dateFrom: Date, dateTo?: Date,
+  insertDummyRecord?: boolean
   //leaveRate?: number, isPaid?: boolean, breakPeriodMinutes?: number
 }, trx: Knex.Transaction) {
 
@@ -417,6 +418,7 @@ export async function addSchedules(this: DatabaseAccess, params: {
 
   const schedules: { date: Date, user: number, apply: number }[] = [];
   const userWorkPatternCalendars: { user: number, date: Date, workPattern: number | null }[] = [];
+  const records: { user: number, date: Date }[] = [];
 
   for (let i = 0; i < numberOfDays; i++) {
     const day = new Date(dayFrom);
@@ -428,6 +430,10 @@ export async function addSchedules(this: DatabaseAccess, params: {
 
     if (params.workPatternId !== undefined) {
       userWorkPatternCalendars.push({ user: params.userInfo.id, date: day, workPattern: params.workPatternId });
+    }
+
+    if (params.insertDummyRecord === true) {
+      records.push({ user: params.userInfo.id, date: day });
     }
   }
 
@@ -486,6 +492,7 @@ export async function addSchedules(this: DatabaseAccess, params: {
   */
   await this.knex('schedule').insert(schedules).transacting(trx);
   await this.knex('userWorkPatternCalendar').insert(userWorkPatternCalendars).onConflict(['user', 'date']).merge(['workPattern']).transacting(trx);
+  await this.knex('record').insert(records).onConflict(['user', 'date']).ignore().transacting(trx);
 }
 
 export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, applyId: number, approve: boolean = true) {
@@ -625,100 +632,35 @@ export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, app
           if (targetUser) {
             await this.submitRecord(
               userInfo, recordOption.optionValueName,
-              { account: targetUser.account, timestamp: apply.applyDateTimeFrom, applyId: applyId }
+              { account: targetUser.account, timestamp: apply.applyDateTimeFrom, applyId: applyId },
+              trx
             );
           }
         }
       }
-      // 午前半休、午後半休、残業、遅刻、早退、外出は予定登録のみ
-      else if (['am-leave', 'pm-leave', 'overtime', 'lateness', 'leave-early', 'stepout'].includes(apply.applyTypeName)) {
-        await this.addSchedules({
-          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo
-        }, trx);
-      }
-      // 有給、慶弔休、措置休、代休は予定登録に加えてその日の勤務体系を休暇にする
-      else if (['leave', 'mourning-leave', 'measure-leave', 'makeup-leave'].includes(apply.applyTypeName)) {
-        await this.addSchedules({
-          userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          workPatternId: null
-        }, trx);
-      }
-      // 休日出勤は指定された勤務体系をその日に設定する
-      else if (apply.applyTypeName === 'holiday-work') {
-        if (!apply.workPatternId) {
+      else {
+        if (apply.applyTypeName === 'holiday-work' && !apply.workPatternId) {
           throw new createHttpError.BadRequest('休日出勤での勤務体系が指定されていません。');
         }
 
         await this.addSchedules({
           userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-          workPatternId: apply.workPatternId
+          workPatternId:
+            // 有給、慶弔休、措置休、代休はその日の勤務体系を休暇にする
+            ['leave', 'mourning-leave', 'measure-leave', 'makeup-leave'].includes(apply.applyTypeName) ? null :
+              // 休日出勤は指定された勤務体系をその日に設定する
+              (apply.applyTypeName === 'holiday-work' ? apply.workPatternId : undefined),
+          insertDummyRecord:
+            // 有給、午前半休、午後半休、慶弔休、措置休、代休、休日出勤は更にダミーの打刻登録を行なう
+            ['leave', 'am-leave', 'pm-leave', 'mourning-leave', 'measure-leave', 'makeup-leave', 'holiday-work'].includes(apply.applyTypeName) ?
+              true : false
         }, trx);
-      }
 
-      /*
-      switch (apply.applyTypeName) {
-        case 'record': // 打刻
-          const recordOption = (await this.getApplyOptions([applyId])).find(applyOption => applyOption.optionTypeName === 'recordType');
-          if (recordOption) {
-            const targetUser = await this.getUserInfoById(apply.targetUserId);
-            if (targetUser) {
-              await this.submitRecord(
-                userInfo, recordOption.optionValueName,
-                { account: targetUser.account, timestamp: apply.applyDateTimeFrom, applyId: applyId }
-              );
-            }
-          }
-          break;
-        case 'leave': // 有給
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-            isPaid: true
-          });
-          break;
-        case 'mourning-leave': // 慶弔休
-        case 'measure-leave': // 措置休
-        case 'makeup-leave': // 代休
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo
-          });
-          break;
-        case 'am-leave': // 午前半休
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-            leaveRate: 0.5, isPaid: true
-          });
-          break;
-        case 'pm-leave': // 午後半休
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-            leaveRate: -0.5, isPaid: true
-          });
-          break;
-        case 'holiday-work': // 休日出勤
-          if (!apply.workPatternId) {
-            throw new createHttpError.BadRequest('休日出勤での勤務体系が指定されていません。');
-          }
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom, dateTo: apply.applyDateTimeTo,
-            workPatternId: apply.workPatternId, breakPeriodMinutes: apply.breakPeriodMinutes,
-            leaveRate: 0
-          });
-          break;
-        case 'overtime': // 残業
-          await this.addSchedules({
-            userInfo: targetUserInfo, applyId: applyId, dateFrom: apply.applyDateTimeFrom,
-            breakPeriodMinutes: apply.breakPeriodMinutes,
-            leaveRate: 0
-          });
-          break;
-        case 'lateness': // 遅刻
-          break;
-        case 'leave-early': // 早退
-          break;
-        case 'stepout': // 外出
-          break;
+        //if (['leave', 'am-leave', 'pm-leave', 'mourning-leave', 'measure-leave', 'makeup-leave', 'holiday-work'].includes(apply.applyTypeName)) {
+        //  await this.knex('record').insert({ user: userInfo.id, date: apply.applyDate })
+        //    .onConflict(['user', 'date']).ignore().transacting(trx);
+        //}
       }
-      */
     }
 
   });

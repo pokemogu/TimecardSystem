@@ -26,10 +26,10 @@ const recordDate = ref(props.date ? format(props.date, 'isoDate') : '');
 //recordDate.value = recordDate.value.replace(/\//g, '-');
 const isNewRecord = ref(props.date ? false : true);
 
-const recordClockin = ref(props.clockin ? format(props.clockin, 'HH:mm:ss') : '');
-const recordStepout = ref(props.stepout ? format(props.stepout, 'HH:mm:ss') : '');
-const recordReenter = ref(props.reenter ? format(props.reenter, 'HH:mm:ss') : '');
-const recordClockout = ref(props.clockout ? format(props.clockout, 'HH:mm:ss') : '');
+const recordClockin = ref(props.clockin ? format(props.clockin, 'HH:mm') : '');
+const recordStepout = ref(props.stepout ? format(props.stepout, 'HH:mm') : '');
+const recordReenter = ref(props.reenter ? format(props.reenter, 'HH:mm') : '');
+const recordClockout = ref(props.clockout ? format(props.clockout, 'HH:mm') : '');
 
 const isUserSelectOpened = ref(false);
 
@@ -57,25 +57,25 @@ async function onSubmit(event: Event) {
     emits('update:date', date);
   }
 
-  date = parse(recordDate.value + ' ' + recordClockin.value, 'YYYY-MM-DD HH:mm:ss');
+  date = parse(recordDate.value + ' ' + recordClockin.value, 'YYYY-MM-DD HH:mm');
   if (date) {
     emits('update:clockin', date);
   }
 
   if (recordStepout.value !== '') {
-    date = parse(recordDate.value + ' ' + recordStepout.value, 'YYYY-MM-DD HH:mm:ss');
+    date = parse(recordDate.value + ' ' + recordStepout.value, 'YYYY-MM-DD HH:mm');
     if (date) {
       emits('update:stepout', date);
     }
   }
   if (recordReenter.value !== '') {
-    date = parse(recordDate.value + ' ' + recordReenter.value, 'YYYY-MM-DD HH:mm:ss');
+    date = parse(recordDate.value + ' ' + recordReenter.value, 'YYYY-MM-DD HH:mm');
     if (date) {
       emits('update:reenter', date);
     }
   }
   if (recordClockout.value !== '') {
-    date = parse(recordDate.value + ' ' + recordClockout.value, 'YYYY-MM-DD HH:mm:ss');
+    date = parse(recordDate.value + ' ' + recordClockout.value, 'YYYY-MM-DD HH:mm');
     if (date) {
       emits('update:clockout', date);
     }
@@ -94,7 +94,8 @@ async function onSubmit(event: Event) {
     <div class="modal-dialog vue-modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">打刻<template v-if="isNewRecord">追加</template><template v-else>修正</template></h5>
+          <h5 class="modal-title">打刻<template v-if="isNewRecord">追加</template><template v-else>修正(丸めなし実値)</template>
+          </h5>
           <button type="button" class="btn-close" v-on:click="onClose"></button>
         </div>
         <div class="modal-body">
@@ -121,8 +122,7 @@ async function onSubmit(event: Event) {
             <div class="col">
               <div class="input-group mb-3">
                 <span class="input-group-text" id="label-clockin">出勤</span>
-                <input type="time" step="1" class="form-control p-2" id="clockinTime" v-model="recordClockin"
-                  required />
+                <input type="time" class="form-control p-2" id="clockinTime" v-model="recordClockin" required />
               </div>
             </div>
           </div>
@@ -137,7 +137,7 @@ async function onSubmit(event: Event) {
                   <label class="form-check-label" for="nextday-stepout">翌日</label>
                 </div>
                 -->
-                <input type="time" step="1" class="form-control p-2" id="stepoutTime" v-model="recordStepout" />
+                <input type="time" class="form-control p-2" id="stepoutTime" v-model="recordStepout" />
               </div>
             </div>
           </div>
@@ -152,7 +152,7 @@ async function onSubmit(event: Event) {
                   <label class="form-check-label" for="nextday-reenter">翌日</label>
                 </div>
                 -->
-                <input type="time" step="1" class="form-control p-2" id="reenterTime" v-model="recordReenter" />
+                <input type="time" class="form-control p-2" id="reenterTime" v-model="recordReenter" />
               </div>
             </div>
           </div>
@@ -167,7 +167,7 @@ async function onSubmit(event: Event) {
                   <label class="form-check-label" for="nextday-clockout">翌日</label>
                 </div>
                 -->
-                <input type="time" step="1" class="form-control p-2" id="clockoutTime" v-model="recordClockout" />
+                <input type="time" class="form-control p-2" id="clockoutTime" v-model="recordClockout" />
               </div>
             </div>
           </div>
