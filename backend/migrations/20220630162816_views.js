@@ -13,6 +13,7 @@ async function up(knex) {
           isWorking: knex.raw(`CASE WHEN applyType.name IN ('leave', 'am-leave', 'pm-leave', 'makeup-leave', 'mourning-leave', 'measure-leave') THEN FALSE ELSE TRUE END`),
           dayAmount: knex.raw(`CASE WHEN applyType.name IN ('am-leave', 'pm-leave') THEN 0.5 ELSE 1.0 END`),
           isPaid: knex.raw(`CASE WHEN applyType.name IN ('leave', 'am-leave', 'pm-leave') THEN TRUE ELSE FALSE END`),
+          leaveType: knex.raw(`CASE WHEN applyType.name IN ('leave', 'am-leave', 'pm-leave', 'makeup-leave', 'mourning-leave', 'measure-leave') THEN applyType.name ELSE NULL END`),
           breakPeriodMinutes: 'breakPeriodMinutes'
         })
           .from('apply')
@@ -44,6 +45,12 @@ async function up(knex) {
               WHEN MAX(scheduleByApply.isWorking) = FALSE THEN NULL
               WHEN MAX(scheduleByApply.breakPeriodMinutes) IS NULL THEN workPattern.breakPeriodMinutes
               ELSE MAX(scheduleByApply.breakPeriodMinutes)
+            END
+          `),
+          leaveType: knex.raw(`
+            CASE
+              WHEN MAX(scheduleByApply.isWorking) = FALSE THEN MAX(scheduleByApply.leaveType)
+              ELSE NULL
             END
           `),
           onTimeStart: knex.raw('ADDTIME(record.date, workPattern.onTimeStart)'), onTimeEnd: knex.raw('ADDTIME(record.date, workPattern.onTimeEnd)'),

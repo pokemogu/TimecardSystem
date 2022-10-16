@@ -80,7 +80,7 @@ const emits = defineEmits<{
   (event: 'update:dateTo', value: string): void,
   (event: 'update:timeFrom', value: string): void,
   (event: 'update:timeTo', value: string): void,
-  (event: 'update:breakPeriodMinutes', value: number): void,
+  (event: 'update:breakPeriodMinutes', value: number | undefined): void,
   (event: 'update:reason', value: string): void,
   (event: 'update:contact', value: string): void,
   (event: 'submit'): void,
@@ -160,7 +160,7 @@ function onSubmit() {
   emits('update:dateOptional', dateOptional.value);
   emits('update:timeFrom', timeFrom.value);
   emits('update:timeTo', timeTo.value);
-  emits('update:breakPeriodMinutes', breakPeriodMinutes.value);
+  emits('update:breakPeriodMinutes', breakPeriodMinutes.value ? breakPeriodMinutes.value : undefined);
   emits('update:reason', reason.value);
   emits('update:contact', contact.value);
   emits('submit');

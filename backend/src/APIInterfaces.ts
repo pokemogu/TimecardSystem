@@ -170,7 +170,8 @@ export interface RecordResponseData {
   lateOverTimeSeconds?: number,
   onTimeStart?: Date,
   onTimeEnd?: Date,
-  breakPeriodMinutes?: number
+  breakPeriodMinutes?: number,
+  leaveType?: string
 }
 
 /*

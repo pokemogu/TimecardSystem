@@ -437,62 +437,15 @@ export async function addSchedules(this: DatabaseAccess, params: {
     }
   }
 
-  //const schedules = [{
-  //  date: dayFrom, apply: params.applyId, //isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
-  //dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
-  //isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
-  //}];
-
-  // 終日休暇では無い場合は、その日の勤務体系を再設定する必要があるので、取得する
-  //const workPatternCalendar = await this.getUserWorkPatternCalendar(params.userInfo, {
-  //  from: format(dayFrom, 'isoDate'),
-  //  to: format(params.dateTo ?? params.dateFrom, 'isoDate')
-  //});
-
-  //const dayFromWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(dayFrom, 'isoDate'));
-  //const userWorkPatternCalendars = [{
-  //  user: params.userInfo.id,
-  // 休日出勤等で勤務体系が指定されている場合はその勤務体系にて設定する。
-  // 勤務体系が指定されておらず、かつ終日休暇で無い場合はその日の現状の勤務体系とする。
-  // 勤務体系が指定されておらず、かつ終日休暇の場合は勤務体系を無し(NULL)とする
-  //  workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayFromWorkPattern?.workPattern?.id : null),
-  //  date: dayFrom,
-  //  leaveRate: params.leaveRate ?? null
-  //}];
-
-  /*
-  if (params.dateTo) {
-    const dayTo = new Date(params.dateTo);
-    setTimeToZero(dayTo);
-    const numberOfDays = (dayTo.getTime() - dayFrom.getTime()) / (1000 * 60 * 60 * 24);
-
-    if (numberOfDays < 0) {
-      throw new createHttpError.BadRequest('日付範囲が不正である為、スケジュール登録できません。');
-    }
-
-    for (let i = 1; i <= numberOfDays; i++) {
-      const day = new Date(dayFrom);
-      day.setDate(day.getDate() + i);
-
-      schedules.push({
-        date: day, apply: params.applyId, //isWorking: params.workPatternId !== undefined || params.breakPeriodMinutes !== undefined,
-        //dayAmount: params.leaveRate !== undefined ? Math.abs(params.leaveRate) : 1.0,
-        //isPaid: params.isPaid, user: params.userInfo.id, breakPeriodMinutes: params.breakPeriodMinutes
-      });
-
-      const dayWorkPattern = workPatternCalendar.find(workPattern => workPattern.date === format(day, 'isoDate'));
-      userWorkPatternCalendars.push({
-        user: params.userInfo.id,
-        workPattern: params.workPatternId ?? (params.leaveRate !== undefined && params.leaveRate !== 1 ? dayWorkPattern?.workPattern?.id : null),
-        date: day,
-        leaveRate: params.leaveRate ?? null
-      });
-    }
+  if (schedules.length > 0) {
+    await this.knex('schedule').insert(schedules).transacting(trx);
   }
-  */
-  await this.knex('schedule').insert(schedules).transacting(trx);
-  await this.knex('userWorkPatternCalendar').insert(userWorkPatternCalendars).onConflict(['user', 'date']).merge(['workPattern']).transacting(trx);
-  await this.knex('record').insert(records).onConflict(['user', 'date']).ignore().transacting(trx);
+  if (userWorkPatternCalendars.length > 0) {
+    await this.knex('userWorkPatternCalendar').insert(userWorkPatternCalendars).onConflict(['user', 'date']).merge(['workPattern']).transacting(trx);
+  }
+  if (records.length > 0) {
+    await this.knex('record').insert(records).onConflict(['user', 'date']).ignore().transacting(trx);
+  }
 }
 
 export async function approveApply(this: DatabaseAccess, userInfo: UserInfo, applyId: number, approve: boolean = true) {

@@ -25,18 +25,32 @@ const store = useSessionStore();
 interface RecordAndApllyInfo {
   record: apiif.RecordResponseData,
   applies?: apiif.ApplyResponseData[],
+
   earlyLeaveTime?: string,
   earlyLeaveApply?: apiif.ApplyResponseData,
   earlyLeaveRouterLink?: RouteLocationRaw,
+  earlyLeaveApplyTime?: string,
+  earlyLeaveApplyDescription?: string,
+
   latenessTime?: string,
   latenessApply?: apiif.ApplyResponseData,
   latenessRouterLink?: RouteLocationRaw,
+  latenessApplyTime?: string,
+  latenessApplyDescription?: string,
+
   earlyOverTime?: string,
   earlyOverApply?: apiif.ApplyResponseData,
   earlyOverRouterLink?: RouteLocationRaw,
-  lateOverTime?: string
+  earlyOverApplyTime?: string,
+  earlyOverApplyDescription?: string,
+
+  lateOverTime?: string,
   lateOverApply?: apiif.ApplyResponseData,
-  lateOverRouterLink?: RouteLocationRaw
+  lateOverRouterLink?: RouteLocationRaw,
+  lateOverApplyTime?: string,
+  lateOverApplyDescription?: string,
+
+  leaveType?: string
 }
 
 const recordAndApplyInfo = ref<RecordAndApllyInfo[]>([]);
@@ -126,7 +140,7 @@ watch(roundMinutes, lodash.debounce(UpdateOnSearchKeepOffset, 200));
 // テーブルレイアウトのカスタマイズ
 const columnNames = ref<string[]>([
   '打刻日', 'ID', '氏名', '部門', '部署', '端末', '出勤', '外出', '再入', '退勤', '遅刻', '早退', '残業', '休憩',
-  '休暇', '時間外申請'
+  '休暇', '遅刻申請内容', '遅刻申請状況', '早退申請内容', '早退申請状況', '残業申請内容', '残業申請状況'
 ]);
 const defaultLayout = ref<{ name: string, columnIndices: number[] }>({
   name: '標準レイアウト',
@@ -143,7 +157,15 @@ const defaultLayout = ref<{ name: string, columnIndices: number[] }>({
     columnNames.value.findIndex(column => column === '退勤'),
     columnNames.value.findIndex(column => column === '遅刻'),
     columnNames.value.findIndex(column => column === '早退'),
-    columnNames.value.findIndex(column => column === '残業')
+    columnNames.value.findIndex(column => column === '残業'),
+    columnNames.value.findIndex(column => column === '休憩'),
+    columnNames.value.findIndex(column => column === '休暇'),
+    columnNames.value.findIndex(column => column === '遅刻申請内容'),
+    columnNames.value.findIndex(column => column === '遅刻申請状況'),
+    columnNames.value.findIndex(column => column === '早退申請内容'),
+    columnNames.value.findIndex(column => column === '早退申請状況'),
+    columnNames.value.findIndex(column => column === '残業申請内容'),
+    columnNames.value.findIndex(column => column === '残業申請状況')
   ]
 });
 const layouts = ref<{ name: string, columnIndices: number[] }[]>([]);
@@ -213,36 +235,9 @@ async function getRecordList(searchOptions?: {
 
     // 打刻実績に対応した各種申請の検索
     if (records.length > 0) {
-      /*
-      const userAccounts = records.map(record => record.userAccount);
-      const applyDates = records.map(record => new Date(record.date));
-      const applies = await access.getApplies({
-        targetedUserAccounts: userAccounts,
-        dateFrom: applyDates.reduce((prev, cur) => (prev < cur) ? prev : cur),
-        dateTo: applyDates.reduce((prev, cur) => (prev > cur) ? prev : cur),
-      })
-      */
-
-      //if (applies && applies.length > 0) {
       for (const recordAndApply of recordAndApplyInfoValue) {
-        /*
-        const existingApplies = applies.filter(apply =>
-          (apply.targetUser.account === recordAndApply.record.userAccount) &&
-          (apply.date?.getTime() === recordAndApply.record.date.getTime()) &&
-          (apply.isApproved !== false) // 否認された申請は含めない
-        );
-        */
-
         if (recordAndApply.applies && recordAndApply.applies.length > 0) {
-          //recordAndApply.applies = [];
-          //Array.prototype.push.apply(recordAndApply.applies, existingApplies);
-
-          //recordAndApply.earlyLeaveApply = existingApplies.find(apply => apply.type.name === 'leave-early');
-          //recordAndApply.latenessApply = existingApplies.find(apply => apply.type.name === 'lateness');
-          //recordAndApply.earlyOverApply = existingApplies.find(apply => apply.type.name === 'overtime'); // 早出は実装未定
-          //recordAndApply.lateOverApply = existingApplies.find(apply => apply.type.name === 'overtime');
-
-          // その日の早退・遅刻・早出・残業について複数の申請が承認済の場合は、
+          // その日の早退・遅刻・早出・残業について複数の申請がある場合は、
           // 最新の申請を有効なものとする。
           const existingEarlyLeaveApplies = recordAndApply.applies.filter(apply => apply.type.name === 'leave-early');
           if (existingEarlyLeaveApplies.length > 0) {
@@ -269,21 +264,42 @@ async function getRecordList(searchOptions?: {
     }
   }
 
-  // 遅刻・早退・早出・残業時間の算出
   for (const recordAndApply of recordAndApplyInfoValue) {
-    if (recordAndApply.record.earlyOverTimeSeconds && recordAndApply.record.earlyOverTimeSeconds < -60) {
+    // 遅刻・早退・早出・残業時間の算出
+    if (recordAndApply.record.earlyOverTimeSeconds && recordAndApply.record.earlyOverTimeSeconds <= -60) {
       recordAndApply.latenessTime = secondsToTimeStr(Math.abs(recordAndApply.record.earlyOverTimeSeconds));
+      if (recordAndApply.record.clockin?.timestamp && recordAndApply.record.onTimeStart) {
+        recordAndApply.latenessTime =
+          format(recordAndApply.record.onTimeStart, 'H:mm') + '〜' +
+          format(recordAndApply.record.clockin?.timestamp, 'H:mm')
+      }
     }
-    if (recordAndApply.record.lateOverTimeSeconds && recordAndApply.record.lateOverTimeSeconds < -60) {
+    if (recordAndApply.record.lateOverTimeSeconds && recordAndApply.record.lateOverTimeSeconds <= -60) {
       recordAndApply.earlyLeaveTime = secondsToTimeStr(Math.abs(recordAndApply.record.lateOverTimeSeconds), false);
+      if (recordAndApply.record.clockout?.timestamp && recordAndApply.record.onTimeEnd) {
+        recordAndApply.earlyLeaveTime =
+          format(recordAndApply.record.clockout?.timestamp, 'H:mm') + '〜' +
+          format(recordAndApply.record.onTimeEnd, 'H:mm')
+      }
     }
-    if (recordAndApply.record.earlyOverTimeSeconds && recordAndApply.record.earlyOverTimeSeconds > (60 * 30)) {
+    if (recordAndApply.record.earlyOverTimeSeconds && recordAndApply.record.earlyOverTimeSeconds >= 60) {
       recordAndApply.earlyOverTime = secondsToTimeStr(recordAndApply.record.earlyOverTimeSeconds, false);
+      if (recordAndApply.record.clockin?.timestamp && recordAndApply.record.onTimeStart) {
+        recordAndApply.earlyOverTime =
+          format(recordAndApply.record.clockin?.timestamp, 'H:mm') + '〜' +
+          format(recordAndApply.record.onTimeStart, 'H:mm')
+      }
     }
-    if (recordAndApply.record.lateOverTimeSeconds && recordAndApply.record.lateOverTimeSeconds > (60 * 30)) {
+    if (recordAndApply.record.lateOverTimeSeconds && recordAndApply.record.lateOverTimeSeconds >= 60) {
       recordAndApply.lateOverTime = secondsToTimeStr(recordAndApply.record.lateOverTimeSeconds);
+      if (recordAndApply.record.clockout?.timestamp && recordAndApply.record.onTimeEnd) {
+        recordAndApply.lateOverTime =
+          format(recordAndApply.record.onTimeEnd, 'H:mm') + '〜' +
+          format(recordAndApply.record.clockout?.timestamp, 'H:mm')
+      }
     }
 
+    // 申請書起票リンク
     recordAndApply.latenessRouterLink = {
       name: recordAndApply.latenessApply ? 'apply-lateness-view' : 'apply-lateness',
       params: recordAndApply.latenessApply ?
@@ -316,6 +332,69 @@ async function getRecordList(searchOptions?: {
           timeTo: recordAndApply.record.clockout ? format(recordAndApply.record.clockout.timestamp, 'HH:mm') : ''
         }
     };
+
+    // 申請書回付状況
+    const getApplyDescription = function (apply: apiif.ApplyResponseData | undefined) {
+      if (!apply) {
+        return [undefined, '未起票'];
+      }
+      const timeDesciption = format(apply.dateTimeFrom, 'H:mm') + '〜' + format(apply.dateTimeTo!, 'H:mm');
+
+      if (apply.isApproved === true) {
+        return [timeDesciption, '全承認済' + format(apply.timestamp, 'M/D H:mm')];
+      }
+
+      if (apply.approvedLevel3User && apply.approvedLevel3Timestamp) {
+        return [timeDesciption, '承認3済' + format(apply.approvedLevel3Timestamp, 'M/D H:mm') + apply.approvedLevel3User.name];
+      }
+      else if (apply.approvedLevel2User && apply.approvedLevel2Timestamp) {
+        return [timeDesciption, '承認2済' + format(apply.approvedLevel2Timestamp, 'M/D H:mm') + apply.approvedLevel2User.name];
+      }
+      else if (apply.approvedLevel1User && apply.approvedLevel1Timestamp) {
+        return [timeDesciption, '承認1済' + format(apply.approvedLevel1Timestamp, 'M/D H:mm') + apply.approvedLevel1User.name];
+      }
+      else {
+        return [timeDesciption, '起票済' + format(apply.timestamp, 'M/D H:mm')];
+      }
+    };
+
+    if (recordAndApply.latenessTime) {
+      [recordAndApply.latenessApplyTime, recordAndApply.latenessApplyDescription] = getApplyDescription(recordAndApply.latenessApply);
+    }
+    if (recordAndApply.earlyLeaveTime) {
+      [recordAndApply.earlyLeaveApplyTime, recordAndApply.earlyLeaveApplyDescription] = getApplyDescription(recordAndApply.earlyLeaveApply);
+    }
+    if (recordAndApply.earlyOverTime) {
+      [recordAndApply.earlyOverApplyTime, recordAndApply.earlyOverApplyDescription] = getApplyDescription(recordAndApply.earlyOverApply);
+    }
+    if (recordAndApply.lateOverTime) {
+      [recordAndApply.lateOverApplyTime, recordAndApply.lateOverApplyDescription] = getApplyDescription(recordAndApply.lateOverApply);
+    }
+
+    // 休暇
+    if (recordAndApply.record.leaveType) {
+      switch (recordAndApply.record.leaveType) {
+        case 'leave':
+          recordAndApply.leaveType = '有給';
+          break;
+        case 'am-leave':
+          recordAndApply.leaveType = '午前';
+          break;
+        case 'pm-leave':
+          recordAndApply.leaveType = '午後';
+          break;
+        case 'makeup-leave':
+          recordAndApply.leaveType = '代休';
+          break;
+        case 'mourning-leave':
+          recordAndApply.leaveType = '慶弔';
+          break;
+        case 'measure-leave':
+          recordAndApply.leaveType = '措置';
+          break;
+      }
+    }
+
   }
 
   return recordAndApplyInfoValue;
@@ -420,6 +499,13 @@ async function onExportCsv() {
           '再入': record.reenter?.timestamp ? format(record.reenter.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '退勤': record.clockout?.timestamp ? format(record.clockout.timestamp, 'YYYY/MM/DD HH:mm:ss') : undefined,
           '休憩': record.breakPeriodMinutes ?? '',
+          '休暇': recordAndApply.leaveType ?? '',
+          '遅刻申請内容': recordAndApply.latenessApplyTime ?? '',
+          '遅刻申請状況': recordAndApply.latenessApplyDescription ?? '',
+          '早退申請内容': recordAndApply.earlyLeaveApplyTime ?? '',
+          '早退申請状況': recordAndApply.earlyLeaveApplyDescription ?? '',
+          '残業申請内容': recordAndApply.lateOverApplyTime ?? '',
+          '残業申請状況': recordAndApply.lateOverApplyDescription ?? ''
         }
       });
       const recordCsvString = stringify(recordCsvData, {
@@ -498,14 +584,56 @@ async function onRecordEditSubmit() {
   await updateRecordListView();
 }
 
+const isToday = (date: Date) => {
+  const today = new Date()
+  return date.getDate() == today.getDate() &&
+    date.getMonth() == today.getMonth() &&
+    date.getFullYear() == today.getFullYear()
+};
+
 function getStyleClassForCell(columnName: string, recordAndApply: RecordAndApllyInfo) {
   switch (columnName) {
-    case '遅刻':
+    case '遅刻申請内容':
+      return (recordAndApply.latenessTime && recordAndApply.latenessApplyTime) ? (recordAndApply.latenessTime === recordAndApply.latenessApplyTime ? 'table-success' : 'table-warning text-danger') : '';
+    case '早退申請内容':
+      return (recordAndApply.earlyLeaveTime && recordAndApply.earlyLeaveApplyTime) ? (recordAndApply.earlyLeaveTime === recordAndApply.earlyLeaveApplyTime ? 'table-success' : 'table-warning text-danger') : '';
+    case '残業申請内容':
+      return (recordAndApply.lateOverTime && recordAndApply.lateOverApplyTime) ? (recordAndApply.lateOverTime === recordAndApply.lateOverApplyTime ? 'table-success' : 'table-warning text-danger') : '';
+
+    case '遅刻申請状況':
       return recordAndApply.latenessTime ? (recordAndApply.latenessApply ? (recordAndApply.latenessApply.isApproved ? 'table-success' : 'table-warning') : 'table-danger') : '';
-    case '早退':
+    case '早退申請状況':
       return recordAndApply.earlyLeaveTime ? (recordAndApply.earlyLeaveApply ? (recordAndApply.earlyLeaveApply.isApproved ? 'table-success' : 'table-warning') : 'table-danger') : '';
-    case '残業':
+    case '残業申請状況':
       return recordAndApply.lateOverTime ? (recordAndApply.lateOverApply ? (recordAndApply.lateOverApply.isApproved ? 'table-success' : 'table-warning') : 'table-danger') : '';
+
+    case '休暇':
+      if (recordAndApply.leaveType) {
+        return 'table-success';
+      }
+      break;
+    case '退勤':
+      // 出勤打刻がされているが退勤打刻がされていない場合
+      if (recordAndApply.record.clockin && !recordAndApply.record.clockout) {
+        if (isToday(recordAndApply.record.date)) {
+          return 'table-warning';
+        }
+        else if (recordAndApply.record.date < new Date()) {
+          return 'table-danger';
+        }
+      }
+      break;
+    case '再入':
+      // 出勤打刻がされているが退勤打刻がされていない場合
+      if (recordAndApply.record.stepout && !recordAndApply.record.reenter) {
+        if (isToday(recordAndApply.record.date)) {
+          return 'table-warning';
+        }
+        else if (recordAndApply.record.date < new Date()) {
+          return 'table-danger';
+        }
+      }
+      break;
     default:
       return '';
   }
@@ -569,189 +697,218 @@ function getStyleClassForCell(columnName: string, recordAndApply: RecordAndAplly
     </div>
 
     <div class="row justify-content-center m-2">
-      <div class="col-12 bg-white shadow-sm table-responsive">
-        <table class="table" v-if="isMounted">
-          <thead>
-            <tr>
-              <th scope="col"></th>
-              <th v-for="columnIndex in selectedLayout.columnIndices" scope="col">{{ columnNames[columnIndex] }}</th>
-            </tr>
-            <tr>
-              <th scope="col"></th>
-              <th v-for="columnIndex in selectedLayout.columnIndices" scope="col">
+      <div class="record-table">
+        <div class="col-12 bg-white shadow-sm table-responsive">
+          <table class="table" v-if="isMounted">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                <th v-for="columnIndex in selectedLayout.columnIndices" scope="col">{{ columnNames[columnIndex] }}</th>
+              </tr>
+              <tr>
+                <th scope="col"></th>
+                <th v-for="columnIndex in selectedLayout.columnIndices" scope="col">
 
-                <input v-if="columnNames[columnIndex] === 'ID'" class="form-control form-control-sm" type="text"
-                  size="3" v-model="accountSearch" :readonly="isAccountSearchable !== true"
-                  :disabled="isAccountSearchable !== true" placeholder="完全一致" />
+                  <input v-if="columnNames[columnIndex] === 'ID'" class="form-control form-control-sm" type="text"
+                    size="3" v-model="accountSearch" :readonly="isAccountSearchable !== true"
+                    :disabled="isAccountSearchable !== true" placeholder="完全一致" />
 
-                <input v-else-if="columnNames[columnIndex] === '氏名'" class="form-control form-control-sm" type="text"
-                  size="3" v-model="nameSearch" placeholder="部分一致" />
+                  <input v-else-if="columnNames[columnIndex] === '氏名'" class="form-control form-control-sm" type="text"
+                    size="3" v-model="nameSearch" placeholder="部分一致" />
 
-                <input v-else-if="columnNames[columnIndex] === '部門'" class="form-control form-control-sm" type="text"
-                  size="3" v-model="departmentSearch" :readonly="isDepartmentSearchable !== true"
-                  :disabled="isDepartmentSearchable !== true" placeholder="部分一致" />
+                  <input v-else-if="columnNames[columnIndex] === '部門'" class="form-control form-control-sm" type="text"
+                    size="3" v-model="departmentSearch" :readonly="isDepartmentSearchable !== true"
+                    :disabled="isDepartmentSearchable !== true" placeholder="部分一致" />
 
-                <input v-else-if="columnNames[columnIndex] === '部署'" class="form-control form-control-sm" type="text"
-                  size="3" v-model="sectionSearch" :readonly="isSectionSearchable !== true"
-                  :disabled="isSectionSearchable !== true" placeholder="部分一致" />
+                  <input v-else-if="columnNames[columnIndex] === '部署'" class="form-control form-control-sm" type="text"
+                    size="3" v-model="sectionSearch" :readonly="isSectionSearchable !== true"
+                    :disabled="isSectionSearchable !== true" placeholder="部分一致" />
 
-                <select v-else-if="columnNames[columnIndex] === '端末'" class="form-select form-select-sm"
-                  v-model="deviceSearch">
-                  <option value="">全て</option>
-                  <option v-for="(deviceName, index) of deviceNames" :value="deviceName">{{ deviceName }}</option>
-                </select>
+                  <select v-else-if="columnNames[columnIndex] === '端末'" class="form-select form-select-sm"
+                    v-model="deviceSearch">
+                    <option value="">全て</option>
+                    <option v-for="(deviceName, index) of deviceNames" :value="deviceName">{{ deviceName }}</option>
+                  </select>
 
-                <select v-else-if="columnNames[columnIndex] === '出勤'" class="form-select form-select-sm"
-                  v-model="clockinSearch">
-                  <option selected></option>
-                  <option value="notRecorded">未打刻</option>
-                  <option value="recorded">打刻済</option>
-                </select>
+                  <select v-else-if="columnNames[columnIndex] === '出勤'" class="form-select form-select-sm"
+                    v-model="clockinSearch">
+                    <option selected></option>
+                    <option value="notRecorded">未打刻</option>
+                    <option value="recorded">打刻済</option>
+                  </select>
 
-                <select v-else-if="columnNames[columnIndex] === '外出'" class="form-select form-select-sm"
-                  v-model="stepoutSearch">
-                  <option selected></option>
-                  <option value="notRecorded">未打刻</option>
-                  <option value="recorded">打刻済</option>
-                </select>
+                  <select v-else-if="columnNames[columnIndex] === '外出'" class="form-select form-select-sm"
+                    v-model="stepoutSearch">
+                    <option selected></option>
+                    <option value="notRecorded">未打刻</option>
+                    <option value="recorded">打刻済</option>
+                  </select>
 
-                <select v-else-if="columnNames[columnIndex] === '再入'" class="form-select form-select-sm"
-                  v-model="reenterSearch">
-                  <option selected></option>
-                  <option value="notRecorded">未打刻</option>
-                  <option value="recorded">打刻済</option>
-                </select>
+                  <select v-else-if="columnNames[columnIndex] === '再入'" class="form-select form-select-sm"
+                    v-model="reenterSearch">
+                    <option selected></option>
+                    <option value="notRecorded">未打刻</option>
+                    <option value="recorded">打刻済</option>
+                  </select>
 
-                <select v-else-if="columnNames[columnIndex] === '退勤'" class="form-select form-select-sm"
-                  v-model="clockoutSearch">
-                  <option selected></option>
-                  <option value="notRecorded">未打刻</option>
-                  <option value="recorded">打刻済</option>
-                </select>
+                  <select v-else-if="columnNames[columnIndex] === '退勤'" class="form-select form-select-sm"
+                    v-model="clockoutSearch">
+                    <option selected></option>
+                    <option value="notRecorded">未打刻</option>
+                    <option value="recorded">打刻済</option>
+                  </select>
 
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(recordAndApply, index) in recordAndApplyInfo.slice(0, limit)">
-              <th scope="row">
-                <!-- <input class="form-check-input" type="checkbox" :id="'checkbox' + index" v-model="checks[index]" /> -->
-              </th>
-              <td v-for="columnIndex in selectedLayout.columnIndices"
-                :class="getStyleClassForCell(columnNames[columnIndex], recordAndApply)">
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(recordAndApply, index) in recordAndApplyInfo.slice(0, limit)">
+                <th scope="row">
+                  <!-- <input class="form-check-input" type="checkbox" :id="'checkbox' + index" v-model="checks[index]" /> -->
+                </th>
+                <td v-for="columnIndex in selectedLayout.columnIndices"
+                  :class="getStyleClassForCell(columnNames[columnIndex], recordAndApply)">
 
-                <template v-if="columnNames[columnIndex] === '打刻日'">
-                  <button v-if="isAccountSearchable === true || isDepartmentSearchable === true" type="button"
-                    class="btn btn-link" v-on:click="onRecordClick({
-                      account: recordAndApply.record.userAccount, date: new Date(recordAndApply.record.date),
-                      clockin: recordAndApply.record.clockin?.timestamp,
-                      stepout: recordAndApply.record.stepout?.timestamp,
-                      reenter: recordAndApply.record.reenter?.timestamp,
-                      clockout: recordAndApply.record.clockout?.timestamp,
-                    })">
-                    {{ recordAndApply.record.date ? new Date(recordAndApply.record.date).toLocaleDateString() : '' }}
-                  </button>
-                  <template v-else>{{ recordAndApply.record.date ? new
-                  Date(recordAndApply.record.date).toLocaleDateString() : ''
-                  }}</template>
-                </template>
+                  <template v-if="columnNames[columnIndex] === '打刻日'">
+                    <button v-if="isAccountSearchable === true || isDepartmentSearchable === true" type="button"
+                      class="btn btn-link" v-on:click="onRecordClick({
+                        account: recordAndApply.record.userAccount, date: new Date(recordAndApply.record.date),
+                        clockin: recordAndApply.record.clockin?.timestamp,
+                        stepout: recordAndApply.record.stepout?.timestamp,
+                        reenter: recordAndApply.record.reenter?.timestamp,
+                        clockout: recordAndApply.record.clockout?.timestamp,
+                      })">
+                      {{ recordAndApply.record.date ? new Date(recordAndApply.record.date).toLocaleDateString() : '' }}
+                    </button>
+                    <template v-else>{{ recordAndApply.record.date ? new
+                    Date(recordAndApply.record.date).toLocaleDateString() : ''
+                    }}</template>
+                  </template>
 
-                <span v-else-if="columnNames[columnIndex] === 'ID'">{{ recordAndApply.record.userAccount }}</span>
-                <span v-else-if="columnNames[columnIndex] === '氏名'">{{ recordAndApply.record.userName }}</span>
-                <span v-else-if="columnNames[columnIndex] === '部門'">{{ recordAndApply.record.userDepartment }}</span>
-                <span v-else-if="columnNames[columnIndex] === '部署'">{{ recordAndApply.record.userSection }}</span>
-                <span v-else-if="columnNames[columnIndex] === '端末'">{{ recordAndApply.record.clockin?.deviceName ?? ''
-                }}</span>
-                <span v-else-if="columnNames[columnIndex] === '出勤'">{{
-                recordAndApply.record.clockin?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
-                }}</span>
-                <span v-else-if="columnNames[columnIndex] === '外出'">{{
-                recordAndApply.record.stepout?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
-                }}</span>
-                <span v-else-if="columnNames[columnIndex] === '再入'">{{
-                recordAndApply.record.reenter?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
-                }}</span>
-                <span v-else-if="columnNames[columnIndex] === '退勤'">{{
-                recordAndApply.record.clockout?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
-                }}</span>
+                  <span v-else-if="columnNames[columnIndex] === 'ID'">{{ recordAndApply.record.userAccount }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '氏名'">{{ recordAndApply.record.userName }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '部門'">{{ recordAndApply.record.userDepartment }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '部署'">{{ recordAndApply.record.userSection }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '端末'">{{ recordAndApply.record.clockin?.deviceName ?? ''
+                  }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '出勤'">{{
+                  recordAndApply.record.clockin?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
+                  }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '外出'">{{
+                  recordAndApply.record.stepout?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
+                  }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '再入'">{{
+                  recordAndApply.record.reenter?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
+                  }}</span>
+                  <span v-else-if="columnNames[columnIndex] === '退勤'">{{
+                  recordAndApply.record.clockout?.timestamp.toLocaleTimeString().split(':', 2).join(':') ?? ''
+                  }}</span>
 
-                <template v-else-if="columnNames[columnIndex] === '遅刻'">
-                  <!-- その打刻が遅刻の場合 -->
-                  <template v-if="recordAndApply.latenessTime">
-                    <!-- 遅刻した本人か、遅刻の申請が起票済の場合、申請書画面へのリンクを作成する -->
-                    <RouterLink
-                      v-if="(recordAndApply.latenessApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.latenessRouterLink"
-                      :to="recordAndApply.latenessRouterLink">
-                      {{ recordAndApply.latenessTime }}
-                    </RouterLink>
-                    <!-- それ以外の場合(遅刻した本人ではなく、かつ申請書も未起票の場合)単に遅刻時間を表示する -->
-                    <template v-else>
-                      {{ recordAndApply.latenessTime }}
+                  <span v-else-if="columnNames[columnIndex] === '休憩'">{{ recordAndApply.record.breakPeriodMinutes ?
+                  recordAndApply.record.breakPeriodMinutes + '分'
+                  : ''}}</span>
+                  <span v-else-if="columnNames[columnIndex] === '休暇'">{{ recordAndApply.leaveType ?? '' }}</span>
+
+                  <!-- 遅刻 -->
+                  <template v-else-if="columnNames[columnIndex] === '遅刻'">
+                    {{ recordAndApply.latenessTime }}
+                  </template>
+
+                  <span v-else-if="columnNames[columnIndex] === '遅刻申請内容'">
+                    {{ recordAndApply.latenessApplyTime }}
+                  </span>
+
+                  <span v-else-if="columnNames[columnIndex] === '遅刻申請状況'">
+                    <!-- その打刻が遅刻の場合 -->
+                    <template v-if="recordAndApply.latenessTime">
+                      <!-- 遅刻した本人か、遅刻の申請が起票済の場合、申請書画面へのリンクを作成する -->
+                      <RouterLink
+                        v-if="(recordAndApply.latenessApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.latenessRouterLink"
+                        :to="recordAndApply.latenessRouterLink">
+                        {{ recordAndApply.latenessApplyDescription }}
+                      </RouterLink>
+                      <!-- それ以外の場合(遅刻した本人ではなく、かつ申請書も未起票の場合)単に遅刻時間を表示する -->
+                      <template v-else>
+                        {{ recordAndApply.latenessApplyDescription }}
+                      </template>
+                    </template>
+                  </span>
+
+                  <!-- 早退 -->
+                  <template v-else-if="columnNames[columnIndex] === '早退'">
+                    {{ recordAndApply.earlyLeaveTime }}
+                  </template>
+
+                  <span v-else-if="columnNames[columnIndex] === '早退申請内容'">
+                    {{ recordAndApply.earlyLeaveApplyTime }}
+                  </span>
+
+                  <template v-else-if="columnNames[columnIndex] === '早退申請状況'">
+                    <!-- その打刻が早退の場合 -->
+                    <template v-if="recordAndApply.earlyLeaveTime">
+                      <!-- 早退した本人か、早退の申請が起票済の場合、申請書画面へのリンクを作成する -->
+                      <RouterLink
+                        v-if="(recordAndApply.earlyLeaveApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.earlyLeaveRouterLink"
+                        :to="recordAndApply.earlyLeaveRouterLink">
+                        {{ recordAndApply.earlyLeaveApplyDescription }}
+                      </RouterLink>
+                      <!-- それ以外の場合(遅刻した本人ではなく、かつ申請書も未起票の場合)単に早退時間を表示する -->
+                      <template v-else>
+                        {{ recordAndApply.earlyLeaveApplyDescription }}
+                      </template>
                     </template>
                   </template>
 
-                </template>
+                  <!-- 残業 -->
+                  <template v-else-if="columnNames[columnIndex] === '残業'">
+                    {{ recordAndApply.lateOverTime }}
+                  </template>
 
-                <template v-else-if="columnNames[columnIndex] === '早退'">
-                  <!-- その打刻が遅刻の場合 -->
-                  <template v-if="recordAndApply.earlyLeaveTime">
-                    <!-- 早退した本人か、早退の申請が起票済の場合、申請書画面へのリンクを作成する -->
-                    <RouterLink
-                      v-if="(recordAndApply.earlyLeaveApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.earlyLeaveRouterLink"
-                      :to="recordAndApply.earlyLeaveRouterLink">
-                      {{ recordAndApply.earlyLeaveTime }}
-                    </RouterLink>
-                    <!-- それ以外の場合(遅刻した本人ではなく、かつ申請書も未起票の場合)単に早退時間を表示する -->
-                    <template v-else>
-                      {{ recordAndApply.earlyLeaveTime }}
+                  <span v-else-if="columnNames[columnIndex] === '残業申請内容'">
+                    {{ recordAndApply.lateOverApplyTime }}
+                  </span>
+
+                  <template v-else-if="columnNames[columnIndex] === '残業申請状況'">
+                    <!-- その打刻が残業の場合 -->
+                    <template v-if="recordAndApply.lateOverTime">
+                      <!-- 残業した本人か、早退の申請が起票済の場合、申請書画面へのリンクを作成する -->
+                      <RouterLink
+                        v-if="(recordAndApply.lateOverApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.lateOverRouterLink"
+                        :to="recordAndApply.lateOverRouterLink">
+                        {{ recordAndApply.lateOverApplyDescription }}
+                      </RouterLink>
+                      <!-- それ以外の場合(残業した本人ではなく、かつ申請書も未起票の場合)単に残業時間を表示する -->
+                      <template v-else>
+                        {{ recordAndApply.lateOverApplyDescription }}
+                      </template>
                     </template>
                   </template>
-                </template>
 
-                <template v-else-if="columnNames[columnIndex] === '残業'">
-                  <!-- その打刻が残業の場合 -->
-                  <template v-if="recordAndApply.lateOverTime">
-                    <!-- 残業した本人か、早退の申請が起票済の場合、申請書画面へのリンクを作成する -->
-                    <RouterLink
-                      v-if="(recordAndApply.lateOverApply || recordAndApply.record.userAccount === store.userAccount) && recordAndApply.lateOverRouterLink"
-                      :to="recordAndApply.lateOverRouterLink">
-                      {{ recordAndApply.lateOverTime }}
-                    </RouterLink>
-                    <!-- それ以外の場合(残業した本人ではなく、かつ申請書も未起票の場合)単に残業時間を表示する -->
-                    <template v-else>
-                      {{ recordAndApply.lateOverTime }}
-                    </template>
-                  </template>
-                </template>
-
-                <span v-else-if="columnNames[columnIndex] === '休憩'">{{ recordAndApply.record.breakPeriodMinutes ?
-                recordAndApply.record.breakPeriodMinutes + '分'
-                : ''}}</span>
-
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="7">
-                <nav>
-                  <ul class="pagination">
-                    <li class="page-item" v-bind:class="{ disabled: offset <= 0 }">
-                      <button class="page-link" v-on:click="onPageBack">
-                        <span>&laquo;</span>
-                      </button>
-                    </li>
-                    <li class="page-item" v-bind:class="{ disabled: recordAndApplyInfo.length <= limit }">
-                      <button class="page-link" v-on:click="onPageForward">
-                        <span>&raquo;</span>
-                      </button>
-                    </li>
-                  </ul>
-                </nav>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="7">
+                  <nav>
+                    <ul class="pagination">
+                      <li class="page-item" v-bind:class="{ disabled: offset <= 0 }">
+                        <button class="page-link" v-on:click="onPageBack">
+                          <span>&laquo;</span>
+                        </button>
+                      </li>
+                      <li class="page-item" v-bind:class="{ disabled: recordAndApplyInfo.length <= limit }">
+                        <button class="page-link" v-on:click="onPageForward">
+                          <span>&raquo;</span>
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -789,5 +946,11 @@ body {
   border-top-color: orange !important;
   border-bottom-color: orange !important;
   color: black !important;
+}
+
+.record-table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 </style>

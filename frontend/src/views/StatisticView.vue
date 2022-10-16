@@ -46,7 +46,7 @@ baseDateTo.setMonth(2);
 baseDateTo.setDate(31);
 baseDateTo.setFullYear(baseDateTo.getFullYear() + 1);
 
-const dateFrom = ref(format(baseDateFrom, 'YYYY-MM-DD'));
+const dateFrom = ref(format(selectedTab.value === 'LEAVEINFO' ? new Date() : baseDateFrom, 'YYYY-MM-DD'));
 const dateTo = ref(format(baseDateTo, 'YYYY-MM-DD'));
 const accountSearch = ref('');
 const nameSearch = ref('');
@@ -192,6 +192,13 @@ async function onTabClick(tabName: TAB_NAME) {
   offset.value = 0;
   selectedTab.value = tabName;
   store.lastApplyListViewTab = tabName;
+
+  if (tabName === 'LEAVEINFO') {
+    dateFrom.value = format(new Date(), 'YYYY-MM-DD');
+  }
+  else if (tabName === 'WORKINFO') {
+    dateFrom.value = format(baseDateFrom, 'YYYY-MM-DD');
+  }
 
   checkAll.value = false;
 
