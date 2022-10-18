@@ -41,7 +41,7 @@ const config = {
   },
 
   production: {
-    client: process.env.DB_TYPE || 'mysql',
+    client: process.env.DB_TYPE || 'mysql2',
     connection: {
       host: process.env.DB_HOST || 'localhost',
       port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,

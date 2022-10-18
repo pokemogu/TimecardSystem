@@ -1,6 +1,5 @@
 ﻿const path = require('path');
 const fs = require('fs');
-const knexconfig = require('./knexfile');
 const mysql2 = require('mysql2/promise');
 const colors = require('ansi-colors');
 const { Toggle, Input, NumberPrompt, Password, Select } = require('enquirer');
@@ -88,6 +87,9 @@ if (!('NODE_AUDIT' in config)) {
 if (!('NODE_BACKLOG' in config)) {
   config['NODE_BACKLOG'] = '20';
 }
+if (!('DB_TYPE' in config)) {
+  config['DB_TYPE'] = 'mysql2';
+}
 if (!('DB_HOST' in config)) {
   config['DB_HOST'] = 'localhost';
 }
@@ -121,10 +123,10 @@ else {
   saveEnv(config, dotEnvBackendAppPath);
 }
 
-
 (async function () {
 
   while (true) {
+    const knexconfig = require('./knexfile');
     let menuSelect = '';
     try {
       menuSelect = await (new Select({

@@ -435,8 +435,8 @@ function onDeleteSubmit() {
               <div v-else class="input-group">
                 <div v-for="(option, index) in props.applyTypeOptions2.options" class="form-check form-check-inline">
                   <input class="form-check-input" type="radio" name="apply-type-option2"
-                    v-bind:id="'apply-type-option2-' + option.name" v-bind:value="option.name"
-                    v-bind:checked="index === 0" v-model="applyTypeValue2" :value="option.name" />
+                    v-bind:id="'apply-type-option2-' + option.name" v-bind:checked="index === 0"
+                    v-model="applyTypeValue2" :value="option.name" />
                   <label class="form-check-label" v-bind:for="'apply-type-option2-' + option.name">{{
                   option.description
                   }}</label>
